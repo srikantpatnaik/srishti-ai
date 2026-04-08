@@ -207,9 +207,9 @@ Configure in `settings.yaml`
 
 ## UI Guidelines
 
-- **Default Theme**: Dark mode (moon icon next to settings)
+- **Default Theme**: Dark mode (day/night toggle inside settings panel with sun/moon icons)
 - **Layout**: Left settings panel (20% width on desktop, full on mobile), main chat area (flexible), right preview panel (100% width, full height)
-- **Title Bar**: Settings button after title, model dropdown on right, eye icon to toggle preview, moon icon
+- **Title Bar**: Settings button after title, model dropdown on right, eye icon to toggle preview
 - **Design Inspiration**: Modern, clean UI inspired by https://www.assistant-ui.com/
 - **Responsive**: Mobile-first design with collapsible panels
 - **Accessibility**: WCAG compliant with proper ARIA labels

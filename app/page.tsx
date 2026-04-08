@@ -1,7 +1,7 @@
 "use client"
 
 import React, { useState, useEffect, useRef } from "react"
-import { Send, Square, ChevronRight, ChevronLeft, Bot, Eye, Moon } from "lucide-react"
+import { Send, Square, ChevronRight, ChevronLeft, Bot, Eye, Moon, Sun } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Textarea } from "@/components/ui/textarea"
 import { ScrollArea } from "@/components/ui/scroll-area"
@@ -266,7 +266,7 @@ useEffect(() => {
     setInput("")
   }
 
-  return (
+ return (
     <div className="flex h-screen bg-background">
       {/* Left Settings Panel */}
       {showSettings && (
@@ -278,7 +278,24 @@ useEffect(() => {
               <h2 className="font-semibold">Settings</h2>
             </div>
 
-           <div className="flex items-center justify-between p-3 rounded-lg bg-muted/30">
+            <div className="flex items-center justify-between p-3 rounded-lg bg-muted/30">
+              <div className="flex items-center gap-2">
+                {darkMode ? <Moon className="h-4 w-4" /> : <Sun className="h-4 w-4" />}
+                <span className="text-sm">Dark Mode</span>
+              </div>
+              <button
+                className={`px-3 py-1 rounded-full text-xs font-medium transition-colors ${
+                  darkMode
+                    ? "bg-white text-black"
+                    : "bg-muted text-muted-foreground"
+                }`}
+                onClick={() => setDarkMode(!darkMode)}
+              >
+                {darkMode ? "ON" : "OFF"}
+              </button>
+            </div>
+
+            <div className="flex items-center justify-between p-3 rounded-lg bg-muted/30">
               <span className="text-sm">Autonomous Mode</span>
               <button
                 className={`px-3 py-1 rounded-full text-xs font-medium transition-colors ${
@@ -373,7 +390,6 @@ useEffect(() => {
               {showSettings ? <ChevronLeft className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />}
             </Button>
             <h1 className="font-semibold text-lg">Srishti <span className="text-red-600">AI</span></h1>
-            <Moon className="h-4 w-4" />
             <StatusIndicator status={status} />
           </div>
           <div className="flex items-center gap-2">
