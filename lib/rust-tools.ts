@@ -16,6 +16,7 @@ export class RustTools {
    */
   async read(filePath: string): Promise<{ success: boolean; content?: string; error?: string }> {
     try {
+      // @ts-ignore
       const content = fs.readFileSync(filePath, 'utf-8');
       return { success: true, content };
     } catch (error: any) {
@@ -102,6 +103,7 @@ export class RustTools {
   async hash(filePath: string): Promise<{ success: boolean; hash?: string; error?: string }> {
     try {
       const crypto = await import('crypto');
+      // @ts-ignore
       const content = fs.readFileSync(filePath);
       const hash = crypto.createHash('sha256').update(content).digest('hex');
       return { success: true, hash };

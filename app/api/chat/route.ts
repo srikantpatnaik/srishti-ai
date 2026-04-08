@@ -6,17 +6,16 @@ import { createMistral } from "@ai-sdk/mistral"
 import { createGroq } from "@ai-sdk/groq"
 import { createTogetherAI } from "@ai-sdk/togetherai"
 import { streamText, tool } from "ai"
-import { RustTools } from "@/lib/rust-tools"
-
-const rustTools = new RustTools()
+import { NextResponse } from "next/server"
+import * as fs from "fs"
+import * as fsPromises from "fs/promises"
+import * as path from "path"
 
 // Load settings from yaml
-function loadSettings() {
+async function loadSettings() {
   try {
-    const fs = require("fs")
-    const path = require("path")
     const settingsPath = path.join(process.cwd(), "settings.yaml")
-    const settingsContent = fs.readFileSync(settingsPath, "utf-8")
+    const settingsContent = await fsPromises.readFile(settingsPath, "utf-8")
     
     const settings: any = {
       providers: [],
@@ -75,7 +74,8 @@ function loadSettings() {
   }
 }
 
-const settings = loadSettings()
+let settings: any = { providers: [], default_provider: "qwen3.5-27B" }
+loadSettings().then((s) => { settings = s })
 
 // Get provider from settings by name
 function getProvider(providerName?: string) {
@@ -155,26 +155,16 @@ const bashSchema = z.object({
   timeout: z.number().optional().describe("Timeout in ms"),
 })
 
-const planSchema = z.object({
-  description: z.string().describe("Development plan"),
-})
-
-const testSchema = z.object({
-  filePath: z.string().describe("Test file path"),
-  content: z.string().describe("Test content"),
-})
-
-const fixSchema = z.object({
-  error: z.string().describe("Error to fix"),
-  filePath: z.string().describe("File to fix"),
-  fix: z.string().describe("The fix to apply"),
+const announceSchema = z.object({
+  phase: z.enum(["planning", "coding", "testing", "fixing", "ready"]).describe("Current phase"),
+  message: z.string().optional().describe("Optional message about this phase"),
 })
 
 export const runtime = "nodejs"
 export const maxDuration = 60
 
 export async function GET(req: Request) {
-  return Response.json({
+  return NextResponse.json({
     providers: settings.providers.map((p: any) => ({
       name: p.name,
       type: p.type,
@@ -186,15 +176,29 @@ export async function GET(req: Request) {
 }
 
 export async function POST(req: Request) {
-  const { messages, isAutonomous, selectedProvider, projectFolder } = await req.json()
+  settings = await loadSettings()
+  
+  const controller = new AbortController()
+  const { signal } = controller
+  
+  // Set up timeout
+  const timeoutId = setTimeout(() => controller.abort(), 300000) // 5 minutes
 
-  const model = getProvider(selectedProvider) as any
+  try {
+    const { messages, isAutonomous, selectedProvider, projectFolder } = await req.json()
 
-  const result = streamText({
-    model,
-    system: `You are an autonomous AI software engineer. Your task is to build complete, production-ready web applications.
+    let effectiveProjectFolder = projectFolder || path.join(process.cwd(), "tmp", "default")
+    
+    // Ensure folder exists
+    await fsPromises.mkdir(effectiveProjectFolder, { recursive: true })
 
-PROJECT FOLDER: ${projectFolder || "Current directory"}
+    const model = getProvider(selectedProvider) as any
+
+    const result = await streamText({
+      model,
+      system: `You are an autonomous AI software engineer. Your task is to build complete, production-ready web applications.
+
+PROJECT FOLDER: ${effectiveProjectFolder}
 
 AUTONOMOUS MODE:
 - Always plan first, then implement
@@ -213,76 +217,98 @@ WORKFLOW:
 
 RULES:
 - Be efficient with tokens
-- Use rust tools for file operations (read, write, bash)
 - Always provide complete, working code
 - Include error handling
 - Write documentation
 - Make apps mobile-friendly and responsive
 
-When in autonomous mode, continue working until the app is fully functional.`,
-    messages,
-    tools: {
-      read: tool({
-        description: "Read file content using Rust tools",
-        parameters: readSchema,
-        execute: async ({ path }) => {
-          return await rustTools.read(path)
-        },
-      }),
-      write: tool({
-        description: "Write file content using Rust tools",
-        parameters: writeSchema,
-        execute: async ({ path, content }) => {
-          return await rustTools.write(path, content)
-        },
-      }),
-      bash: tool({
-        description: "Execute bash command using Rust tools",
-        parameters: bashSchema,
-        execute: async ({ command, timeout = 30000 }) => {
-          return await rustTools.bash(command, timeout)
-        },
-      }),
-      plan: tool({
-        description: "Create development plan",
-        parameters: planSchema,
-        execute: async ({ description }) => {
-          return { success: true, plan: description }
-        },
-      }),
-      test: tool({
-        description: "Write and run tests",
-        parameters: testSchema,
-        execute: async ({ filePath, content }) => {
-          try {
-            const fs = await import("fs/promises")
-            const pathModule = await import("path")
-            const dir = pathModule.default.dirname(filePath)
-            await fs.mkdir(dir, { recursive: true })
-            await fs.writeFile(filePath, content, "utf-8")
-            return { success: true, filePath }
-          } catch (error: any) {
-            return { success: false, error: error.message || "Unknown error" }
-          }
-        },
-      }),
-      fix: tool({
-        description: "Fix errors in code",
-        parameters: fixSchema,
-        execute: async ({ error, filePath, fix }) => {
-          try {
-            const fs = await import("fs/promises")
-            await fs.writeFile(filePath, fix, "utf-8")
-            return { success: true, errorFixed: error }
-          } catch (error: any) {
-            return { success: false, error: error.message || "Unknown error" }
-          }
-        },
-      }),
-    },
-    maxSteps: settings.agent?.max_steps || 20,
-    experimental_activeTools: isAutonomous ? ["read", "write", "bash", "plan", "test", "fix"] : ["read", "write", "bash"],
-  })
+When in autonomous mode, continue working until the app is fully functional.
 
-  return result.toDataStreamResponse()
+IMPORTANT: When starting each phase, announce it so the UI can show the current phase.`,
+      messages,
+      tools: {
+        read: tool({
+          description: "Read file content",
+          parameters: readSchema,
+          execute: async ({ path: filePath }) => {
+            const fullPath = path.isAbsolute(filePath) ? filePath : path.join(effectiveProjectFolder, filePath)
+            try {
+              const content = await fsPromises.readFile(fullPath, "utf-8")
+              return { success: true, content }
+            } catch (error: any) {
+              return { success: false, error: error.message }
+            }
+          },
+        }),
+        write: tool({
+          description: "Write file content",
+          parameters: writeSchema,
+          execute: async ({ path: filePath, content }) => {
+            const fullPath = path.isAbsolute(filePath) ? filePath : path.join(effectiveProjectFolder, filePath)
+            const dir = path.dirname(fullPath)
+            await fsPromises.mkdir(dir, { recursive: true })
+            await fsPromises.writeFile(fullPath, content, "utf-8")
+            return { 
+              success: true, 
+              filePath: fullPath.replace(process.cwd() + "/", ""),
+              message: `Created: ${fullPath.replace(process.cwd() + "/", "")}`
+            }
+          },
+        }),
+        bash: tool({
+          description: "Execute bash command",
+          parameters: bashSchema,
+          execute: async ({ command, timeout = 30000 }) => {
+            try {
+              const { exec } = await import("child_process")
+              const { promisify } = await import("util")
+              const execAsync = promisify(exec)
+              const { stdout, stderr } = await execAsync(command, { 
+                cwd: effectiveProjectFolder,
+                timeout 
+              })
+              return { success: true, output: stdout, error: stderr }
+            } catch (error: any) {
+              return { success: false, error: error.message }
+            }
+          },
+        }),
+        announce: tool({
+          description: "Announce current phase",
+          parameters: announceSchema,
+          execute: async ({ phase, message }) => {
+            return { 
+              success: true, 
+              phase, 
+              message: message || `Starting ${phase} phase`
+            }
+          },
+        }),
+      },
+      maxSteps: settings.agent?.max_steps || 20,
+      experimental_activeTools: isAutonomous ? ["announce", "read", "write", "bash"] : ["read", "write", "bash"],
+    })
+
+    clearTimeout(timeoutId)
+
+    return result.toDataStreamResponse({
+      headers: {
+        'Cache-Control': 'no-cache',
+        'Connection': 'keep-alive',
+      },
+    })
+  } catch (error: any) {
+    clearTimeout(timeoutId)
+    console.error("Chat API error:", error)
+    if (error.name === 'AbortError') {
+      return new Response(JSON.stringify({ error: "Generation stopped" }), {
+        status: 499,
+        headers: { 'Content-Type': 'application/json' },
+      })
+    }
+    return new Response(JSON.stringify({ error: error.message }), {
+      status: 500,
+      headers: { 'Content-Type': 'application/json' },
+    })
+  }
 }

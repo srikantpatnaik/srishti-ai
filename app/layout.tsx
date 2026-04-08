@@ -2,13 +2,13 @@ import { Metadata } from "next"
 import "./globals.css"
 
 export const metadata: Metadata = {
-  title: "App Builder PWA - AI-Powered Webapp Creator",
+  title: "Srishti - AI-Powered Webapp Creator",
   description: "Create webapps with AI assistance - plan, code, test, and deploy autonomously",
   manifest: "/manifest.json",
   appleWebApp: {
     capable: true,
     statusBarStyle: "default",
-    title: "AppBuilder",
+    title: "Srishti",
   },
   formatDetection: {
     telephone: false,
@@ -22,8 +22,8 @@ export const metadata: Metadata = {
 
 export const viewport = {
   themeColor: {
-    light: "#ffffff",
-    dark: "#000000",
+    light: "#1a1a2e",
+    dark: "#0f0f1a",
   },
   width: "device-width",
   initialScale: 1,

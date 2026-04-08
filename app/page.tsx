@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import React, { useState, useEffect, useRef } from "react"
 import { Send, Square, Settings, ChevronRight, ChevronLeft, Bot } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Textarea } from "@/components/ui/textarea"
@@ -10,16 +10,9 @@ import { PreviewPanel } from "@/components/preview-panel"
 import { StatusIndicator } from "@/components/status-indicator"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { FolderPicker } from "@/components/folder-picker"
+import { useChat } from "@ai-sdk/react"
 
 type AgentStatus = "idle" | "planning" | "coding" | "testing" | "fixing" | "ready" | "error"
-
-interface Message {
-  id: string
-  role: "user" | "assistant" | "system"
-  content: string
-  type?: "text" | "code" | "error" | "plan" | "file"
-  filePath?: string
-}
 
 interface Provider {
   name: string
@@ -29,19 +22,65 @@ interface Provider {
 }
 
 export default function Home() {
-  const [messages, setMessages] = useState<Message[]>([])
-  const [input, setInput] = useState("")
-  const [isGenerating, setIsGenerating] = useState(false)
-  const [isAutonomous, setIsAutonomous] = useState(true)
   const [previewUrl, setPreviewUrl] = useState("")
   const [status, setStatus] = useState<AgentStatus>("idle")
-  const [darkMode, setDarkMode] = useState(false)
+  const [darkMode, setDarkMode] = useState(true)
   const [showSettings, setShowSettings] = useState(false)
   const [showPreview, setShowPreview] = useState(false)
   const [providers, setProviders] = useState<Provider[]>([])
   const [selectedProvider, setSelectedProvider] = useState<string>("")
   const [loadingProviders, setLoadingProviders] = useState(true)
+  const [sessionId, setSessionId] = useState<string>("")
   const [projectFolder, setProjectFolder] = useState<string>("")
+  const [serverStarted, setServerStarted] = useState(false)
+  const abortControllerRef = React.useRef<AbortController | null>(null)
+
+const {
+    messages,
+    input,
+    setInput,
+    isLoading: isGenerating,
+    append,
+    stop: stopChat,
+  } = useChat({
+    api: "/api/chat",
+    body: {
+      isAutonomous: true,
+      selectedProvider,
+      projectFolder,
+      sessionId,
+    },
+    onError: (error) => {
+      console.error("Chat error:", error)
+      setStatus("error")
+    },
+    onFinish: () => {
+      setStatus("ready")
+    },
+    onToolCall: (params) => {
+      if (params.toolCall.toolName === "announce") {
+        const { phase } = params.toolCall.args as any
+        setStatus(phase as AgentStatus)
+      }
+    },
+  })
+
+  const [isAutonomous, setIsAutonomous] = useState(true)
+
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.ctrlKey && e.key === 'b' && !e.altKey) {
+        e.preventDefault()
+        setShowSettings(!showSettings)
+      }
+      if (e.ctrlKey && e.altKey && e.key === 'b') {
+        e.preventDefault()
+        setShowPreview(!showPreview)
+      }
+    }
+    window.addEventListener('keydown', handleKeyDown)
+    return () => window.removeEventListener('keydown', handleKeyDown)
+  }, [showSettings, showPreview])
 
   useEffect(() => {
     if (darkMode) {
@@ -71,89 +110,59 @@ export default function Home() {
         setLoadingProviders(false)
       }
     }
-    loadProviders()
-  }, [])
-
-  const sendMessage = async () => {
-    if (!input.trim() || isGenerating) return
-
-    const userMessage: Message = {
-      id: Date.now().toString(),
-      role: "user",
-      content: input,
-      type: "text",
-    }
-
-    setMessages((prev) => [...prev, userMessage])
-    setInput("")
-    setIsGenerating(true)
-    setStatus("planning")
-
-    try {
-      const response = await fetch("/api/chat", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          messages: [...messages, userMessage],
-          isAutonomous,
-          selectedProvider,
-          projectFolder,
-        }),
-      })
-
-      const reader = response.body?.getReader()
-      if (!reader) return
-
-      const decoder = new TextDecoder()
-      let buffer = ""
-
-      while (true) {
-        const { done, value } = await reader.read()
-        if (done) break
-
-        const chunk = decoder.decode(value, { stream: true })
-        buffer += chunk
-
-        const events = buffer.split("\n")
-        buffer = events.pop() || ""
-
-        for (const event of events) {
-          if (!event.startsWith("data: ")) continue
-          const data = JSON.parse(event.slice(6))
-          if (data.type === "text" && data.text) {
-            const lastMessage = messages[messages.length - 1]
-            if (lastMessage?.role === "assistant") {
-              setMessages((prev) => [
-                ...prev.slice(0, -1),
-                { ...lastMessage, content: lastMessage.content + data.text },
-              ])
-            } else {
-              setMessages((prev) => [
-                ...prev,
-                {
-                  id: Date.now().toString(),
-                  role: "assistant",
-                  content: data.text,
-                  type: "text",
-                },
-              ])
-            }
-          }
+    
+    async function createSession() {
+      try {
+        const res = await fetch("/api/session", { method: "POST" })
+        const data = await res.json()
+        if (data.success) {
+          setSessionId(data.sessionId)
+          setProjectFolder(data.folder)
         }
+      } catch (error) {
+        console.error("Failed to create session:", error)
       }
-
-      setIsGenerating(false)
-      setStatus("ready")
-    } catch (error) {
-      console.error("Chat error:", error)
-      setIsGenerating(false)
-      setStatus("error")
     }
-  }
+    
+    loadProviders()
+    createSession()
+  }, [])
 
   const handleConsoleMessage = (msg: string) => {
     const event = new CustomEvent("addErrorToFixer", { detail: msg })
     window.dispatchEvent(event)
+  }
+
+  const stopGeneration = () => {
+    stopChat()
+    if (abortControllerRef.current) {
+      abortControllerRef.current.abort()
+    }
+  }
+
+  const handleSubmit = async (e?: React.FormEvent) => {
+    if (e) e.preventDefault()
+    if (!input.trim() || isGenerating) return
+    
+    await append({ role: "user", content: input })
+    setInput("")
+    
+    if (projectFolder && !serverStarted) {
+      try {
+        const res = await fetch("/api/preview", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ projectFolder }),
+        })
+        const data = await res.json()
+        if (data.success && data.url) {
+          setPreviewUrl(data.url)
+          setShowPreview(true)
+        }
+      } catch (error) {
+        console.error("Failed to start preview server:", error)
+      }
+    }
   }
 
   return (
@@ -213,7 +222,7 @@ export default function Home() {
           </div>
 
           <div className="p-4 border-b">
-            <FolderPicker onSelectFolder={setProjectFolder} />
+            <FolderPicker folderPath={projectFolder} />
           </div>
 
           <div className="p-4 border-t">
@@ -234,16 +243,8 @@ export default function Home() {
       <div className="flex-1 flex flex-col">
         <header className="border-b px-4 py-3 flex items-center justify-between bg-card">
           <div className="flex items-center gap-2">
-            <h1 className="font-semibold text-lg">App Builder</h1>
+            <h1 className="font-semibold text-lg">Srishti</h1>
             <StatusIndicator status={status} />
-          </div>
-          <div className="flex items-center gap-2">
-            {isGenerating && (
-              <Button variant="destructive" size="sm" onClick={() => setIsGenerating(false)}>
-                <Square className="h-4 w-4 mr-2" />
-                Stop
-              </Button>
-            )}
           </div>
         </header>
 
@@ -260,61 +261,73 @@ export default function Home() {
                 </p>
               </div>
             )}
-            {messages.map((message) => (
-              <ChatMessage key={message.id} message={message} />
+            {messages.filter(m => m.role !== 'data').map((message) => (
+              <div key={message.id} className="max-w-[70%] mx-auto">
+                <ChatMessage message={message as any} />
+              </div>
             ))}
           </div>
         </ScrollArea>
 
         <form
-          onSubmit={(e) => {
-            e.preventDefault()
-            sendMessage()
-          }}
+          onSubmit={handleSubmit}
           className="border-t p-4 bg-card"
         >
-          <div className="max-w-3xl mx-auto">
-            <div className="flex items-center gap-2 mb-2">
-              <Select
-                value={selectedProvider}
-                onValueChange={setSelectedProvider}
-                disabled={isGenerating || loadingProviders}
-              >
-                <SelectTrigger className="h-8 w-48">
-                  <Bot className="h-3 w-3 mr-2" />
-                  <SelectValue placeholder="Select model" />
-                </SelectTrigger>
-                <SelectContent>
-                  {providers.map((provider) => (
-                    <SelectItem key={provider.name} value={provider.name}>
-                      {provider.name} ({provider.model})
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
+          <div className="max-w-2xl mx-auto">
             <div className="relative">
-              <Textarea
-                value={input}
-                onChange={(e) => setInput(e.target.value)}
-                onKeyDown={(e) => {
-                  if (e.key === "Enter" && !e.shiftKey) {
-                    e.preventDefault()
-                    sendMessage()
-                  }
-                }}
-                placeholder="Describe the app you want to build..."
-                className="min-h-[50px] max-h-[150px] resize-none pr-12 rounded-xl border-input shadow-sm"
-                disabled={isGenerating}
-              />
-              <Button
-                type="submit"
-                size="icon"
-                className="absolute right-2 bottom-2 rounded-lg"
-                disabled={!input.trim() || isGenerating}
-              >
-                <Send className="h-4 w-4" />
-              </Button>
+              <div className="flex items-center gap-2 mb-2">
+                <Select
+                  value={selectedProvider}
+                  onValueChange={setSelectedProvider}
+                  disabled={isGenerating || loadingProviders}
+                >
+                  <SelectTrigger className="h-7 w-32 text-xs">
+                    <Bot className="h-3 w-3 mr-1" />
+                    <SelectValue placeholder="Model" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {providers.map((provider) => (
+                      <SelectItem key={provider.name} value={provider.name}>
+                        {provider.name} ({provider.model})
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                {isGenerating && (
+                  <Button
+                    type="button"
+                    variant="destructive"
+                    size="icon"
+                    className="h-7 w-7 rounded-lg"
+                    onClick={stopGeneration}
+                  >
+                    <Square className="h-3 w-3" />
+                  </Button>
+                )}
+              </div>
+              <div className="relative">
+                <Textarea
+                  value={input}
+                  onChange={(e) => setInput(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter" && !e.shiftKey) {
+                      e.preventDefault()
+                      handleSubmit()
+                    }
+                  }}
+                  placeholder="Describe the app you want to build..."
+                  className="min-h-[50px] max-h-[150px] resize-none pr-10 rounded-xl border-input shadow-sm"
+                  disabled={isGenerating}
+                />
+                <Button
+                  type="submit"
+                  size="icon"
+                  className="absolute right-2 bottom-2 rounded-lg"
+                  disabled={!input.trim() || isGenerating}
+                >
+                  <Send className="h-4 w-4" />
+                </Button>
+              </div>
             </div>
           </div>
         </form>

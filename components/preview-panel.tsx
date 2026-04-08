@@ -1,7 +1,7 @@
 "use client"
 
-import { useState, useEffect, useRef } from "react"
-import { Play, X, ExternalLink, Terminal as TerminalIcon } from "lucide-react"
+import { useEffect, useRef, useState } from "react"
+import { AlertTriangle, RefreshCw } from "lucide-react"
 import { Button } from "@/components/ui/button"
 
 interface PreviewPanelProps {
@@ -10,110 +10,82 @@ interface PreviewPanelProps {
 }
 
 export function PreviewPanel({ previewUrl, onConsoleMessage }: PreviewPanelProps) {
-  const [consoleMessages, setConsoleMessages] = useState<string[]>([])
-  const [showConsole, setShowConsole] = useState(true)
   const iframeRef = useRef<HTMLIFrameElement>(null)
-  const consoleRef = useRef<HTMLDivElement>(null)
+  const [consoleOutput, setConsoleOutput] = useState<string[]>([])
+  const [isLoaded, setIsLoaded] = useState(false)
+  const [isLoading, setIsLoading] = useState(true)
 
   useEffect(() => {
-    if (consoleRef.current) {
-      consoleRef.current.scrollTop = consoleRef.current.scrollHeight
+    const handleMessage = (event: MessageEvent) => {
+      if (event.data && event.data.type === "console") {
+        const msg = `[${event.data.level}] ${event.data.message}`
+        setConsoleOutput((prev) => [...prev.slice(-49), msg])
+        if (event.data.level === "error") {
+          onConsoleMessage(msg)
+        }
+      }
     }
-  }, [consoleMessages])
 
-  const handleConsoleMessage = (event: MessageEvent) => {
-    if (event.data?.type === "console") {
-      setConsoleMessages((prev) => [...prev, event.data.message])
-      onConsoleMessage(event.data.message)
+    window.addEventListener("message", handleMessage)
+    return () => window.removeEventListener("message", handleMessage)
+  }, [onConsoleMessage])
+
+  const reloadPreview = () => {
+    if (iframeRef.current) {
+      setIsLoading(true)
+      iframeRef.current.src = iframeRef.current.src
     }
   }
 
-  useEffect(() => {
-    window.addEventListener("message", handleConsoleMessage)
-    return () => window.removeEventListener("message", handleConsoleMessage)
-  }, [])
-
-  const copyConsoleMessage = (msg: string, index: number) => {
-    navigator.clipboard.writeText(msg)
-    setConsoleMessages(consoleMessages.filter((_, i) => i !== index))
+  if (!previewUrl) {
+    return (
+      <div className="flex-1 flex items-center justify-center text-muted-foreground">
+        <div className="text-center">
+          <p className="text-sm">No preview available</p>
+        </div>
+      </div>
+    )
   }
 
   return (
-    <div className="flex flex-col h-full">
-      {/* Iframe Preview */}
-      <div className="flex-1 bg-white relative">
+    <div className="flex-1 flex flex-col">
+      <div className="border-b p-2 flex items-center justify-between bg-muted/30">
+        <div className="flex items-center gap-2">
+          <RefreshCw 
+            className="h-3 w-3 cursor-pointer" 
+            onClick={reloadPreview}
+          />
+          <span className="text-xs truncate">{previewUrl}</span>
+        </div>
+      </div>
+
+      <div className="flex-1 relative">
+        {isLoading && (
+          <div className="absolute inset-0 flex items-center justify-center bg-muted/50">
+            <div className="text-sm text-muted-foreground">Loading preview...</div>
+          </div>
+        )}
         <iframe
           ref={iframeRef}
           src={previewUrl}
           className="w-full h-full border-0"
-          sandbox="allow-scripts allow-same-origin allow-forms allow-popups"
-          title="App Preview"
+          onLoad={() => {
+            setIsLoaded(true)
+            setIsLoading(false)
+          }}
+          sandbox="allow-scripts allow-same-origin allow-popups allow-forms"
         />
-        <div className="absolute top-2 right-2 flex gap-2">
-          <Button size="sm" variant="secondary" onClick={() => window.open(previewUrl, "_blank")}>
-            <ExternalLink className="h-3 w-3 mr-1" />
-            Open
-          </Button>
-        </div>
       </div>
 
-      {/* Console Panel */}
-      <div className={showConsole ? "h-48 border-t" : "h-8"}>
-        <div
-          className="flex items-center justify-between px-4 py-2 bg-muted cursor-pointer"
-          onClick={() => setShowConsole(!showConsole)}
-        >
-          <div className="flex items-center gap-2">
-            <TerminalIcon className="h-4 w-4" />
-            <span className="text-sm font-medium">Console</span>
-            {consoleMessages.length > 0 && (
-              <span className="text-xs bg-red-100 text-red-700 px-2 py-0.5 rounded-full">
-                {consoleMessages.length}
-              </span>
-            )}
-          </div>
-          <Button
-            variant="ghost"
-            size="icon"
-            className="h-6 w-6"
-            onClick={(e) => {
-              e.stopPropagation()
-              setShowConsole(!showConsole)
-            }}
-          >
-            {showConsole ? <X className="h-3 w-3" /> : <Play className="h-3 w-3" />}
-          </Button>
+      {consoleOutput.length > 0 && (
+        <div className="h-32 border-t bg-black/90 text-xs font-mono p-2 overflow-y-auto">
+          {consoleOutput.map((log, i) => (
+            <div key={i} className={log.includes("error") ? "text-red-400" : "text-gray-300"}>
+              {log}
+            </div>
+          ))}
         </div>
-
-        {showConsole && (
-          <div
-            ref={consoleRef}
-            className="h-[calc(100%-36px)] overflow-y-auto p-2 bg-black"
-          >
-            {consoleMessages.length === 0 ? (
-              <div className="text-gray-500 text-sm p-2">No console messages</div>
-            ) : (
-              <div className="space-y-1">
-                {consoleMessages.map((msg, index) => (
-                  <div
-                    key={index}
-                    className="flex items-start gap-2 text-xs p-1 rounded hover:bg-gray-800 cursor-pointer group"
-                    onClick={() => copyConsoleMessage(msg, index)}
-                  >
-                    <span className="text-red-400 shrink-0">✕</span>
-                    <span className="text-green-400 flex-1 break-all">
-                      {msg}
-                    </span>
-                    <span className="text-gray-500 opacity-0 group-hover-opacity-100">
-                      Click to insert to chat
-                    </span>
-                  </div>
-                ))}
-              </div>
-            )}
-          </div>
-        )}
-      </div>
+      )}
     </div>
   )
 }
