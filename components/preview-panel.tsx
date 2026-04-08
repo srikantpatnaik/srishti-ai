@@ -1,7 +1,7 @@
 "use client"
 
 import { useEffect, useRef, useState } from "react"
-import { RefreshCw } from "lucide-react"
+import { RefreshCw, Maximize2, ExternalLink, Download } from "lucide-react"
 
 interface PreviewPanelProps {
   previewUrl: string
@@ -46,7 +46,7 @@ export function PreviewPanel({ previewUrl, onConsoleMessage, stopAutoReload = fa
   }, [])
 
   useEffect(() => {
-    if (stopAutoReload || hasUserInteracted || !isLoaded) {
+    if (stopAutoReload || !isLoaded) {
       return
     }
 
@@ -56,7 +56,7 @@ export function PreviewPanel({ previewUrl, onConsoleMessage, stopAutoReload = fa
       }
     }, 5000)
     return () => clearInterval(interval)
-  }, [isLoaded, stopAutoReload, hasUserInteracted])
+  }, [isLoaded, stopAutoReload])
 
   const reloadPreview = () => {
     if (iframeRef.current) {
@@ -71,6 +71,52 @@ export function PreviewPanel({ previewUrl, onConsoleMessage, stopAutoReload = fa
   return (
     <div className="flex-1 flex flex-col h-full">
       <div className="flex-1 h-full bg-card relative">
+        <div className="absolute top-4 right-4 z-10 flex gap-2 opacity-0 hover:opacity-100 transition-opacity">
+          <button
+            onClick={() => window.open(previewUrl, '_blank')}
+            className="p-2 bg-card/80 backdrop-blur-sm rounded-lg border border-card-foreground/20 hover:bg-card hover:shadow-lg transition-all"
+            title="Open in new tab"
+          >
+            <ExternalLink className="h-4 w-4" />
+          </button>
+          <button
+            onClick={() => {
+              const win = window.open(previewUrl, '_blank')
+              if (win) {
+                win.focus()
+                win.document.body.style.margin = '0'
+                win.document.body.style.padding = '0'
+              }
+            }}
+            className="p-2 bg-card/80 backdrop-blur-sm rounded-lg border border-card-foreground/20 hover:bg-card hover:shadow-lg transition-all"
+            title="Fullscreen"
+          >
+            <Maximize2 className="h-4 w-4" />
+          </button>
+          <button
+            onClick={async () => {
+              try {
+                const response = await fetch(previewUrl)
+                const html = await response.text()
+                const blob = new Blob([html], { type: 'text/html' })
+                const url = URL.createObjectURL(blob)
+                const link = document.createElement('a')
+                link.href = url
+                link.download = 'offline-app.html'
+                document.body.appendChild(link)
+                link.click()
+                document.body.removeChild(link)
+                URL.revokeObjectURL(url)
+              } catch (error) {
+                console.error('Failed to download:', error)
+              }
+            }}
+            className="p-2 bg-card/80 backdrop-blur-sm rounded-lg border border-card-foreground/20 hover:bg-card hover:shadow-lg transition-all"
+            title="Download as offline app"
+          >
+            <Download className="h-4 w-4" />
+          </button>
+        </div>
         {!isLoaded && (
           <div className="absolute inset-0 flex items-center justify-center text-muted-foreground">
             <div className="text-center">

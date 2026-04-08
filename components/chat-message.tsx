@@ -1,4 +1,4 @@
-import { User, Bot, FileCode, CheckCircle2, AlertCircle, TerminalIcon } from "lucide-react"
+import { User, Bot, FileCode, CheckCircle2, AlertCircle, TerminalIcon, Code2, Play, Check } from "lucide-react"
 import { cn } from "@/lib/utils"
 import ReactMarkdown from "react-markdown"
 import remarkGfm from "remark-gfm"
@@ -24,12 +24,12 @@ export function ChatMessage({ message }: ChatMessageProps) {
   const renderContent = () => {
     if (message.type === "code" && message.filePath) {
       return (
-        <div className="mt-2 bg-muted rounded-lg overflow-hidden">
-          <div className="flex items-center gap-2 px-3 py-2 bg-muted/50 border-b">
-            <FileCode className="h-3 w-3" />
+        <div className="mt-4 bg-card/50 rounded-xl overflow-hidden border border-card-foreground/10">
+          <div className="flex items-center gap-2 px-4 py-3 bg-card/30 border-b border-card-foreground/10">
+            <Code2 className="h-4 w-4" />
             <span className="text-xs font-mono">{message.filePath}</span>
           </div>
-          <pre className="p-3 text-xs overflow-x-auto">
+          <pre className="p-4 text-xs overflow-x-auto bg-card/20">
             <code>{message.content}</code>
           </pre>
         </div>
@@ -38,12 +38,12 @@ export function ChatMessage({ message }: ChatMessageProps) {
 
     if (message.type === "plan") {
       return (
-        <div className="mt-2 bg-blue-900/20 rounded-lg p-3 border border-blue-800/30">
-          <h4 className="font-medium text-sm mb-2 flex items-center gap-2 text-blue-400">
+        <div className="mt-4 bg-card/40 rounded-xl p-4 border border-card-foreground/10">
+          <h4 className="font-medium text-sm mb-3 flex items-center gap-2">
             <FileCode className="h-4 w-4" />
             Development Plan
           </h4>
-          <div className="text-sm whitespace-pre-wrap text-blue-100/80">{message.content}</div>
+          <div className="text-sm whitespace-pre-wrap">{message.content}</div>
         </div>
       )
     }
@@ -51,36 +51,36 @@ export function ChatMessage({ message }: ChatMessageProps) {
     if (message.type === "phase") {
       const phaseName = message.phase ? message.phase.charAt(0).toUpperCase() + message.phase.slice(1) : "Phase"
       return (
-        <div className="mt-2 bg-purple-900/20 rounded-lg p-3 border border-purple-800/30">
-          <h4 className="font-medium text-sm mb-2 flex items-center gap-2 text-purple-400">
+        <div className="mt-4 bg-card/30 rounded-xl p-4 border border-card-foreground/10">
+          <h4 className="font-medium text-sm mb-3 flex items-center gap-2">
             <span className="animate-pulse">●</span>
             {phaseName} Phase
           </h4>
-          <div className="text-sm whitespace-pre-wrap text-purple-100/80">{message.content}</div>
+          <div className="text-sm whitespace-pre-wrap">{message.content}</div>
         </div>
       )
     }
 
     if (message.type === "error") {
       return (
-        <div className="mt-2 bg-red-900/20 rounded-lg p-3 border border-red-800/30">
-          <div className="flex items-center gap-2 text-red-400 mb-2">
-            <AlertCircle className="h-4 w-4" />
-            <span className="font-medium text-sm">Error Detected</span>
+        <div className="mt-4 bg-destructive/10 rounded-xl p-4 border border-destructive/30">
+          <div className="flex items-center gap-2 mb-3">
+            <AlertCircle className="h-5 w-5 text-destructive" />
+            <span className="font-medium text-sm text-destructive">Error Detected</span>
           </div>
-          <pre className="text-sm text-red-300 whitespace-pre-wrap">{message.content}</pre>
+          <pre className="text-sm whitespace-pre-wrap">{message.content}</pre>
         </div>
       )
     }
 
     if (message.type === "file") {
       return (
-        <div className="mt-2 bg-green-900/20 rounded-lg p-3 border border-green-800/30">
-          <div className="flex items-center gap-2 text-green-400 mb-2">
-            <CheckCircle2 className="h-4 w-4" />
+        <div className="mt-4 bg-card/30 rounded-xl p-4 border border-card-foreground/10">
+          <div className="flex items-center gap-2">
+            <Check className="h-5 w-5" />
             <span className="font-medium text-sm">File Created/Updated</span>
           </div>
-          <p className="text-sm text-green-200/80">{message.content}</p>
+          <p className="text-sm mt-2">{message.content}</p>
         </div>
       )
     }
@@ -88,12 +88,12 @@ export function ChatMessage({ message }: ChatMessageProps) {
     if (message.type === "tool-result" && (message as any).toolName === "announce") {
       const result = (message as any).result
       return (
-        <div className="mt-2 bg-purple-900/20 rounded-lg p-3 border border-purple-800/30">
-          <h4 className="font-medium text-sm mb-2 flex items-center gap-2 text-purple-400">
+        <div className="mt-4 bg-card/30 rounded-xl p-4 border border-card-foreground/10">
+          <h4 className="font-medium text-sm mb-3 flex items-center gap-2">
             <span className="animate-pulse">●</span>
             {result.phase?.charAt(0).toUpperCase() + result.phase?.slice(1)} Phase
           </h4>
-          <div className="text-sm whitespace-pre-wrap text-purple-100/80">{result.message}</div>
+          <div className="text-sm whitespace-pre-wrap">{result.message}</div>
         </div>
       )
     }
@@ -104,46 +104,46 @@ export function ChatMessage({ message }: ChatMessageProps) {
       
       if (toolName === "announce") {
         return (
-          <div className="mt-2 bg-purple-900/20 rounded-lg p-3 border border-purple-800/30">
-            <h4 className="font-medium text-sm mb-2 flex items-center gap-2 text-purple-400">
+          <div className="mt-4 bg-card/30 rounded-xl p-4 border border-card-foreground/10">
+            <h4 className="font-medium text-sm mb-3 flex items-center gap-2">
               <span className="animate-pulse">●</span>
               {args.phase?.charAt(0).toUpperCase() + args.phase?.slice(1)} Phase
             </h4>
-            <div className="text-sm whitespace-pre-wrap text-purple-100/80">{args.message || "Processing..."}</div>
+            <div className="text-sm whitespace-pre-wrap">{args.message || "Processing..."}</div>
           </div>
         )
       }
       
       if (toolName === "read") {
         return (
-          <div className="mt-2 bg-blue-900/20 rounded-lg p-3 border border-blue-800/30">
-            <h4 className="font-medium text-sm mb-2 flex items-center gap-2 text-blue-400">
-              <FileCode className="h-4 w-4" />
-              Reading: {args.path}
-            </h4>
+          <div className="mt-4 bg-card/30 rounded-xl p-4 border border-card-foreground/10">
+            <div className="flex items-center gap-2">
+              <FileCode className="h-5 w-5" />
+              <span className="font-medium text-sm">Reading: {args.path}</span>
+            </div>
           </div>
         )
       }
       
       if (toolName === "write") {
         return (
-          <div className="mt-2 bg-green-900/20 rounded-lg p-3 border border-green-800/30">
-            <h4 className="font-medium text-sm mb-2 flex items-center gap-2 text-green-400">
-              <CheckCircle2 className="h-4 w-4" />
-              Writing: {args.path}
-            </h4>
+          <div className="mt-4 bg-card/30 rounded-xl p-4 border border-card-foreground/10">
+            <div className="flex items-center gap-2">
+              <Check className="h-5 w-5" />
+              <span className="font-medium text-sm">Writing: {args.path}</span>
+            </div>
           </div>
         )
       }
       
       if (toolName === "bash") {
         return (
-          <div className="mt-2 bg-orange-900/20 rounded-lg p-3 border border-orange-800/30">
-            <h4 className="font-medium text-sm mb-2 flex items-center gap-2 text-orange-400">
-              <TerminalIcon className="h-4 w-4" />
-              Running command
-            </h4>
-            <pre className="text-xs text-orange-200/80 whitespace-pre-wrap">{args.command}</pre>
+          <div className="mt-4 bg-card/30 rounded-xl p-4 border border-card-foreground/10">
+            <div className="flex items-center gap-2">
+              <TerminalIcon className="h-5 w-5" />
+              <span className="font-medium text-sm">Running command</span>
+            </div>
+            <pre className="text-xs mt-3 whitespace-pre-wrap">{args.command}</pre>
           </div>
         )
       }
@@ -155,25 +155,25 @@ export function ChatMessage({ message }: ChatMessageProps) {
       
       if (toolName === "announce") {
         return (
-          <div className="mt-2 bg-purple-900/20 rounded-lg p-3 border border-purple-800/30">
-            <h4 className="font-medium text-sm mb-2 flex items-center gap-2 text-purple-400">
+          <div className="mt-4 bg-card/30 rounded-xl p-4 border border-card-foreground/10">
+            <h4 className="font-medium text-sm mb-3 flex items-center gap-2">
               <span className="animate-pulse">●</span>
               {result.phase?.charAt(0).toUpperCase() + result.phase?.slice(1)} Phase
             </h4>
-            <div className="text-sm whitespace-pre-wrap text-purple-100/80">{result.message}</div>
+            <div className="text-sm whitespace-pre-wrap">{result.message}</div>
           </div>
         )
       }
       
       if (toolName === "read") {
         return (
-          <div className="mt-2 bg-blue-900/20 rounded-lg p-3 border border-blue-800/30">
-            <h4 className="font-medium text-sm mb-2 flex items-center gap-2 text-blue-400">
-              <FileCode className="h-4 w-4" />
-              Read: {result.filePath || "file"}
-            </h4>
+          <div className="mt-4 bg-card/30 rounded-xl p-4 border border-card-foreground/10">
+            <div className="flex items-center gap-2">
+              <FileCode className="h-5 w-5" />
+              <span className="font-medium text-sm">Read: {result.filePath || "file"}</span>
+            </div>
             {result.content && (
-              <pre className="text-xs text-blue-200/80 whitespace-pre-wrap max-h-32 overflow-y-auto">{result.content}</pre>
+              <pre className="text-xs mt-3 whitespace-pre-wrap max-h-32 overflow-y-auto">{result.content}</pre>
             )}
           </div>
         )
@@ -181,28 +181,28 @@ export function ChatMessage({ message }: ChatMessageProps) {
       
       if (toolName === "write") {
         return (
-          <div className="mt-2 bg-green-900/20 rounded-lg p-3 border border-green-800/30">
-            <h4 className="font-medium text-sm mb-2 flex items-center gap-2 text-green-400">
-              <CheckCircle2 className="h-4 w-4" />
-              Created: {result.filePath}
-            </h4>
-            {result.message && <p className="text-sm text-green-200/80">{result.message}</p>}
+          <div className="mt-4 bg-card/30 rounded-xl p-4 border border-card-foreground/10">
+            <div className="flex items-center gap-2">
+              <Check className="h-5 w-5" />
+              <span className="font-medium text-sm">Created: {result.filePath}</span>
+            </div>
+            {result.message && <p className="text-sm mt-3">{result.message}</p>}
           </div>
         )
       }
       
       if (toolName === "bash") {
         return (
-          <div className="mt-2 bg-orange-900/20 rounded-lg p-3 border border-orange-800/30">
-            <h4 className="font-medium text-sm mb-2 flex items-center gap-2 text-orange-400">
-              <TerminalIcon className="h-4 w-4" />
-              Command executed
-            </h4>
+          <div className="mt-4 bg-card/30 rounded-xl p-4 border border-card-foreground/10">
+            <div className="flex items-center gap-2">
+              <TerminalIcon className="h-5 w-5" />
+              <span className="font-medium text-sm">Command executed</span>
+            </div>
             {result.output && (
-              <pre className="text-xs text-orange-200/80 whitespace-pre-wrap max-h-32 overflow-y-auto">{result.output}</pre>
+              <pre className="text-xs mt-3 whitespace-pre-wrap max-h-32 overflow-y-auto">{result.output}</pre>
             )}
             {result.error && (
-              <pre className="text-xs text-red-300 whitespace-pre-wrap max-h-32 overflow-y-auto">{result.error}</pre>
+              <pre className="text-xs mt-3 whitespace-pre-wrap max-h-32 overflow-y-auto">{result.error}</pre>
             )}
           </div>
         )
@@ -210,8 +210,31 @@ export function ChatMessage({ message }: ChatMessageProps) {
     }
 
     return (
-      <div className="prose prose-sm dark:prose-invert max-w-none">
-        <ReactMarkdown remarkPlugins={[remarkGfm]}>
+      <div className="prose prose-sm dark:prose-invert max-w-none prose-headings:font-semibold prose-h3:font-semibold prose-p:my-3 prose-ul:my-3 prose-ol:my-3 prose-li:my-1">
+        <ReactMarkdown 
+          remarkPlugins={[remarkGfm]}
+          components={{
+            code({className, children, ...props}) {
+              const match = /language-(\w+)/.exec(className || "")
+              return match ? (
+                <pre className="bg-card/50 rounded-xl p-4 my-4 overflow-x-auto border border-card-foreground/10">
+                  <code className={className} {...props}>
+                    {children}
+                  </code>
+                </pre>
+              ) : (
+                <code className="bg-card/50 rounded-lg px-2 py-1 font-mono text-sm" {...props}>
+                  {children}
+                </code>
+              )
+            },
+            h3: ({children}) => <h3 className="text-sm font-semibold mt-4 mb-3">{children}</h3>,
+            ul: ({children}) => <ul className="list-disc list-inside my-3 space-y-1.5">{children}</ul>,
+            ol: ({children}) => <ol className="list-decimal list-inside my-3 space-y-1.5">{children}</ol>,
+            li: ({children}) => <li className="text-sm">{children}</li>,
+            p: ({children}) => <p className="text-sm my-3 leading-relaxed">{children}</p>,
+          }}
+        >
           {message.content}
         </ReactMarkdown>
       </div>
@@ -221,10 +244,10 @@ export function ChatMessage({ message }: ChatMessageProps) {
   return (
     <div
       className={cn(
-        "p-3 rounded-2xl",
+        "p-4 sm:p-5 rounded-2xl shadow-sm",
         isUser 
-          ? "bg-blue-600 text-white rounded-br-sm" 
-          : "bg-muted text-foreground rounded-bl-sm"
+          ? "bg-muted/70 text-foreground rounded-br-sm" 
+          : "bg-muted/30 text-foreground rounded-bl-sm"
       )}
     >
       <div className="min-w-0">

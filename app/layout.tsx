@@ -2,7 +2,7 @@ import { Metadata } from "next"
 import "./globals.css"
 
 export const metadata: Metadata = {
-  title: "Srishti - AI-Powered Webapp Creator",
+  title: "Srishti AI",
   description: "Create webapps with AI assistance - plan, code, test, and deploy autonomously",
   manifest: "/manifest.json",
   appleWebApp: {
@@ -42,7 +42,7 @@ export default function RootLayout({
         <link rel="icon" href="/icon-192x192.png" sizes="any" />
         <link rel="apple-touch-icon" href="/icon-192x192.png" />
       </head>
-      <body className="antialiased">
+      <body className="antialiased min-h-screen bg-background text-foreground">
         {children}
       </body>
     </html>

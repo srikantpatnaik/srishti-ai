@@ -36,3 +36,30 @@ export async function POST(req: NextRequest) {
     )
   }
 }
+
+export async function DELETE(req: NextRequest) {
+  try {
+    const { projectFolder } = await req.json()
+
+    if (!projectFolder) {
+      return NextResponse.json(
+        { error: "Project folder not specified" },
+        { status: 400 }
+      )
+    }
+
+    console.log(`Stopping preview server for: ${projectFolder}`)
+    const result = await serverManager.stopServer(projectFolder)
+    console.log(`Server stop result:`, result)
+
+    return NextResponse.json({
+      success: result,
+    })
+  } catch (error: any) {
+    console.error("Error stopping server:", error)
+    return NextResponse.json(
+      { error: error.message || "Internal server error" },
+      { status: 500 }
+    )
+  }
+}

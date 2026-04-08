@@ -71,8 +71,6 @@ const {
     experimental_throttle: 100,
   })
 
-  const [isAutonomous, setIsAutonomous] = useState(true)
-
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       if (e.ctrlKey && e.key === 'b' && !e.altKey) {
@@ -80,6 +78,10 @@ const {
         setShowSettings(!showSettings)
       }
       if (e.ctrlKey && e.altKey && e.key === 'b') {
+        e.preventDefault()
+        setShowPreview(!showPreview)
+      }
+      if (e.ctrlKey && e.key === 'x') {
         e.preventDefault()
         setShowPreview(!showPreview)
       }
@@ -129,6 +131,11 @@ const {
     
     if (savedDarkMode !== null) {
       setDarkMode(savedDarkMode === "true")
+      if (savedDarkMode === "true") {
+        document.documentElement.classList.add('dark')
+      } else {
+        document.documentElement.classList.remove('dark')
+      }
     }
     if (savedShowPreview !== null) {
       setShowPreview(savedShowPreview === "true")
@@ -144,6 +151,11 @@ const {
 
 useEffect(() => {
     localStorage.setItem("darkMode", darkMode.toString())
+    if (darkMode) {
+      document.documentElement.classList.add('dark')
+    } else {
+      document.documentElement.classList.remove('dark')
+    }
   }, [darkMode])
 
   useEffect(() => {
@@ -273,39 +285,20 @@ useEffect(() => {
         <div className="w-full sm:w-[20%] border-r bg-card flex flex-col transition-all duration-300 overflow-y-auto"
              style={{ scrollbarColor: '#404040 #000000', scrollbarWidth: 'thin' }}>
           <div className="p-4 border-b">
-            <div className="flex items-center gap-2 mb-4">
-              <Bot className="h-5 w-5 text-primary" />
-              <h2 className="font-semibold">Settings</h2>
-            </div>
-
-            <div className="flex items-center justify-between p-3 rounded-lg bg-muted/30">
+            <div className="flex items-center justify-between mb-4">
               <div className="flex items-center gap-2">
-                {darkMode ? <Moon className="h-4 w-4" /> : <Sun className="h-4 w-4" />}
-                <span className="text-sm">Dark Mode</span>
+                <Bot className="h-5 w-5 text-primary" />
+                <h2 className="font-semibold">Settings</h2>
               </div>
               <button
-                className={`px-3 py-1 rounded-full text-xs font-medium transition-colors ${
+                className={`p-2 rounded-lg transition-colors ${
                   darkMode
-                    ? "bg-white text-black"
-                    : "bg-muted text-muted-foreground"
+                    ? "bg-muted text-muted-foreground hover:bg-muted/80"
+                    : "bg-muted text-muted-foreground hover:bg-muted/80"
                 }`}
                 onClick={() => setDarkMode(!darkMode)}
               >
-                {darkMode ? "ON" : "OFF"}
-              </button>
-            </div>
-
-            <div className="flex items-center justify-between p-3 rounded-lg bg-muted/30">
-              <span className="text-sm">Autonomous Mode</span>
-              <button
-                className={`px-3 py-1 rounded-full text-xs font-medium transition-colors ${
-                  isAutonomous
-                    ? "bg-white text-black"
-                    : "bg-muted text-muted-foreground"
-                }`}
-                onClick={() => setIsAutonomous(!isAutonomous)}
-              >
-                {isAutonomous ? "ON" : "OFF"}
+                {darkMode ? <Moon className="h-4 w-4" /> : <Sun className="h-4 w-4" />}
               </button>
             </div>
 
@@ -335,16 +328,18 @@ useEffect(() => {
             <FolderPicker folderPath={projectFolder} />
           </div>
 
-          <div className="p-4 border-t">
-            <Button
-              variant="ghost"
-              size="sm"
-              className="w-full justify-start"
-              onClick={() => setShowSettings(false)}
-            >
-              <ChevronLeft className="h-4 w-4 mr-2" />
-              Collapse
-            </Button>
+          <div className="p-4 border-t mt-auto">
+            <h3 className="text-sm font-semibold mb-3">Keyboard Shortcuts</h3>
+            <div className="space-y-2 text-sm">
+              <div className="flex justify-between items-center">
+                <span>Toggle Settings</span>
+                <kbd className="px-2 py-1 bg-muted rounded text-xs font-mono">Ctrl+B</kbd>
+              </div>
+              <div className="flex justify-between items-center">
+                <span>Toggle Preview</span>
+                <kbd className="px-2 py-1 bg-muted rounded text-xs font-mono">Ctrl+X</kbd>
+              </div>
+            </div>
           </div>
         </div>
       )}
@@ -417,11 +412,11 @@ useEffect(() => {
         <ScrollArea className="flex-1 p-4"
                     style={{ scrollbarColor: '#404040 #000000', scrollbarWidth: 'thin' }}>
           <div className="space-y-4">
-            {messages.filter(m => m.role !== 'data').map((message) => {
+            {messages.map((message) => {
               const isUser = message.role === 'user'
               return (
-                <div key={message.id} className={`flex ${isUser ? 'justify-end' : 'justify-start'}`}>
-                  <div className="max-w-[80%] sm:max-w-[70%]">
+                <div key={message.id} className={`flex ${isUser ? 'justify-end' : 'justify-start'} gap-1`}>
+                  <div className="max-w-[85%] sm:max-w-[70%]">
                     <ChatMessage message={message} />
                   </div>
                 </div>
@@ -437,40 +432,41 @@ useEffect(() => {
           <div className="max-w-2xl mx-auto">
             <div className="relative">
               <div className="relative">
-                <Textarea
-                   value={input}
-                   onChange={(e) => setInput(e.target.value)}
-                   onKeyDown={(e) => {
-                     if (e.key === "Enter" && !e.shiftKey) {
-                       e.preventDefault()
-                       handleSubmit()
-                     }
-                   }}
-                   placeholder="Describe the app you want to build..."
-                    className="min-h-[50px] max-h-[150px] resize-none rounded-xl border-input shadow-sm pr-20"
-                    disabled={isGenerating}
-                 />
-                 <div className="absolute right-2 top-1/2 -translate-y-1/2 flex items-center gap-1">
-                    {isGenerating && (
-                      <Button
-                        type="button"
-                        variant="destructive"
-                        size="icon"
-                        className="h-7 w-7 rounded-lg"
-                        onClick={stopGeneration}
-                      >
-                        <Square className="h-3 w-3" />
-                      </Button>
-                    )}
-                    <Button
-                      type="submit"
-                      size="icon"
-                      className="h-7 w-7 rounded-lg"
-                      disabled={!input.trim() || isGenerating}
-                    >
-                      <Send className="h-3 w-3" />
-                    </Button>
-                  </div>
+<Textarea
+                    value={input}
+                    onChange={(e) => setInput(e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter" && !e.shiftKey) {
+                        e.preventDefault()
+                        handleSubmit()
+                      }
+                    }}
+                    placeholder="Describe the app you want to build..."
+                     className="min-h-[50px] max-h-[150px] resize-none rounded-xl border-input shadow-sm pr-20 text-left"
+                     disabled={isGenerating}
+                  />
+                  <div className="absolute right-2 top-1/2 -translate-y-1/2 flex items-center gap-1">
+                     {isGenerating && (
+                       <Button
+                         type="button"
+                         variant="secondary"
+                         size="icon"
+                         className="h-7 w-7 rounded-lg"
+                         onClick={stopGeneration}
+                       >
+                         <Square className="h-3 w-3" />
+                       </Button>
+                     )}
+                     <Button
+                       type="submit"
+                       variant="secondary"
+                       size="icon"
+                       className="h-7 w-7 rounded-lg"
+                       disabled={!input.trim() || isGenerating}
+                     >
+                       <Send className="h-3 w-3" />
+                     </Button>
+                   </div>
               </div>
             </div>
           </div>
@@ -480,7 +476,7 @@ useEffect(() => {
       {/* Right Preview Panel - Full Height */}
       <div
         className={`transition-all duration-300 overflow-hidden ${
-          showPreview ? "w-[30%]" : "w-0"
+          showPreview ? "w-full sm:w-[50%]" : "w-0"
         }`}
       >
         {showPreview && (
