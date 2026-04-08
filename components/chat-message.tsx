@@ -221,20 +221,13 @@ export function ChatMessage({ message }: ChatMessageProps) {
   return (
     <div
       className={cn(
-        "flex gap-3 p-3 rounded-lg",
+        "p-3 rounded-2xl",
         isUser 
-          ? "bg-gray-800 dark:bg-gray-900 text-gray-100 border border-gray-700" 
-          : "bg-muted"
+          ? "bg-blue-600 text-white rounded-br-sm" 
+          : "bg-muted text-foreground rounded-bl-sm"
       )}
     >
-      <div className="shrink-0">
-        {isUser ? (
-          <User className="h-5 w-5" />
-        ) : (
-          <Bot className="h-5 w-5" />
-        )}
-      </div>
-      <div className="flex-1 min-w-0">
+      <div className="min-w-0">
         {renderContent()}
       </div>
     </div>

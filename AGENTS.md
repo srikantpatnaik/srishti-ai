@@ -208,14 +208,17 @@ Configure in `settings.yaml`
 ## UI Guidelines
 
 - **Default Theme**: Dark mode (toggle to light when unset)
-- **Layout**: Left settings panel (30% width), main chat area (flexible), right preview panel (adjustable width, default 30%)
-- **Title Bar**: Settings button after title, model dropdown and preview toggle on right
+- **Layout**: Left settings panel (20% width on desktop, full on mobile), main chat area (flexible), right preview panel (100% width, full height)
+- **Title Bar**: Settings button after title, model dropdown on right, eye icon to toggle preview
 - **Design Inspiration**: Modern, clean UI inspired by https://www.assistant-ui.com/
 - **Responsive**: Mobile-first design with collapsible panels
 - **Accessibility**: WCAG compliant with proper ARIA labels
-- **Preview**: Full-height iframe, auto-loads when planning phase starts, stops auto-reload when ready or user interacts
+- **Preview**: Full-height iframe with no address bar, "Waiting for preview" placeholder, auto-loads when planning phase starts
 - **Chat Input**: Stop button inside input area next to send button during generation
+- **Chat Bubbles**: Telegram-style (user right-aligned blue, assistant left-aligned muted), no avatars
 - **Scrollbars**: Black themed with custom scrollbar colors
+- **Preview Toggle**: Eye icon in header (desktop: right panel, mobile: fullscreen overlay)
+- **Keyboard Shortcuts**: Ctrl+B for settings panel, Ctrl+Alt+B for preview toggle
 
 ## Deployment Checklist
 
@@ -238,3 +241,7 @@ Before marking as deployment-ready:
 - **Resizable Panels**: Preview panel width adjustable via drag handle (20-80% range)
 - **Silent Reload**: Preview auto-refreshes every 5 seconds, stops when user interacts or generation complete
 - **Keyboard Shortcuts**: Ctrl+B for settings panel, Ctrl+Alt+B for preview panel
+- **Preview Panel**: Full width/height, hidden address bar, eye icon toggle, mobile fullscreen overlay
+- **Chat Bubbles**: Telegram-style with left/right alignment, no avatars
+- **Settings Panel**: Reduced to 20% width on desktop, full width on mobile
+- **Stop Control**: Immediate abort on stop button click with throttle optimization

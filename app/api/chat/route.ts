@@ -233,7 +233,7 @@ IMPORTANT: When starting each phase, announce it so the UI can show the current 
           execute: async ({ path: filePath }) => {
             const fullPath = path.isAbsolute(filePath) ? filePath : path.join(effectiveProjectFolder, filePath)
             try {
-              const content = await fsPromises.readFile(fullPath, "utf-8")
+              const content = await fsPromises.readFile(fullPath, "utf-8") as string
               return { success: true, content }
             } catch (error: any) {
               return { success: false, error: error.message }

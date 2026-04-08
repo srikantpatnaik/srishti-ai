@@ -70,17 +70,14 @@ export function PreviewPanel({ previewUrl, onConsoleMessage, stopAutoReload = fa
 
   return (
     <div className="flex-1 flex flex-col h-full">
-      <div className="border-b p-2 flex items-center justify-between bg-muted/30 flex-shrink-0">
-        <div className="flex items-center gap-2">
-          <RefreshCw 
-            className="h-3 w-3 cursor-pointer" 
-            onClick={reloadPreview}
-          />
-          <span className="text-xs truncate">{previewUrl}</span>
-        </div>
-      </div>
-
-      <div className="flex-1 h-full">
+      <div className="flex-1 h-full bg-card relative">
+        {!isLoaded && (
+          <div className="absolute inset-0 flex items-center justify-center text-muted-foreground">
+            <div className="text-center">
+              <p className="text-sm">Waiting for preview</p>
+            </div>
+          </div>
+        )}
         <iframe
           ref={iframeRef}
           src={previewUrl}
@@ -90,6 +87,8 @@ export function PreviewPanel({ previewUrl, onConsoleMessage, stopAutoReload = fa
             setIsLoading(false)
           }}
           sandbox="allow-scripts allow-same-origin allow-popups allow-forms"
+          allow="fullscreen"
+          style={{ width: '100%', height: '100%', border: 'none' }}
         />
       </div>
     </div>
