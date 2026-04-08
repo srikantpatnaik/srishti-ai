@@ -65,18 +65,12 @@ export function PreviewPanel({ previewUrl, onConsoleMessage, stopAutoReload = fa
   }
 
   if (!previewUrl) {
-    return (
-      <div className="flex-1 flex items-center justify-center text-muted-foreground">
-        <div className="text-center">
-          <p className="text-sm">No preview available</p>
-        </div>
-      </div>
-    )
+    return null
   }
 
   return (
-    <div className="flex-1 flex flex-col">
-      <div className="border-b p-2 flex items-center justify-between bg-muted/30">
+    <div className="flex-1 flex flex-col h-full">
+      <div className="border-b p-2 flex items-center justify-between bg-muted/30 flex-shrink-0">
         <div className="flex items-center gap-2">
           <RefreshCw 
             className="h-3 w-3 cursor-pointer" 
@@ -86,7 +80,7 @@ export function PreviewPanel({ previewUrl, onConsoleMessage, stopAutoReload = fa
         </div>
       </div>
 
-      <div className="flex-1 relative">
+      <div className="flex-1 h-full">
         <iframe
           ref={iframeRef}
           src={previewUrl}

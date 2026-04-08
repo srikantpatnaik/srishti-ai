@@ -1,14 +1,14 @@
 # Agent Guidelines for App Builder PWA
 
 ## Overview
-This is an autonomous AI-powered webapp builder that creates complete, production-ready applications with minimal user input. Built with Next.js 14, Rust-based tool system, and Vercel AI SDK for multi-provider LLM support.
+This is an autonomous AI-powered webapp builder that creates complete, production-ready applications with minimal user input. Built with Next.js 14, Vercel AI SDK for multi-provider LLM support, and Rust-based tool system.
 
 ## Architecture
 
 ### Tech Stack
 - **Frontend**: Next.js 14 with App Router and Turbopack
 - **Styling**: Tailwind CSS + shadcn/ui components
-- **AI Integration**: Vercel AI SDK (v3) with tool calling
+- **AI Integration**: Vercel AI SDK (v4) with tool calling
 - **Tool System**: Rust-based optimized file operations (via Node.js wrapper)
 - **Type Safety**: Full TypeScript support with path aliases
 - **PWA**: Service worker, manifest, offline support
@@ -17,28 +17,30 @@ This is an autonomous AI-powered webapp builder that creates complete, productio
 ```
 app/
   ├── layout.tsx              # Root layout (dark mode default)
-  ├── page.tsx                # Main chat interface
+  ├── page.tsx                # Main chat interface with resizable panels
   └── api/
-      └── chat/
-          └── route.ts        # AI chat endpoint with tool calling
+      ├── chat/
+      │   └── route.ts        # AI chat endpoint with tool calling
+      ├── preview/
+      │   └── route.ts        # Preview server API endpoint
+      └── session/
+          └── route.ts        # Session management API
 components/
   ├── ui/                     # shadcn/ui components
-  ├── autonomous-agent.tsx    # Agent workflow UI
-  ├── preview-panel.tsx       # Live preview with console
-  ├── deployment-panel.tsx    # Deployment controls
-  └── error-fixer.tsx         # Auto-fix interface
+  ├── chat-message.tsx        # Chat messages with markdown rendering
+  ├── preview-panel.tsx       # Live preview iframe
+  ├── folder-picker.tsx       # Project folder selector
+  └── status-indicator.tsx    # Status indicator for agent phases
 hooks/
   └── use-chat.ts             # Chat state management
 lib/
   ├── utils.ts                # Utility functions (cn, clsx, tailwind-merge)
-  └── rust-tools.ts           # Node.js wrapper for Rust tools
-rust-tools/
-  ├── src/lib.rs              # Rust tool implementations
-  └── Cargo.toml              # Rust dependencies
+  └── server-manager.ts       # Next.js dev server lifecycle management
 public/
   ├── manifest.json           # PWA manifest
   └── sw.js                   # Service worker
 settings.yaml                 # AI provider configuration
+tmp/                          # Session project folders (auto-created)
 ```
 
 ## Core Capabilities
@@ -97,6 +99,9 @@ public/
 - `plan(description)`: Create development plan
 - `test(filePath, content)`: Write test files
 - `fix(error, filePath, fix)`: Fix errors in code
+
+### Announcement Tool
+- `announce(phase, message)`: Announce current development phase (planning, coding, testing, fixing, ready)
 
 ## Response Format
 
@@ -203,10 +208,14 @@ Configure in `settings.yaml`
 ## UI Guidelines
 
 - **Default Theme**: Dark mode (toggle to light when unset)
-- **Sidebars**: Left settings and right preview hidden by default with small flaps to show/hide
+- **Layout**: Left settings panel (30% width), main chat area (flexible), right preview panel (adjustable width, default 30%)
+- **Title Bar**: Settings button after title, model dropdown and preview toggle on right
 - **Design Inspiration**: Modern, clean UI inspired by https://www.assistant-ui.com/
 - **Responsive**: Mobile-first design with collapsible panels
 - **Accessibility**: WCAG compliant with proper ARIA labels
+- **Preview**: Full-height iframe, auto-loads when planning phase starts, stops auto-reload when ready or user interacts
+- **Chat Input**: Stop button inside input area next to send button during generation
+- **Scrollbars**: Black themed with custom scrollbar colors
 
 ## Deployment Checklist
 
@@ -218,3 +227,14 @@ Before marking as deployment-ready:
 - [ ] Mobile responsive tested
 - [ ] Dark/light theme working
 - [ ] All tool calls optimized for token efficiency
+
+## Recent Updates
+
+- **Session Management**: Auto-creates session folders in `tmp/<session-id>` with full paths
+- **Preview Server**: Auto-starts on random available port using `npx serve` fallback
+- **Phase Announcements**: Shows each development phase in chat via announce tool
+- **Markdown Rendering**: Uses react-markdown with remark-gfm for code blocks, lists, tables
+- **AI SDK v4**: Uses `toDataStreamResponse()` and `useChat` hook with tool calling
+- **Resizable Panels**: Preview panel width adjustable via drag handle (20-80% range)
+- **Silent Reload**: Preview auto-refreshes every 5 seconds, stops when user interacts or generation complete
+- **Keyboard Shortcuts**: Ctrl+B for settings panel, Ctrl+Alt+B for preview panel

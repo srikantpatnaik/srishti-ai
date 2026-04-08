@@ -346,17 +346,6 @@ const {
         >
           <div className="max-w-2xl mx-auto">
             <div className="relative">
-              {isGenerating && (
-                <Button
-                  type="button"
-                  variant="destructive"
-                  size="icon"
-                  className="absolute -top-8 right-0 h-7 w-7 rounded-lg"
-                  onClick={stopGeneration}
-                >
-                  <Square className="h-3 w-3" />
-                </Button>
-              )}
               <div className="relative">
                 <Textarea
                   value={input}
@@ -368,17 +357,30 @@ const {
                     }
                   }}
                   placeholder="Describe the app you want to build..."
-                  className="min-h-[50px] max-h-[150px] resize-none pr-10 rounded-xl border-input shadow-sm"
+                  className="min-h-[50px] max-h-[150px] resize-none pr-24 rounded-xl border-input shadow-sm"
                   disabled={isGenerating}
                 />
-                <Button
-                  type="submit"
-                  size="icon"
-                  className="absolute right-2 bottom-2 rounded-lg"
-                  disabled={!input.trim() || isGenerating}
-                >
-                  <Send className="h-4 w-4" />
-                </Button>
+                <div className="absolute right-2 bottom-2 flex items-center gap-1">
+                  {isGenerating && (
+                    <Button
+                      type="button"
+                      variant="destructive"
+                      size="icon"
+                      className="h-7 w-7 rounded-lg"
+                      onClick={stopGeneration}
+                    >
+                      <Square className="h-3 w-3" />
+                    </Button>
+                  )}
+                  <Button
+                    type="submit"
+                    size="icon"
+                    className="h-7 w-7 rounded-lg"
+                    disabled={!input.trim() || isGenerating}
+                  >
+                    <Send className="h-3 w-3" />
+                  </Button>
+                </div>
               </div>
             </div>
           </div>
