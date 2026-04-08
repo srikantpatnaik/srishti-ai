@@ -1,25 +1,24 @@
 "use client"
 
 import { useEffect, useRef, useState } from "react"
-import { AlertTriangle, RefreshCw } from "lucide-react"
-import { Button } from "@/components/ui/button"
+import { RefreshCw } from "lucide-react"
 
 interface PreviewPanelProps {
   previewUrl: string
   onConsoleMessage: (msg: string) => void
+  stopAutoReload?: boolean
 }
 
-export function PreviewPanel({ previewUrl, onConsoleMessage }: PreviewPanelProps) {
+export function PreviewPanel({ previewUrl, onConsoleMessage, stopAutoReload = false }: PreviewPanelProps) {
   const iframeRef = useRef<HTMLIFrameElement>(null)
-  const [consoleOutput, setConsoleOutput] = useState<string[]>([])
   const [isLoaded, setIsLoaded] = useState(false)
   const [isLoading, setIsLoading] = useState(true)
+  const [hasUserInteracted, setHasUserInteracted] = useState(false)
 
   useEffect(() => {
     const handleMessage = (event: MessageEvent) => {
       if (event.data && event.data.type === "console") {
         const msg = `[${event.data.level}] ${event.data.message}`
-        setConsoleOutput((prev) => [...prev.slice(-49), msg])
         if (event.data.level === "error") {
           onConsoleMessage(msg)
         }
@@ -30,9 +29,37 @@ export function PreviewPanel({ previewUrl, onConsoleMessage }: PreviewPanelProps
     return () => window.removeEventListener("message", handleMessage)
   }, [onConsoleMessage])
 
+  useEffect(() => {
+    const handleInteract = () => {
+      setHasUserInteracted(true)
+    }
+
+    window.addEventListener('mousedown', handleInteract)
+    window.addEventListener('touchstart', handleInteract)
+    window.addEventListener('keydown', handleInteract)
+
+    return () => {
+      window.removeEventListener('mousedown', handleInteract)
+      window.removeEventListener('touchstart', handleInteract)
+      window.removeEventListener('keydown', handleInteract)
+    }
+  }, [])
+
+  useEffect(() => {
+    if (stopAutoReload || hasUserInteracted || !isLoaded) {
+      return
+    }
+
+    const interval = setInterval(() => {
+      if (iframeRef.current) {
+        iframeRef.current.src = iframeRef.current.src
+      }
+    }, 5000)
+    return () => clearInterval(interval)
+  }, [isLoaded, stopAutoReload, hasUserInteracted])
+
   const reloadPreview = () => {
     if (iframeRef.current) {
-      setIsLoading(true)
       iframeRef.current.src = iframeRef.current.src
     }
   }
@@ -60,11 +87,6 @@ export function PreviewPanel({ previewUrl, onConsoleMessage }: PreviewPanelProps
       </div>
 
       <div className="flex-1 relative">
-        {isLoading && (
-          <div className="absolute inset-0 flex items-center justify-center bg-muted/50">
-            <div className="text-sm text-muted-foreground">Loading preview...</div>
-          </div>
-        )}
         <iframe
           ref={iframeRef}
           src={previewUrl}
@@ -76,16 +98,6 @@ export function PreviewPanel({ previewUrl, onConsoleMessage }: PreviewPanelProps
           sandbox="allow-scripts allow-same-origin allow-popups allow-forms"
         />
       </div>
-
-      {consoleOutput.length > 0 && (
-        <div className="h-32 border-t bg-black/90 text-xs font-mono p-2 overflow-y-auto">
-          {consoleOutput.map((log, i) => (
-            <div key={i} className={log.includes("error") ? "text-red-400" : "text-gray-300"}>
-              {log}
-            </div>
-          ))}
-        </div>
-      )}
     </div>
   )
 }

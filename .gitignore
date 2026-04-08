@@ -10,3 +10,5 @@ settings.yaml
 coverage
 rust-tools/target
 tsconfig.tsbuildinfo
+.env.example
+tmp/

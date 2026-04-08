@@ -1,10 +1,21 @@
-import { User, Bot, FileCode, CheckCircle2, AlertCircle } from "lucide-react"
+import { User, Bot, FileCode, CheckCircle2, AlertCircle, TerminalIcon } from "lucide-react"
 import { cn } from "@/lib/utils"
 import ReactMarkdown from "react-markdown"
 import remarkGfm from "remark-gfm"
 
 interface ChatMessageProps {
-  message: any
+  message: {
+    id: string
+    role: "system" | "user" | "assistant" | "data"
+    content: string
+    type?: "error" | "code" | "text" | "plan" | "file" | "phase" | "tool-call" | "tool-result"
+    filePath?: string
+    language?: string
+    toolName?: string
+    args?: any
+    result?: any
+    phase?: string
+  }
 }
 
 export function ChatMessage({ message }: ChatMessageProps) {
@@ -38,11 +49,12 @@ export function ChatMessage({ message }: ChatMessageProps) {
     }
 
     if (message.type === "phase") {
+      const phaseName = message.phase ? message.phase.charAt(0).toUpperCase() + message.phase.slice(1) : "Phase"
       return (
         <div className="mt-2 bg-purple-900/20 rounded-lg p-3 border border-purple-800/30">
           <h4 className="font-medium text-sm mb-2 flex items-center gap-2 text-purple-400">
             <span className="animate-pulse">●</span>
-            {message.phase?.charAt(0).toUpperCase() + message.phase?.slice(1)} Phase
+            {phaseName} Phase
           </h4>
           <div className="text-sm whitespace-pre-wrap text-purple-100/80">{message.content}</div>
         </div>
@@ -86,17 +98,115 @@ export function ChatMessage({ message }: ChatMessageProps) {
       )
     }
 
-    if (message.type === "tool-call" && (message as any).toolName === "announce") {
+    if (message.type === "tool-call") {
+      const toolName = (message as any).toolName
       const args = (message as any).args
-      return (
-        <div className="mt-2 bg-purple-900/20 rounded-lg p-3 border border-purple-800/30">
-          <h4 className="font-medium text-sm mb-2 flex items-center gap-2 text-purple-400">
-            <span className="animate-pulse">●</span>
-            {args.phase?.charAt(0).toUpperCase() + args.phase?.slice(1)} Phase
-          </h4>
-          <div className="text-sm whitespace-pre-wrap text-purple-100/80">{args.message || "Processing..."}</div>
-        </div>
-      )
+      
+      if (toolName === "announce") {
+        return (
+          <div className="mt-2 bg-purple-900/20 rounded-lg p-3 border border-purple-800/30">
+            <h4 className="font-medium text-sm mb-2 flex items-center gap-2 text-purple-400">
+              <span className="animate-pulse">●</span>
+              {args.phase?.charAt(0).toUpperCase() + args.phase?.slice(1)} Phase
+            </h4>
+            <div className="text-sm whitespace-pre-wrap text-purple-100/80">{args.message || "Processing..."}</div>
+          </div>
+        )
+      }
+      
+      if (toolName === "read") {
+        return (
+          <div className="mt-2 bg-blue-900/20 rounded-lg p-3 border border-blue-800/30">
+            <h4 className="font-medium text-sm mb-2 flex items-center gap-2 text-blue-400">
+              <FileCode className="h-4 w-4" />
+              Reading: {args.path}
+            </h4>
+          </div>
+        )
+      }
+      
+      if (toolName === "write") {
+        return (
+          <div className="mt-2 bg-green-900/20 rounded-lg p-3 border border-green-800/30">
+            <h4 className="font-medium text-sm mb-2 flex items-center gap-2 text-green-400">
+              <CheckCircle2 className="h-4 w-4" />
+              Writing: {args.path}
+            </h4>
+          </div>
+        )
+      }
+      
+      if (toolName === "bash") {
+        return (
+          <div className="mt-2 bg-orange-900/20 rounded-lg p-3 border border-orange-800/30">
+            <h4 className="font-medium text-sm mb-2 flex items-center gap-2 text-orange-400">
+              <TerminalIcon className="h-4 w-4" />
+              Running command
+            </h4>
+            <pre className="text-xs text-orange-200/80 whitespace-pre-wrap">{args.command}</pre>
+          </div>
+        )
+      }
+    }
+
+    if (message.type === "tool-result") {
+      const toolName = (message as any).toolName
+      const result = (message as any).result
+      
+      if (toolName === "announce") {
+        return (
+          <div className="mt-2 bg-purple-900/20 rounded-lg p-3 border border-purple-800/30">
+            <h4 className="font-medium text-sm mb-2 flex items-center gap-2 text-purple-400">
+              <span className="animate-pulse">●</span>
+              {result.phase?.charAt(0).toUpperCase() + result.phase?.slice(1)} Phase
+            </h4>
+            <div className="text-sm whitespace-pre-wrap text-purple-100/80">{result.message}</div>
+          </div>
+        )
+      }
+      
+      if (toolName === "read") {
+        return (
+          <div className="mt-2 bg-blue-900/20 rounded-lg p-3 border border-blue-800/30">
+            <h4 className="font-medium text-sm mb-2 flex items-center gap-2 text-blue-400">
+              <FileCode className="h-4 w-4" />
+              Read: {result.filePath || "file"}
+            </h4>
+            {result.content && (
+              <pre className="text-xs text-blue-200/80 whitespace-pre-wrap max-h-32 overflow-y-auto">{result.content}</pre>
+            )}
+          </div>
+        )
+      }
+      
+      if (toolName === "write") {
+        return (
+          <div className="mt-2 bg-green-900/20 rounded-lg p-3 border border-green-800/30">
+            <h4 className="font-medium text-sm mb-2 flex items-center gap-2 text-green-400">
+              <CheckCircle2 className="h-4 w-4" />
+              Created: {result.filePath}
+            </h4>
+            {result.message && <p className="text-sm text-green-200/80">{result.message}</p>}
+          </div>
+        )
+      }
+      
+      if (toolName === "bash") {
+        return (
+          <div className="mt-2 bg-orange-900/20 rounded-lg p-3 border border-orange-800/30">
+            <h4 className="font-medium text-sm mb-2 flex items-center gap-2 text-orange-400">
+              <TerminalIcon className="h-4 w-4" />
+              Command executed
+            </h4>
+            {result.output && (
+              <pre className="text-xs text-orange-200/80 whitespace-pre-wrap max-h-32 overflow-y-auto">{result.output}</pre>
+            )}
+            {result.error && (
+              <pre className="text-xs text-red-300 whitespace-pre-wrap max-h-32 overflow-y-auto">{result.error}</pre>
+            )}
+          </div>
+        )
+      }
     }
 
     return (
