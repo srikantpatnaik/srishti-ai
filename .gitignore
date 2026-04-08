@@ -1,0 +1,12 @@
+node_modules
+.next
+.out
+.env
+.env.local
+.env.production
+settings.yaml
+*.log
+.DS_Store
+coverage
+rust-tools/target
+tsconfig.tsbuildinfo
