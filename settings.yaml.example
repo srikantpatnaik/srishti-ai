@@ -1,0 +1,62 @@
+# AI Provider Settings Template
+# Copy this file to settings.yaml and configure your providers
+
+providers:
+  # Local llama.cpp instance (default)
+  - type: openai-compatible
+    name: "Local Llama"
+    url: "http://192.168.1.8:11434/v1"
+    api_key: ""
+    model: "qwen3.5-27B"
+    default: true
+
+  # Uncomment and configure other providers as needed
+
+  # OpenAI
+  # - type: openai
+  #   name: "OpenAI"
+  #   api_key: "sk-..."
+  #   model: "gpt-4o"
+  #   default: false
+
+  # Groq (Fast Inference)
+  # - type: groq
+  #   name: "Groq"
+  #   api_key: "gsk_..."
+  #   model: "llama-3.2-90b-text-preview"
+  #   default: false
+
+  # Google Gemini
+  # - type: google-generative-ai
+  #   name: "Gemini"
+  #   api_key: "YOUR_GEMINI_API_KEY"
+  #   model: "gemini-1.5-flash"
+  #   default: false
+
+  # Anthropic Claude
+  # - type: anthropic
+  #   name: "Claude"
+  #   api_key: "YOUR_ANTHROPIC_API_KEY"
+  #   model: "claude-3-5-sonnet-20241022"
+  #   default: false
+
+  # Mistral AI
+  # - type: mistral
+  #   name: "Mistral"
+  #   api_key: "YOUR_MISTRAL_API_KEY"
+  #   model: "mistral-large-latest"
+  #   default: false
+
+  # Together AI
+  # - type: together
+  #   name: "Together"
+  #   api_key: "YOUR_TOGETHER_API_KEY"
+  #   model: "meta-llama/Llama-3.2-3B-Instruct"
+  #   default: false
+
+# Notes:
+# - Only one provider can have default: true
+# - For llama.cpp, ensure it's running with --api flag
+# - The URL should include /v1 for OpenAI-compatible endpoints
+# - API keys are optional for local endpoints
+# - Model names depend on your provider and loaded model
