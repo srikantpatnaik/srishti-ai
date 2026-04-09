@@ -49,6 +49,8 @@ export default function Home() {
   const [longPressedApp, setLongPressedApp] = useState<SavedApp | null>(null)
   const [isBuilding, setIsBuilding] = useState(false)
 
+  const [initialMessages, setInitialMessages] = useState<any[]>([])
+
   const {
     messages,
     input,
@@ -58,6 +60,7 @@ export default function Home() {
     stop: stopChat,
   } = useChat({
     api: "/api/chat",
+    initialMessages: initialMessages,
     body: {
       isAutonomous: true,
       selectedProvider,
@@ -67,10 +70,10 @@ export default function Home() {
       setStatus("error")
     },
     onFinish: () => {
-    if (isBuilding) {
-      setStatus("ready")
-    }
-  },
+      if (isBuilding) {
+        setStatus("ready")
+      }
+    },
     onToolCall: (params) => {
       if (params.toolCall.toolName === "announce") {
         const { phase } = params.toolCall.args as any
@@ -79,6 +82,27 @@ export default function Home() {
     },
     experimental_throttle: 100,
   })
+
+  useEffect(() => {
+    const savedDarkMode = localStorage.getItem("darkMode")
+    const savedShowPreview = localStorage.getItem("showPreview")
+    const savedShowSettings = localStorage.getItem("showSettings")
+    
+    if (savedDarkMode !== null) {
+      setDarkMode(savedDarkMode === "true")
+      if (savedDarkMode === "true") {
+        document.documentElement.classList.add('dark')
+      } else {
+        document.documentElement.classList.remove('dark')
+      }
+    }
+    if (savedShowPreview !== null) {
+      setShowPreview(savedShowPreview === "true")
+    }
+    if (savedShowSettings !== null) {
+      setShowSettings(savedShowSettings === "true")
+    }
+  }, [])
 
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
@@ -139,27 +163,6 @@ export default function Home() {
   }, [isResizing])
 
   useEffect(() => {
-    const savedDarkMode = localStorage.getItem("darkMode")
-    const savedShowPreview = localStorage.getItem("showPreview")
-    const savedShowSettings = localStorage.getItem("showSettings")
-    
-    if (savedDarkMode !== null) {
-      setDarkMode(savedDarkMode === "true")
-      if (savedDarkMode === "true") {
-        document.documentElement.classList.add('dark')
-      } else {
-        document.documentElement.classList.remove('dark')
-      }
-    }
-    if (savedShowPreview !== null) {
-      setShowPreview(savedShowPreview === "true")
-    }
-    if (savedShowSettings !== null) {
-      setShowSettings(savedShowSettings === "true")
-    }
-  }, [])
-
-  useEffect(() => {
     localStorage.setItem("darkMode", darkMode.toString())
     if (darkMode) {
       document.documentElement.classList.add('dark')
@@ -204,9 +207,23 @@ export default function Home() {
     
     if (savedMessages) {
       try {
-        const messages = JSON.parse(savedMessages)
-        if (messages.length > 0) {
+        const messagesData = JSON.parse(savedMessages)
+        if (messagesData.length > 0) {
+          setInitialMessages(messagesData)
           setInput("")
+          
+          // Find the LATEST assistant message that contains HTML to set the preview
+          for (let i = messagesData.length - 1; i >= 0; i--) {
+            const message = messagesData[i]
+            if (message.role === 'assistant' && message.content) {
+              const match = message.content.match(/```html([\s\S]*?)```/)
+              if (match) {
+                const htmlCode = match[1].trim()
+                setLocalPreviewCode(htmlCode)
+                break
+              }
+            }
+          }
         }
       } catch (e) {
         console.error("Failed to load chat messages")
@@ -223,7 +240,9 @@ export default function Home() {
   }, [savedApps])
 
   useEffect(() => {
-    localStorage.setItem("chatMessages", JSON.stringify(messages))
+    if (messages.length > 0) {
+      localStorage.setItem("chatMessages", JSON.stringify(messages))
+    }
   }, [messages])
 
   useEffect(() => {
@@ -325,7 +344,9 @@ export default function Home() {
 
   useEffect(() => {
     let htmlCode = ""
-    for (const message of messages) {
+    // We want the LATEST assistant message that contains HTML to be the preview code
+    for (let i = messages.length - 1; i >= 0; i--) {
+      const message = messages[i]
       if (message.role === 'assistant' && message.content) {
         const match = message.content.match(/```html([\s\S]*?)```/)
         if (match) {
@@ -342,7 +363,8 @@ export default function Home() {
   useEffect(() => {
     if (status === "ready" && localPreviewCode) {
       const lastUserMsg = messages.filter(m => m.role === 'user').pop()
-      const appName = lastUserMsg?.content?.substring(0, 20).replace(/[^a-zA-Z0-9]/g, ' ').trim() || 'My App'
+      const rawName = lastUserMsg?.content?.substring(0, 30).replace(/[^a-zA-Z0-9 ]/g, ' ').trim() || 'My App'
+      const appName = rawName.split(' ').slice(0, 2).join(' ')
       const icon = getAppIcon(appName)
       
       const newApp: SavedApp = {
@@ -354,15 +376,14 @@ export default function Home() {
       }
       
       setSavedApps(prev => {
-        const existingIndex = prev.findIndex(a => a.name === appName)
-        if (existingIndex >= 0) {
+        if (prev.some(a => a.code === localPreviewCode)) {
           return prev
         }
         return [newApp, ...prev]
       })
       setIsBuilding(false)
     }
-  }, [status, localPreviewCode])
+  }, [status, localPreviewCode, messages])
 
   useEffect(() => {
     if (localPreviewCode) {
@@ -394,7 +415,7 @@ export default function Home() {
           </div>
           <script>
             window.parent.postMessage({ type: 'loaded' }, '*');
-          <\/script>
+          </script>
         </body>
         </html>
       `
