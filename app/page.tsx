@@ -12,6 +12,8 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { FolderPicker } from "@/components/folder-picker"
 import { useChat } from "@ai-sdk/react"
 
+const messagesEndRef = useRef<HTMLDivElement>(null)
+
 type AgentStatus = "idle" | "planning" | "coding" | "testing" | "fixing" | "ready" | "error"
 
 interface Provider {
@@ -173,6 +175,10 @@ useEffect(() => {
   }, [sessionId])
 
   useEffect(() => {
+    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" })
+  }, [messages, isGenerating])
+
+  useEffect(() => {
     if (showPreview && !serverStarted && sessionId) {
       fetch("/api/preview", {
         method: "POST",
@@ -274,6 +280,10 @@ useEffect(() => {
     }
     abortControllerRef.current = null
     
+    setPreviewUrl("")
+    setServerStarted(false)
+    setStatus("idle")
+    
     await append({ role: "user", content: input })
     setInput("")
   }
@@ -290,16 +300,28 @@ useEffect(() => {
                 <Bot className="h-5 w-5 text-primary" />
                 <h2 className="font-semibold">Settings</h2>
               </div>
-              <button
-                className={`p-2 rounded-lg transition-colors ${
-                  darkMode
-                    ? "bg-muted text-muted-foreground hover:bg-muted/80"
-                    : "bg-muted text-muted-foreground hover:bg-muted/80"
-                }`}
-                onClick={() => setDarkMode(!darkMode)}
-              >
-                {darkMode ? <Moon className="h-4 w-4" /> : <Sun className="h-4 w-4" />}
-              </button>
+              <div className="flex items-center gap-2">
+                <button
+                  className={`p-2 rounded-lg transition-colors ${
+                    darkMode
+                      ? "bg-muted text-muted-foreground hover:bg-muted/80"
+                      : "bg-muted text-muted-foreground hover:bg-muted/80"
+                  }`}
+                  onClick={() => setDarkMode(!darkMode)}
+                >
+                  {darkMode ? <Moon className="h-4 w-4" /> : <Sun className="h-4 w-4" />}
+                </button>
+                <button
+                  className={`p-2 rounded-lg transition-colors ${
+                    darkMode
+                      ? "bg-muted text-muted-foreground hover:bg-muted/80"
+                      : "bg-muted text-muted-foreground hover:bg-muted/80"
+                  }`}
+                  onClick={() => setShowSettings(false)}
+                >
+                  <ChevronLeft className="h-4 w-4" />
+                </button>
+              </div>
             </div>
 
             <div className="mt-4">
@@ -328,7 +350,7 @@ useEffect(() => {
             <FolderPicker folderPath={projectFolder} />
           </div>
 
-          <div className="p-4 border-t mt-auto">
+          <div className="p-4 border-t mt-auto sm:block hidden">
             <h3 className="text-sm font-semibold mb-3">Keyboard Shortcuts</h3>
             <div className="space-y-2 text-sm">
               <div className="flex justify-between items-center">
@@ -422,6 +444,16 @@ useEffect(() => {
                 </div>
               )
             })}
+            {isGenerating && (
+              <div className="flex justify-start gap-1">
+                <div className="max-w-[85%] sm:max-w-[70%]">
+                  <div className="p-4 sm:p-5 rounded-2xl shadow-sm bg-muted/30 text-foreground rounded-bl-sm">
+                    <div className="text-sm">...</div>
+                  </div>
+                </div>
+              </div>
+            )}
+            <div ref={messagesEndRef} />
           </div>
         </ScrollArea>
 

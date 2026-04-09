@@ -1,7 +1,8 @@
 "use client"
 
 import { useEffect, useRef, useState } from "react"
-import { RefreshCw, Maximize2, ExternalLink, Download } from "lucide-react"
+import { RefreshCw, ExternalLink, Download } from "lucide-react"
+import JSZip from "jszip"
 
 interface PreviewPanelProps {
   previewUrl: string
@@ -71,50 +72,102 @@ export function PreviewPanel({ previewUrl, onConsoleMessage, stopAutoReload = fa
   return (
     <div className="flex-1 flex flex-col h-full">
       <div className="flex-1 h-full bg-card relative">
-        <div className="absolute top-4 right-4 z-10 flex gap-2 opacity-0 hover:opacity-100 transition-opacity">
+        <div className="absolute top-4 right-4 z-10 flex gap-2">
           <button
             onClick={() => window.open(previewUrl, '_blank')}
-            className="p-2 bg-card/80 backdrop-blur-sm rounded-lg border border-card-foreground/20 hover:bg-card hover:shadow-lg transition-all"
+            className="p-1.5 bg-card/30 backdrop-blur-xl rounded-md border border-card-foreground/5 hover:bg-card/40 transition-all"
             title="Open in new tab"
           >
-            <ExternalLink className="h-4 w-4" />
-          </button>
-          <button
-            onClick={() => {
-              const win = window.open(previewUrl, '_blank')
-              if (win) {
-                win.focus()
-                win.document.body.style.margin = '0'
-                win.document.body.style.padding = '0'
-              }
-            }}
-            className="p-2 bg-card/80 backdrop-blur-sm rounded-lg border border-card-foreground/20 hover:bg-card hover:shadow-lg transition-all"
-            title="Fullscreen"
-          >
-            <Maximize2 className="h-4 w-4" />
+            <ExternalLink className="h-3.5 w-3.5" />
           </button>
           <button
             onClick={async () => {
               try {
+                const zip = new JSZip()
                 const response = await fetch(previewUrl)
                 const html = await response.text()
-                const blob = new Blob([html], { type: 'text/html' })
-                const url = URL.createObjectURL(blob)
+                const titleMatch = html.match(/<title>([^<]+)<\/title>/i)
+                const appName = titleMatch ? titleMatch[1].trim() : 'offline-app'
+                const safeAppName = appName.replace(/[^a-z0-9]/gi, '-').toLowerCase()
+                zip.file("index.html", html)
+                const cssMatches = html.match(/<link[^>]*href=["']([^"']*)\.css["'][^>]*>/g) || []
+                const jsMatches = html.match(/<script[^>]*src=["']([^"']*)\.js["'][^>]*>/g) || []
+                const baseUrl = new URL(previewUrl)
+                for (const match of cssMatches) {
+                  const hrefMatch = match.match(/href=["']([^"']*)["']/)
+                  if (hrefMatch) {
+                    const href = hrefMatch[1]
+                    if (!href.startsWith('http')) {
+                      const cssUrl = new URL(href, previewUrl).href
+                      try {
+                        const cssRes = await fetch(cssUrl)
+                        const cssText = await cssRes.text()
+                        zip.file(`css/${href}`, cssText)
+                      } catch (e) { console.error('Failed to fetch CSS:', href, e) }
+                    }
+                  }
+                }
+                for (const match of jsMatches) {
+                  const srcMatch = match.match(/src=["']([^"']*)["']/)
+                  if (srcMatch) {
+                    const src = srcMatch[1]
+                    if (!src.startsWith('http')) {
+                      const jsUrl = new URL(src, previewUrl).href
+                      try {
+                        const jsRes = await fetch(jsUrl)
+                        const jsText = await jsRes.text()
+                        zip.file(`js/${src}`, jsText)
+                      } catch (e) { console.error('Failed to fetch JS:', src, e) }
+                    }
+                  }
+                }
+                const imageMatches = html.match(/<img[^>]*src=["']([^"']*)["'][^>]*>/g) || []
+                const imgUrls = new Set<string>()
+                for (const match of imageMatches) {
+                  const srcMatch = match.match(/src=["']([^"']*)["']/)
+                  if (srcMatch) {
+                    const src = srcMatch[1]
+                    if (!src.startsWith('http') && !src.startsWith('data:')) {
+                      imgUrls.add(new URL(src, previewUrl).href)
+                    }
+                  }
+                }
+                const faviconMatches = html.match(/<link[^>]*rel=["']icon["'][^>]*href=["']([^"']*)["'][^>]*>/g) || []
+                for (const match of faviconMatches) {
+                  const hrefMatch = match.match(/href=["']([^"']*)["']/)
+                  if (hrefMatch) {
+                    const href = hrefMatch[1]
+                    if (!href.startsWith('http') && !href.startsWith('data:')) {
+                      imgUrls.add(new URL(href, previewUrl).href)
+                    }
+                  }
+                }
+                for (const imgUrl of imgUrls) {
+                  try {
+                    const imgRes = await fetch(imgUrl)
+                    const blob = await imgRes.blob()
+                    const imgName = imgUrl.split('/').pop() || 'image.png'
+                    zip.file(`images/${imgName}`, blob)
+                  } catch (e) { console.error('Failed to fetch image:', imgUrl, e) }
+                }
+                const zipBlob = await zip.generateAsync({ type: "blob" })
+                const url = URL.createObjectURL(zipBlob)
                 const link = document.createElement('a')
                 link.href = url
-                link.download = 'offline-app.html'
+                link.download = `${safeAppName}.zip`
                 document.body.appendChild(link)
                 link.click()
                 document.body.removeChild(link)
                 URL.revokeObjectURL(url)
               } catch (error) {
                 console.error('Failed to download:', error)
+                alert('Download failed. Try opening in a new tab and saving the page manually.')
               }
             }}
-            className="p-2 bg-card/80 backdrop-blur-sm rounded-lg border border-card-foreground/20 hover:bg-card hover:shadow-lg transition-all"
+            className="p-1.5 bg-card/30 backdrop-blur-xl rounded-md border border-card-foreground/5 hover:bg-card/40 transition-all"
             title="Download as offline app"
           >
-            <Download className="h-4 w-4" />
+            <Download className="h-3.5 w-3.5" />
           </button>
         </div>
         {!isLoaded && (

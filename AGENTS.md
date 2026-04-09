@@ -1,7 +1,7 @@
 # Agent Guidelines for App Builder PWA
 
 ## Overview
-This is an autonomous AI-powered webapp builder that creates complete, production-ready applications with minimal user input. Built with Next.js 14, Vercel AI SDK for multi-provider LLM support, and Rust-based tool system.
+This is an autonomous AI-powered webapp builder that creates complete, production-ready applications with minimal user input. Built with Next.js 14, Vercel AI SDK for multi-provider LLM support.
 
 ## Architecture
 
@@ -9,7 +9,6 @@ This is an autonomous AI-powered webapp builder that creates complete, productio
 - **Frontend**: Next.js 14 with App Router and Turbopack
 - **Styling**: Tailwind CSS + shadcn/ui components
 - **AI Integration**: Vercel AI SDK (v4) with tool calling
-- **Tool System**: Rust-based optimized file operations (via Node.js wrapper)
 - **Type Safety**: Full TypeScript support with path aliases
 - **PWA**: Service worker, manifest, offline support
 
@@ -31,11 +30,8 @@ components/
   ├── preview-panel.tsx       # Live preview iframe
   ├── folder-picker.tsx       # Project folder selector
   └── status-indicator.tsx    # Status indicator for agent phases
-hooks/
-  └── use-chat.ts             # Chat state management
 lib/
-  ├── utils.ts                # Utility functions (cn, clsx, tailwind-merge)
-  └── server-manager.ts       # Next.js dev server lifecycle management
+  └── utils.ts                # Utility functions (cn, clsx, tailwind-merge)
 public/
   ├── manifest.json           # PWA manifest
   └── sw.js                   # Service worker
@@ -74,20 +70,6 @@ tmp/                          # Session project folders (auto-created)
 - Make apps mobile-responsive
 - Ensure accessibility
 
-### 5. Project Structure
-Default Next.js structure:
-```
-app/
-  ├── layout.tsx
-  ├── page.tsx
-  └── api/
-components/
-  └── ui/
-lib/
-  └── utils.ts
-public/
-```
-
 ## Available Tools
 
 ### File Operations
@@ -102,6 +84,28 @@ public/
 
 ### Announcement Tool
 - `announce(phase, message)`: Announce current development phase (planning, coding, testing, fixing, ready)
+
+## AI Response Guidelines
+
+### Language & Tone
+- **Keep answers VERY SHORT** - Max 1 sentence
+- **Use SAME language as user** - Hindi→Hindi, Spanish→Spanish
+- **No technical terms** - No code, files, CSS, React
+- **Just explain what the app does** - Simple everyday words
+- **Friendly, warm tone** - Like talking to a friend or grandpa
+- **Small emojis only** - Not overwhelming 😊
+
+### Examples
+```
+User: "Make a todo app"
+You: "This app helps you list tasks and tick them when done! (यह ऐप आपको काम लिखने और tick करने देगा!)"
+
+User: "कैलकुलेटर बनाओ"
+You: "यह ऐप गणित के सवाल हल करेगा।"
+
+User: "Hindi mein batao"
+You: "ज़रूर! मैं हिंदी में बताता हूँ।"
+```
 
 ## Response Format
 
@@ -213,12 +217,17 @@ Configure in `settings.yaml`
 - **Design Inspiration**: Modern, clean UI inspired by https://www.assistant-ui.com/
 - **Responsive**: Mobile-first design with collapsible panels
 - **Accessibility**: WCAG compliant with proper ARIA labels
-- **Preview**: Full-height iframe with no address bar, "Waiting for preview" placeholder, auto-loads when planning phase starts
+- **Preview**: Full-height iframe with no address bar, "Waiting for preview" placeholder, auto-loads when planning phase starts, no auto-reload when ready
 - **Chat Input**: Stop button inside input area next to send button during generation
-- **Chat Bubbles**: Telegram-style (user right-aligned blue, assistant left-aligned muted), no avatars
+- **Chat Bubbles**: Telegram-style (user right-aligned darker shade, assistant left-aligned lighter shade), no avatars
+- **Auto-scroll**: Chat auto-scrolls to latest message
+- **Loading indicator**: Shows "..." while AI is thinking
 - **Scrollbars**: Black themed with custom scrollbar colors
 - **Preview Toggle**: Eye icon in header (desktop: right panel, mobile: fullscreen overlay)
-- **Keyboard Shortcuts**: Ctrl+B for settings panel, Ctrl+Alt+B for preview toggle
+- **Preview Overlay Icons**: Two buttons always visible (desktop) - Open in new tab, Download as ZIP
+- **Keyboard Shortcuts**: Ctrl+B for settings panel, Ctrl+X for preview toggle
+- **Settings Footer**: Keyboard shortcuts display section (desktop only)
+- **Settings Collapse**: Arrow button to collapse settings panel on mobile
 
 ## Deployment Checklist
 
@@ -240,8 +249,13 @@ Before marking as deployment-ready:
 - **AI SDK v4**: Uses `toDataStreamResponse()` and `useChat` hook with tool calling
 - **Resizable Panels**: Preview panel width adjustable via drag handle (20-80% range)
 - **Silent Reload**: Preview auto-refreshes every 5 seconds, stops when user interacts or generation complete
-- **Keyboard Shortcuts**: Ctrl+B for settings panel, Ctrl+Alt+B for preview panel
+- **Keyboard Shortcuts**: Ctrl+B for settings panel, Ctrl+X for preview panel
 - **Preview Panel**: Full width/height, hidden address bar, eye icon toggle, mobile fullscreen overlay
-- **Chat Bubbles**: Telegram-style with left/right alignment, no avatars
-- **Settings Panel**: Reduced to 20% width on desktop, full width on mobile
+- **Chat Bubbles**: Telegram-style with left/right alignment, different shades, no avatars
+- **Settings Panel**: Reduced to 20% width on desktop, full width on mobile, keyboard shortcuts footer, collapse button
 - **Stop Control**: Immediate abort on stop button click with throttle optimization
+- **Preview Overlay Icons**: Two buttons always visible - Open in new tab, Download as ZIP with app name
+- **No Auto-Reload**: Preview stops auto-reloading when app reaches ready state
+- **Auto-scroll**: Chat auto-scrolls to latest message
+- **Loading Indicator**: Shows "..." while AI is thinking
+- **AI Responses**: Very short (1 sentence), same language as user, no technical terms
