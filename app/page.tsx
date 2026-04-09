@@ -1,7 +1,7 @@
 "use client"
 
 import React, { useState, useEffect, useRef } from "react"
-import { Send, Square, ChevronRight, ChevronLeft, Bot, Eye, Moon, Sun, Grid } from "lucide-react"
+import { Send, Square, ChevronRight, ChevronLeft, Bot, Eye, Moon, Sun, Grid, Plus } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Textarea } from "@/components/ui/textarea"
 import { ScrollArea } from "@/components/ui/scroll-area"
@@ -47,6 +47,7 @@ export default function Home() {
   const [longPressTimer, setLongPressTimer] = useState<NodeJS.Timeout | null>(null)
   const [contextMenu, setContextMenu] = useState<{ appId: string; x: number; y: number } | null>(null)
   const [longPressedApp, setLongPressedApp] = useState<SavedApp | null>(null)
+  const [isBuilding, setIsBuilding] = useState(false)
 
   const {
     messages,
@@ -66,8 +67,10 @@ export default function Home() {
       setStatus("error")
     },
     onFinish: () => {
+    if (isBuilding) {
       setStatus("ready")
-    },
+    }
+  },
     onToolCall: (params) => {
       if (params.toolCall.toolName === "announce") {
         const { phase } = params.toolCall.args as any
@@ -87,10 +90,20 @@ export default function Home() {
         e.preventDefault()
         setShowPreview(!showPreview)
       }
+      if (e.ctrlKey && e.key === 'm') {
+        e.preventDefault()
+        setShowAppDrawer(!showAppDrawer)
+      }
+      if (e.key === 'Escape' && showAppDrawer) {
+        e.preventDefault()
+        setShowAppDrawer(false)
+        setContextMenu(null)
+        setLongPressedApp(null)
+      }
     }
     window.addEventListener('keydown', handleKeyDown)
     return () => window.removeEventListener('keydown', handleKeyDown)
-  }, [showSettings, showPreview])
+  }, [showSettings, showPreview, showAppDrawer])
 
   useEffect(() => {
     const handleMouseMove = (e: MouseEvent) => {
@@ -168,20 +181,60 @@ export default function Home() {
   }, [messages, isGenerating])
 
   useEffect(() => {
-    const saved = localStorage.getItem("savedApps")
-    if (saved) {
+    const savedApps = localStorage.getItem("savedApps")
+    const savedMessages = localStorage.getItem("chatMessages")
+    
+    if (savedApps) {
       try {
-        const apps: SavedApp[] = JSON.parse(saved)
-        setSavedApps(apps)
+        const apps: SavedApp[] = JSON.parse(savedApps)
+        const appsWithUrls: SavedApp[] = apps.map(app => {
+          try {
+            const blob = new Blob([app.code], { type: 'text/html' })
+            return { ...app, url: URL.createObjectURL(blob) }
+          } catch (e) {
+            console.error("Failed to create URL for app:", app.id)
+            return app
+          }
+        })
+        setSavedApps(appsWithUrls)
       } catch (e) {
         console.error("Failed to load saved apps")
+      }
+    }
+    
+    if (savedMessages) {
+      try {
+        const messages = JSON.parse(savedMessages)
+        if (messages.length > 0) {
+          setInput("")
+        }
+      } catch (e) {
+        console.error("Failed to load chat messages")
       }
     }
   }, [])
 
   useEffect(() => {
-    localStorage.setItem("savedApps", JSON.stringify(savedApps))
+    const appsToSave = savedApps.map(app => ({
+      ...app,
+      url: ""
+    }))
+    localStorage.setItem("savedApps", JSON.stringify(appsToSave))
   }, [savedApps])
+
+  useEffect(() => {
+    localStorage.setItem("chatMessages", JSON.stringify(messages))
+  }, [messages])
+
+  useEffect(() => {
+    return () => {
+      savedApps.forEach(app => {
+        if (app.url) {
+          URL.revokeObjectURL(app.url)
+        }
+      })
+    }
+  }, [])
 
   useEffect(() => {
     let mounted = true
@@ -238,6 +291,7 @@ export default function Home() {
     setLocalPreviewCode("")
     setBlobUrl("")
     setStatus("idle")
+    setIsBuilding(true)
     
     await append({ role: "user", content: input })
     setInput("")
@@ -245,21 +299,28 @@ export default function Home() {
 
   function getAppIcon(appName: string): string {
     const lowered = appName.toLowerCase()
-    if (lowered.includes('todo') || lowered.includes('task')) return '✅'
-    if (lowered.includes('calc')) return '🔢'
-    if (lowered.includes('note') || lowered.includes('memo')) return '📝'
+    if (lowered.includes('sudoku') || lowered.includes('puzzle') || lowered.includes('logic')) return '🧩'
+    if (lowered.includes('todo') || lowered.includes('task') || lowered.includes('list')) return '✅'
+    if (lowered.includes('calc') || lowered.includes('calculator')) return '🔢'
+    if (lowered.includes('note') || lowered.includes('memo') || lowered.includes('journal')) return '📝'
     if (lowered.includes('clock') || lowered.includes('timer') || lowered.includes('time')) return '⏰'
     if (lowered.includes('weather')) return '🌤️'
-    if (lowered.includes('game')) return '🎮'
-    if (lowered.includes('photo') || lowered.includes('image') || lowered.includes('pic')) return '📷'
-    if (lowered.includes('music') || lowered.includes('song') || lowered.includes('audio')) return '🎵'
-    if (lowered.includes('contact') || lowered.includes('phone') || lowered.includes('phonebook')) return '📱'
-    if (lowered.includes('shop') || lowered.includes('cart') || lowered.includes('buy')) return '🛒'
-    if (lowered.includes('food') || lowered.includes('recipe') || lowered.includes('cook')) return '🍳'
-    if (lowered.includes('chat') || lowered.includes('talk') || lowered.includes('message')) return '💬'
-    if (lowered.includes('fitness') || lowered.includes('workout') || lowered.includes('health')) return '💪'
-    if (lowered.includes('travel') || lowered.includes('trip') || lowered.includes('plane')) return '✈️'
-    return '🎨'
+    if (lowered.includes('game') || lowered.includes('games')) return '🎮'
+    if (lowered.includes('photo') || lowered.includes('image') || lowered.includes('pic') || lowered.includes('gallery')) return '📷'
+    if (lowered.includes('music') || lowered.includes('song') || lowered.includes('audio') || lowered.includes('player')) return '🎵'
+    if (lowered.includes('contact') || lowered.includes('phone') || lowered.includes('phonebook') || lowered.includes('address')) return '📱'
+    if (lowered.includes('shop') || lowered.includes('cart') || lowered.includes('buy') || lowered.includes('store')) return '🛒'
+    if (lowered.includes('food') || lowered.includes('recipe') || lowered.includes('cook') || lowered.includes('chef')) return '🍳'
+    if (lowered.includes('chat') || lowered.includes('talk') || lowered.includes('message') || lowered.includes('messenger')) return '💬'
+    if (lowered.includes('fitness') || lowered.includes('workout') || lowered.includes('health') || lowered.includes('gym')) return '💪'
+    if (lowered.includes('travel') || lowered.includes('trip') || lowered.includes('plane') || lowered.includes('flight')) return '✈️'
+    if (lowered.includes('book') || lowered.includes('read') || lowered.includes('library')) return '📚'
+    if (lowered.includes('video') || lowered.includes('movie') || lowered.includes('film')) return '🎬'
+    if (lowered.includes('camera') || lowered.includes('photo') || lowered.includes('edit')) return '📸'
+    if (lowered.includes('map') || lowered.includes('location') || lowered.includes('navigation')) return '🗺️'
+    if (lowered.includes('bank') || lowered.includes('money') || lowered.includes('finance')) return '💰'
+    if (lowered.includes('photo') || lowered.includes('art') || lowered.includes('design')) return '🎨'
+    return '📱'
   }
 
   useEffect(() => {
@@ -299,6 +360,7 @@ export default function Home() {
         }
         return [newApp, ...prev]
       })
+      setIsBuilding(false)
     }
   }, [status, localPreviewCode])
 
@@ -345,9 +407,45 @@ export default function Home() {
 
   const openSavedApp = (app: SavedApp) => {
     setLocalPreviewCode(app.code)
-    setBlobUrl(app.url)
     setShowPreview(true)
     setShowAppDrawer(false)
+    
+    if (app.url) {
+      setBlobUrl(app.url)
+    } else {
+      const htmlContent = `
+        <!DOCTYPE html>
+        <html lang="en">
+        <head>
+          <meta charset="UTF-8">
+          <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+          <title>${app.name}</title>
+          <style>
+            * { margin: 0; padding: 0; box-sizing: border-box; }
+            body { 
+              font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; 
+              background: #1a1a2e; 
+              color: #eaeaea;
+              min-height: 100vh;
+              padding: 16px;
+            }
+            .app-container { max-width: 100%; margin: 0 auto; }
+          </style>
+        </head>
+        <body>
+          <div class="app-container">
+            ${app.code}
+          </div>
+          <script>
+            window.parent.postMessage({ type: 'loaded' }, '*');
+          <\/script>
+        </body>
+        </html>
+      `
+      const blob = new Blob([htmlContent], { type: 'text/html' })
+      const url = URL.createObjectURL(blob)
+      setBlobUrl(url)
+    }
   }
 
   const deleteSavedApp = (appId: string, e: React.MouseEvent) => {
@@ -356,11 +454,14 @@ export default function Home() {
     setSavedApps(prev => prev.filter(a => a.id !== appId))
   }
 
-  const handleLongPressStart = (app: SavedApp, e: React.MouseEvent) => {
-    e.preventDefault()
+  const handleLongPressStart = (app: SavedApp, e: any) => {
+    if (e && typeof e.preventDefault === 'function') {
+      e.preventDefault()
+    }
     setLongPressedApp(app)
     const timer = setTimeout(() => {
-      const rect = (e.target as HTMLElement).getBoundingClientRect()
+      const target = e?.target || document.activeElement
+      const rect = (target as HTMLElement).getBoundingClientRect()
       setContextMenu({
         appId: app.id,
         x: rect.left,
@@ -398,6 +499,18 @@ export default function Home() {
     setSavedApps(prev => prev.filter(a => a.id !== appId))
     setContextMenu(null)
     setLongPressedApp(null)
+  }
+
+  const newSession = () => {
+    localStorage.removeItem("chatMessages")
+    setInput("")
+    setStatus("idle")
+    setIsBuilding(false)
+    setLocalPreviewCode("")
+    if (blobUrl) {
+      URL.revokeObjectURL(blobUrl)
+      setBlobUrl("")
+    }
   }
 
   return (
@@ -469,6 +582,14 @@ export default function Home() {
                 <span>Toggle Preview</span>
                 <kbd className="px-2 py-1 bg-muted rounded text-xs font-mono">Ctrl+X</kbd>
               </div>
+              <div className="flex justify-between items-center">
+                <span>Toggle App Drawer</span>
+                <kbd className="px-2 py-1 bg-muted rounded text-xs font-mono">Ctrl+M</kbd>
+              </div>
+              <div className="flex justify-between items-center">
+                <span>Close App Drawer</span>
+                <kbd className="px-2 py-1 bg-muted rounded text-xs font-mono">Esc</kbd>
+              </div>
             </div>
           </div>
         </div>
@@ -531,6 +652,15 @@ export default function Home() {
                   {savedApps.length}
                 </span>
               )}
+            </Button>
+            <Button
+              variant="ghost"
+              size="icon"
+              className="h-6 w-6"
+              onClick={newSession}
+              title="New Session"
+            >
+              <Plus className="h-4 w-4" />
             </Button>
             <Button
               variant="ghost"
@@ -646,29 +776,28 @@ export default function Home() {
                       className="flex flex-col items-center gap-2"
                     >
                       {/* App icon */}
-                      <div
-                        className="relative w-16 h-16 sm:w-20 sm:h-20 rounded-2xl flex items-center justify-center text-3xl sm:text-4xl shadow-md hover:scale-105 transition-transform cursor-pointer bg-card/50 border border-card-foreground/10"
-                        onClick={() => openSavedApp(app)}
-                        onContextMenu={(e: React.MouseEvent) => {
-                          e.preventDefault()
-                          handleLongPressStart(app, e)
-                        }}
-                        onMouseDown={() => handleLongPressStart(app, { target: document.activeElement } as any)}
-                        onMouseUp={handleLongPressEnd}
-                        onMouseLeave={handleLongPressEnd}
-                        onTouchStart={(e) => {
-                          const timer = setTimeout(() => {
-                            const rect = (e.target as HTMLElement).getBoundingClientRect()
-                            setContextMenu({
-                              appId: app.id,
-                              x: rect.left,
-                              y: rect.bottom + 5
-                            })
-                          }, 500)
-                          setLongPressTimer(timer)
-                        }}
-                        onTouchEnd={handleLongPressEnd}
-                      >
+                       <div
+                         className="relative w-16 h-16 sm:w-20 sm:h-20 rounded-2xl flex items-center justify-center text-3xl sm:text-4xl shadow-md hover:scale-105 transition-transform cursor-pointer bg-card/50 border border-card-foreground/10"
+                         onClick={() => openSavedApp(app)}
+                         onContextMenu={(e: React.MouseEvent) => {
+                           e.preventDefault()
+                           handleLongPressStart(app, e)
+                         }}
+                         onTouchStart={(e) => {
+                           const timer = setTimeout(() => {
+                             const rect = (e.target as HTMLElement).getBoundingClientRect()
+                             setContextMenu({
+                               appId: app.id,
+                               x: rect.left,
+                               y: rect.bottom + 5
+                             })
+                           }, 500)
+                           setLongPressTimer(timer)
+                         }}
+                         onTouchEnd={handleLongPressEnd}
+                         onMouseUp={handleLongPressEnd}
+                         onMouseLeave={handleLongPressEnd}
+                       >
                         {app.icon}
                         {/* Dot indicator */}
                         <div className="absolute -bottom-1 w-1.5 h-1.5 sm:w-2 sm:h-2 bg-primary rounded-full" />
@@ -691,18 +820,11 @@ export default function Home() {
               style={{ left: contextMenu.x, top: contextMenu.y }}
             >
               <button
-                className="w-full px-4 py-3 text-left hover:bg-muted/50 flex items-center gap-3 text-foreground"
-                onClick={() => downloadApp(longPressedApp)}
-              >
-                <span className="text-xl">⬇️</span>
-                <span>Download</span>
-              </button>
-              <button
                 className="w-full px-4 py-3 text-left hover:bg-destructive/20 flex items-center gap-3 text-destructive"
                 onClick={() => removeApp(contextMenu.appId)}
               >
                 <span className="text-xl">🗑️</span>
-                <span>Remove</span>
+                <span>Delete</span>
               </button>
             </div>
           )}

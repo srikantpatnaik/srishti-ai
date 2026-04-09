@@ -249,9 +249,9 @@ Before marking as deployment-ready:
 - **AI SDK v4**: Uses `toDataStreamResponse()` and `useChat` hook with tool calling
 - **Resizable Panels**: Preview panel width adjustable via drag handle (20-80% range)
 - **Silent Reload**: Preview auto-refreshes every 5 seconds, stops when user interacts or generation complete
-- **Keyboard Shortcuts**: Ctrl+B for settings panel, Ctrl+X for preview panel
+- **Keyboard Shortcuts**: Ctrl+B for settings panel, Ctrl+X for preview panel, Ctrl+M for app drawer, Esc to close app drawer
 - **Preview Panel**: Full width/height, hidden address bar, eye icon toggle, mobile fullscreen overlay
-- **Chat Bubbles**: Telegram-style with left/right alignment, different shades, no avatars
+- **Chat Bubbles**: Telegram-style with left/right alignment, different shades, no avatars, wider (80%/70%)
 - **Settings Panel**: Reduced to 20% width on desktop, full width on mobile, keyboard shortcuts footer, collapse button
 - **Stop Control**: Immediate abort on stop button click with throttle optimization
 - **Preview Overlay Icons**: Two buttons always visible - Open in new tab, Download as ZIP with app name
@@ -259,3 +259,9 @@ Before marking as deployment-ready:
 - **Auto-scroll**: Chat auto-scrolls to latest message
 - **Loading Indicator**: Shows "..." while AI is thinking
 - **AI Responses**: Very short (1 sentence), same language as user, no technical terms
+- **App Drawer**: Android/iPhone style fullscreen overlay with translucent background, app icons with emoji based on type
+- **Persistent Storage**: Apps and chat messages saved in localStorage, survive page reloads
+- **New Session Button**: + button to clear chat and start fresh conversation
+- **Long Press Menu**: Long press app icon shows Delete option
+- **Status Fix**: "Done!" only shown when app building actually completes
+- **App Opening**: Click app in drawer opens it immediately in preview panel
