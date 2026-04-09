@@ -6,11 +6,12 @@ import JSZip from "jszip"
 
 interface PreviewPanelProps {
   previewUrl: string
+  localCode?: string
   onConsoleMessage: (msg: string) => void
   stopAutoReload?: boolean
 }
 
-export function PreviewPanel({ previewUrl, onConsoleMessage, stopAutoReload = false }: PreviewPanelProps) {
+export function PreviewPanel({ previewUrl, localCode = "", onConsoleMessage, stopAutoReload = false }: PreviewPanelProps) {
   const iframeRef = useRef<HTMLIFrameElement>(null)
   const [isLoaded, setIsLoaded] = useState(false)
   const [isLoading, setIsLoading] = useState(true)
@@ -65,7 +66,35 @@ export function PreviewPanel({ previewUrl, onConsoleMessage, stopAutoReload = fa
     }
   }
 
-  if (!previewUrl) {
+  const displayUrl = previewUrl
+
+  if (!displayUrl && !localCode) {
+    return null
+  }
+
+  const getHtmlForDownload = () => {
+    if (localCode) {
+      return `
+        <!DOCTYPE html>
+        <html lang="en">
+        <head>
+          <meta charset="UTF-8">
+          <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+          <title>My App</title>
+          <style>
+            * { margin: 0; padding: 0; box-sizing: border-box; }
+            body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background: #1a1a2e; color: #eaeaea; min-height: 100vh; padding: 16px; }
+            .app-container { max-width: 100%; margin: 0 auto; }
+          </style>
+        </head>
+        <body>
+          <div class="app-container">
+            ${localCode}
+          </div>
+        </body>
+        </html>
+      `
+    }
     return null
   }
 
@@ -74,7 +103,17 @@ export function PreviewPanel({ previewUrl, onConsoleMessage, stopAutoReload = fa
       <div className="flex-1 h-full bg-card relative">
         <div className="absolute top-4 right-4 z-10 flex gap-2">
           <button
-            onClick={() => window.open(previewUrl, '_blank')}
+            onClick={() => {
+              const html = getHtmlForDownload()
+              if (html) {
+                const blob = new Blob([html], { type: 'text/html' })
+                const url = URL.createObjectURL(blob)
+                window.open(url, '_blank')
+                setTimeout(() => URL.revokeObjectURL(url), 10000)
+              } else {
+                window.open(previewUrl, '_blank')
+              }
+            }}
             className="p-1.5 bg-card/30 backdrop-blur-xl rounded-md border border-card-foreground/5 hover:bg-card/40 transition-all"
             title="Open in new tab"
           >
@@ -84,72 +123,15 @@ export function PreviewPanel({ previewUrl, onConsoleMessage, stopAutoReload = fa
             onClick={async () => {
               try {
                 const zip = new JSZip()
-                const response = await fetch(previewUrl)
-                const html = await response.text()
+                let html = getHtmlForDownload()
+                if (!html) {
+                  html = await (await fetch(previewUrl)).text()
+                }
+                
                 const titleMatch = html.match(/<title>([^<]+)<\/title>/i)
                 const appName = titleMatch ? titleMatch[1].trim() : 'offline-app'
                 const safeAppName = appName.replace(/[^a-z0-9]/gi, '-').toLowerCase()
                 zip.file("index.html", html)
-                const cssMatches = html.match(/<link[^>]*href=["']([^"']*)\.css["'][^>]*>/g) || []
-                const jsMatches = html.match(/<script[^>]*src=["']([^"']*)\.js["'][^>]*>/g) || []
-                const baseUrl = new URL(previewUrl)
-                for (const match of cssMatches) {
-                  const hrefMatch = match.match(/href=["']([^"']*)["']/)
-                  if (hrefMatch) {
-                    const href = hrefMatch[1]
-                    if (!href.startsWith('http')) {
-                      const cssUrl = new URL(href, previewUrl).href
-                      try {
-                        const cssRes = await fetch(cssUrl)
-                        const cssText = await cssRes.text()
-                        zip.file(`css/${href}`, cssText)
-                      } catch (e) { console.error('Failed to fetch CSS:', href, e) }
-                    }
-                  }
-                }
-                for (const match of jsMatches) {
-                  const srcMatch = match.match(/src=["']([^"']*)["']/)
-                  if (srcMatch) {
-                    const src = srcMatch[1]
-                    if (!src.startsWith('http')) {
-                      const jsUrl = new URL(src, previewUrl).href
-                      try {
-                        const jsRes = await fetch(jsUrl)
-                        const jsText = await jsRes.text()
-                        zip.file(`js/${src}`, jsText)
-                      } catch (e) { console.error('Failed to fetch JS:', src, e) }
-                    }
-                  }
-                }
-                const imageMatches = html.match(/<img[^>]*src=["']([^"']*)["'][^>]*>/g) || []
-                const imgUrls = new Set<string>()
-                for (const match of imageMatches) {
-                  const srcMatch = match.match(/src=["']([^"']*)["']/)
-                  if (srcMatch) {
-                    const src = srcMatch[1]
-                    if (!src.startsWith('http') && !src.startsWith('data:')) {
-                      imgUrls.add(new URL(src, previewUrl).href)
-                    }
-                  }
-                }
-                const faviconMatches = html.match(/<link[^>]*rel=["']icon["'][^>]*href=["']([^"']*)["'][^>]*>/g) || []
-                for (const match of faviconMatches) {
-                  const hrefMatch = match.match(/href=["']([^"']*)["']/)
-                  if (hrefMatch) {
-                    const href = hrefMatch[1]
-                    if (!href.startsWith('http') && !href.startsWith('data:')) {
-                      imgUrls.add(new URL(href, previewUrl).href)
-                    }
-                  }
-                }
-                for (const imgUrl of imgUrls) {
-                  try {
-                    const imgRes = await fetch(imgUrl)
-                    const blob = await imgRes.blob()
-                    const imgName = imgUrl.split('/').pop() || 'image.png'
-                    zip.file(`images/${imgName}`, blob)
-                  } catch (e) { console.error('Failed to fetch image:', imgUrl, e) }
-                }
                 const zipBlob = await zip.generateAsync({ type: "blob" })
                 const url = URL.createObjectURL(zipBlob)
                 const link = document.createElement('a')
@@ -179,7 +161,7 @@ export function PreviewPanel({ previewUrl, onConsoleMessage, stopAutoReload = fa
         )}
         <iframe
           ref={iframeRef}
-          src={previewUrl}
+          src={displayUrl}
           className="w-full h-full border-0"
           onLoad={() => {
             setIsLoaded(true)

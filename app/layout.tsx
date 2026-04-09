@@ -4,7 +4,6 @@ import "./globals.css"
 export const metadata: Metadata = {
   title: "Srishti AI",
   description: "Create webapps with AI assistance - plan, code, test, and deploy autonomously",
-  manifest: "/manifest.json",
   appleWebApp: {
     capable: true,
     statusBarStyle: "default",

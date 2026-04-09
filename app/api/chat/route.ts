@@ -8,14 +8,13 @@ import { createTogetherAI } from "@ai-sdk/togetherai"
 import { streamText, tool } from "ai"
 import { NextResponse } from "next/server"
 import * as fs from "fs"
-import * as fsPromises from "fs/promises"
 import * as path from "path"
 
 // Load settings from yaml
 async function loadSettings() {
   try {
     const settingsPath = path.join(process.cwd(), "settings.yaml")
-    const settingsContent = await fsPromises.readFile(settingsPath, "utf-8")
+    const settingsContent = fs.readFileSync(settingsPath, "utf-8")
     
     const settings: any = {
       providers: [],
@@ -185,102 +184,80 @@ export async function POST(req: Request) {
   const timeoutId = setTimeout(() => controller.abort(), 300000) // 5 minutes
 
   try {
-    const { messages, isAutonomous, selectedProvider, projectFolder } = await req.json()
-
-    let effectiveProjectFolder = projectFolder || path.join(process.cwd(), "tmp", "default")
-    
-    // Ensure folder exists
-    await fsPromises.mkdir(effectiveProjectFolder, { recursive: true })
+    const { messages, isAutonomous, selectedProvider } = await req.json()
 
     const model = getProvider(selectedProvider) as any
 
-    const result = await streamText({
+const result = await streamText({
       model,
       system: `You are a friendly AI assistant who builds simple apps 🤖.
 
-RULES:
-- Max 1 sentence! 📝
-- SAME language as user (Hindi→Hindi, Spanish→Spanish)
-- No tech terms - no code, files, CSS
-- Just what the app does
-- Friendly 👋
-- Small emoji 😊
+IMPORTANT: This is for non-technical users. NO code, NO technical jargon!
 
-EXAMPLES:
-User: "Make a todo app"
-You: "This app helps you list tasks and tick them when done! (यह ऐप आपको काम लिखने और tick करने देगा!)"
+CRITICAL: You MUST use the announce tool to show progress. This is REQUIRED!
 
-User: "कैलकुलेटर बनाओ"
-You: "यह ऐप गणित के सवाल हल करेगा।"
+STEP-BY-STEP PROCESS:
+1. FIRST: Send friendly message with plan (2-3 bullet points):
+   - VARY opening: "Awesome!", "Love this idea!", "Perfect choice!", "Sounds fun!"
+   - VARY timing: "just a sec", "2 mins", "quickly", "moment"
+   - Give 2-3 features as bullets
+   - End with: "Wait a bit, building it soon! 😊"
+   
+   EXAMPLE: "Sounds fun! 🎉 I'll create a todo app for you:
+     • Add and delete tasks
+     • Mark things as done
+     • Beautiful dark theme
+     Wait a bit, building it soon! 😊"
 
-AUTONOMOUS MODE:
-- Plan, build, continue 📋🚀
-- Announce phases
+2. THEN: Call announce tool (REQUIRED):
+   announce(phase: "planning", message: "Thinking about your app...")
+   
+3. THEN: Call announce tool again:
+   announce(phase: "coding", message: "Creating your app...")
+   
+4. THEN: Return HTML code block:
+   \`\`\`html
+   <!DOCTYPE html>
+   ...complete app...
+   \`\`\`
+   
+5. FINALLY: Call announce tool:
+   announce(phase: "ready", message: "All done! Click the eye icon 👀 to see your app")
 
-Short, same language, simple! 🌈
+IMPORTANT: The announce tool MUST be called for each phase. Users need to see progress!
+
+MOBILE-FIRST:
+- Viewport: <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+- Max-width: 100%
+- Touch buttons: min 44px height
+- Responsive layout
+
+DARK THEME:
+- Background: #1a1a2e
+- Text: #eaeaea
+- Cards: #16213e
+- Accents: #e94560
+
+INLINE ONLY: All CSS and JS inline
+
+NO technical terms! Keep it simple and friendly! 🎨
 `,
       messages,
       tools: {
-        read: tool({
-          description: "Read file content",
-          parameters: readSchema,
-          execute: async ({ path: filePath }) => {
-            const fullPath = path.isAbsolute(filePath) ? filePath : path.join(effectiveProjectFolder, filePath)
-            try {
-              const content = await fsPromises.readFile(fullPath, "utf-8") as string
-              return { success: true, content }
-            } catch (error: any) {
-              return { success: false, error: error.message }
-            }
-          },
-        }),
-        write: tool({
-          description: "Write file content",
-          parameters: writeSchema,
-          execute: async ({ path: filePath, content }) => {
-            const fullPath = path.isAbsolute(filePath) ? filePath : path.join(effectiveProjectFolder, filePath)
-            const dir = path.dirname(fullPath)
-            await fsPromises.mkdir(dir, { recursive: true })
-            await fsPromises.writeFile(fullPath, content, "utf-8")
-            return { 
-              success: true, 
-              filePath: fullPath.replace(process.cwd() + "/", ""),
-              message: `Created: ${fullPath.replace(process.cwd() + "/", "")}`
-            }
-          },
-        }),
-        bash: tool({
-          description: "Execute bash command",
-          parameters: bashSchema,
-          execute: async ({ command, timeout = 30000 }) => {
-            try {
-              const { exec } = await import("child_process")
-              const { promisify } = await import("util")
-              const execAsync = promisify(exec)
-              const { stdout, stderr } = await execAsync(command, { 
-                cwd: effectiveProjectFolder,
-                timeout 
-              })
-              return { success: true, output: stdout, error: stderr }
-            } catch (error: any) {
-              return { success: false, error: error.message }
-            }
-          },
-        }),
         announce: tool({
-          description: "Announce current phase",
+          description: "Show progress update (required before building)",
           parameters: announceSchema,
           execute: async ({ phase, message }) => {
             return { 
               success: true, 
               phase, 
-              message: message || `Starting ${phase} phase`
+              message: message || "Working on it..."
             }
           },
         }),
       },
       maxSteps: settings.agent?.max_steps || 20,
-      experimental_activeTools: isAutonomous ? ["announce", "read", "write", "bash"] : ["read", "write", "bash"],
+      experimental_activeTools: isAutonomous ? ["announce"] : [],
     })
 
     clearTimeout(timeoutId)

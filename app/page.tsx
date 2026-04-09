@@ -1,7 +1,7 @@
 "use client"
 
 import React, { useState, useEffect, useRef } from "react"
-import { Send, Square, ChevronRight, ChevronLeft, Bot, Eye, Moon, Sun } from "lucide-react"
+import { Send, Square, ChevronRight, ChevronLeft, Bot, Eye, Moon, Sun, Grid } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Textarea } from "@/components/ui/textarea"
 import { ScrollArea } from "@/components/ui/scroll-area"
@@ -9,10 +9,7 @@ import { ChatMessage } from "@/components/chat-message"
 import { PreviewPanel } from "@/components/preview-panel"
 import { StatusIndicator } from "@/components/status-indicator"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { FolderPicker } from "@/components/folder-picker"
 import { useChat } from "@ai-sdk/react"
-
-const messagesEndRef = useRef<HTMLDivElement>(null)
 
 type AgentStatus = "idle" | "planning" | "coding" | "testing" | "fixing" | "ready" | "error"
 
@@ -23,23 +20,35 @@ interface Provider {
   default: boolean
 }
 
+interface SavedApp {
+  id: string
+  name: string
+  icon: string
+  code: string
+  url: string
+}
+
 export default function Home() {
-  const [previewUrl, setPreviewUrl] = useState("")
   const [status, setStatus] = useState<AgentStatus>("idle")
   const [darkMode, setDarkMode] = useState(true)
   const [showSettings, setShowSettings] = useState(false)
   const [showPreview, setShowPreview] = useState(false)
+  const [showAppDrawer, setShowAppDrawer] = useState(false)
   const [providers, setProviders] = useState<Provider[]>([])
   const [selectedProvider, setSelectedProvider] = useState<string>("")
   const [loadingProviders, setLoadingProviders] = useState(true)
-  const [sessionId, setSessionId] = useState<string>("")
-  const [projectFolder, setProjectFolder] = useState<string>("")
-  const [serverStarted, setServerStarted] = useState(false)
   const [previewWidth, setPreviewWidth] = useState(30)
   const [isResizing, setIsResizing] = useState(false)
   const abortControllerRef = React.useRef<AbortController | null>(null)
+  const messagesEndRef = useRef<HTMLDivElement>(null)
+  const [localPreviewCode, setLocalPreviewCode] = useState("")
+  const [blobUrl, setBlobUrl] = useState<string>("")
+  const [savedApps, setSavedApps] = useState<SavedApp[]>([])
+  const [longPressTimer, setLongPressTimer] = useState<NodeJS.Timeout | null>(null)
+  const [contextMenu, setContextMenu] = useState<{ appId: string; x: number; y: number } | null>(null)
+  const [longPressedApp, setLongPressedApp] = useState<SavedApp | null>(null)
 
-const {
+  const {
     messages,
     input,
     setInput,
@@ -51,8 +60,6 @@ const {
     body: {
       isAutonomous: true,
       selectedProvider,
-      projectFolder,
-      sessionId,
     },
     onError: (error) => {
       console.error("Chat error:", error)
@@ -65,9 +72,6 @@ const {
       if (params.toolCall.toolName === "announce") {
         const { phase } = params.toolCall.args as any
         setStatus(phase as AgentStatus)
-        if (phase === "planning" && previewUrl && !showPreview) {
-          setShowPreview(true)
-        }
       }
     },
     experimental_throttle: 100,
@@ -78,10 +82,6 @@ const {
       if (e.ctrlKey && e.key === 'b' && !e.altKey) {
         e.preventDefault()
         setShowSettings(!showSettings)
-      }
-      if (e.ctrlKey && e.altKey && e.key === 'b') {
-        e.preventDefault()
-        setShowPreview(!showPreview)
       }
       if (e.ctrlKey && e.key === 'x') {
         e.preventDefault()
@@ -129,7 +129,6 @@ const {
     const savedDarkMode = localStorage.getItem("darkMode")
     const savedShowPreview = localStorage.getItem("showPreview")
     const savedShowSettings = localStorage.getItem("showSettings")
-    const savedSessionId = localStorage.getItem("sessionId")
     
     if (savedDarkMode !== null) {
       setDarkMode(savedDarkMode === "true")
@@ -145,13 +144,9 @@ const {
     if (savedShowSettings !== null) {
       setShowSettings(savedShowSettings === "true")
     }
-    if (savedSessionId) {
-      setSessionId(savedSessionId)
-      localStorage.setItem("sessionId", savedSessionId)
-    }
   }, [])
 
-useEffect(() => {
+  useEffect(() => {
     localStorage.setItem("darkMode", darkMode.toString())
     if (darkMode) {
       document.documentElement.classList.add('dark')
@@ -169,44 +164,24 @@ useEffect(() => {
   }, [showSettings])
 
   useEffect(() => {
-    if (sessionId) {
-      localStorage.setItem("sessionId", sessionId)
-    }
-  }, [sessionId])
-
-  useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" })
   }, [messages, isGenerating])
 
   useEffect(() => {
-    if (showPreview && !serverStarted && sessionId) {
-      fetch("/api/preview", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ projectFolder }),
-      })
-      .then(res => res.json())
-      .then(data => {
-        if (data.success && data.url) {
-          setPreviewUrl(data.url)
-          setServerStarted(true)
-        }
-      })
-      .catch(err => console.error("Failed to start preview server:", err))
+    const saved = localStorage.getItem("savedApps")
+    if (saved) {
+      try {
+        const apps: SavedApp[] = JSON.parse(saved)
+        setSavedApps(apps)
+      } catch (e) {
+        console.error("Failed to load saved apps")
+      }
     }
-  }, [showPreview, serverStarted, sessionId, projectFolder])
+  }, [])
 
   useEffect(() => {
-    if (!showPreview && serverStarted) {
-      fetch("/api/preview", {
-        method: "DELETE",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ projectFolder }),
-      })
-      .then(() => setServerStarted(false))
-      .catch(err => console.error("Failed to stop preview server:", err))
-    }
-  }, [showPreview, serverStarted, projectFolder])
+    localStorage.setItem("savedApps", JSON.stringify(savedApps))
+  }, [savedApps])
 
   useEffect(() => {
     let mounted = true
@@ -233,27 +208,7 @@ useEffect(() => {
       }
     }
     
-    async function createSession() {
-      try {
-        const existingSessionId = localStorage.getItem("sessionId")
-        const res = await fetch("/api/session", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ sessionId: existingSessionId || undefined }),
-        })
-        const data = await res.json()
-        if (mounted && data.success) {
-          setSessionId(data.sessionId)
-          setProjectFolder(data.folder)
-          localStorage.setItem("sessionId", data.sessionId)
-        }
-      } catch (error) {
-        console.error("Failed to create session:", error)
-      }
-    }
-    
     loadProviders()
-    createSession()
     
     return () => { mounted = false }
   }, [])
@@ -280,15 +235,172 @@ useEffect(() => {
     }
     abortControllerRef.current = null
     
-    setPreviewUrl("")
-    setServerStarted(false)
+    setLocalPreviewCode("")
+    setBlobUrl("")
     setStatus("idle")
     
     await append({ role: "user", content: input })
     setInput("")
   }
 
- return (
+  function getAppIcon(appName: string): string {
+    const lowered = appName.toLowerCase()
+    if (lowered.includes('todo') || lowered.includes('task')) return '✅'
+    if (lowered.includes('calc')) return '🔢'
+    if (lowered.includes('note') || lowered.includes('memo')) return '📝'
+    if (lowered.includes('clock') || lowered.includes('timer') || lowered.includes('time')) return '⏰'
+    if (lowered.includes('weather')) return '🌤️'
+    if (lowered.includes('game')) return '🎮'
+    if (lowered.includes('photo') || lowered.includes('image') || lowered.includes('pic')) return '📷'
+    if (lowered.includes('music') || lowered.includes('song') || lowered.includes('audio')) return '🎵'
+    if (lowered.includes('contact') || lowered.includes('phone') || lowered.includes('phonebook')) return '📱'
+    if (lowered.includes('shop') || lowered.includes('cart') || lowered.includes('buy')) return '🛒'
+    if (lowered.includes('food') || lowered.includes('recipe') || lowered.includes('cook')) return '🍳'
+    if (lowered.includes('chat') || lowered.includes('talk') || lowered.includes('message')) return '💬'
+    if (lowered.includes('fitness') || lowered.includes('workout') || lowered.includes('health')) return '💪'
+    if (lowered.includes('travel') || lowered.includes('trip') || lowered.includes('plane')) return '✈️'
+    return '🎨'
+  }
+
+  useEffect(() => {
+    let htmlCode = ""
+    for (const message of messages) {
+      if (message.role === 'assistant' && message.content) {
+        const match = message.content.match(/```html([\s\S]*?)```/)
+        if (match) {
+          htmlCode = match[1].trim()
+          break
+        }
+      }
+    }
+    if (htmlCode) {
+      setLocalPreviewCode(htmlCode)
+    }
+  }, [messages])
+
+  useEffect(() => {
+    if (status === "ready" && localPreviewCode) {
+      const lastUserMsg = messages.filter(m => m.role === 'user').pop()
+      const appName = lastUserMsg?.content?.substring(0, 20).replace(/[^a-zA-Z0-9]/g, ' ').trim() || 'My App'
+      const icon = getAppIcon(appName)
+      
+      const newApp: SavedApp = {
+        id: Date.now().toString(),
+        name: appName,
+        icon: icon,
+        code: localPreviewCode,
+        url: ""
+      }
+      
+      setSavedApps(prev => {
+        const existingIndex = prev.findIndex(a => a.name === appName)
+        if (existingIndex >= 0) {
+          return prev
+        }
+        return [newApp, ...prev]
+      })
+    }
+  }, [status, localPreviewCode])
+
+  useEffect(() => {
+    if (localPreviewCode) {
+      if (blobUrl) {
+        URL.revokeObjectURL(blobUrl)
+      }
+      const htmlContent = `
+        <!DOCTYPE html>
+        <html lang="en">
+        <head>
+          <meta charset="UTF-8">
+          <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+          <title>My App</title>
+          <style>
+            * { margin: 0; padding: 0; box-sizing: border-box; }
+            body { 
+              font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; 
+              background: #1a1a2e; 
+              color: #eaeaea;
+              min-height: 100vh;
+              padding: 16px;
+            }
+            .app-container { max-width: 100%; margin: 0 auto; }
+          </style>
+        </head>
+        <body>
+          <div class="app-container">
+            ${localPreviewCode}
+          </div>
+          <script>
+            window.parent.postMessage({ type: 'loaded' }, '*');
+          <\/script>
+        </body>
+        </html>
+      `
+      const blob = new Blob([htmlContent], { type: 'text/html' })
+      const url = URL.createObjectURL(blob)
+      setBlobUrl(url)
+      return () => URL.revokeObjectURL(url)
+    }
+  }, [localPreviewCode])
+
+  const openSavedApp = (app: SavedApp) => {
+    setLocalPreviewCode(app.code)
+    setBlobUrl(app.url)
+    setShowPreview(true)
+    setShowAppDrawer(false)
+  }
+
+  const deleteSavedApp = (appId: string, e: React.MouseEvent) => {
+    e.stopPropagation()
+    const app = savedApps.find(a => a.id === appId)
+    setSavedApps(prev => prev.filter(a => a.id !== appId))
+  }
+
+  const handleLongPressStart = (app: SavedApp, e: React.MouseEvent) => {
+    e.preventDefault()
+    setLongPressedApp(app)
+    const timer = setTimeout(() => {
+      const rect = (e.target as HTMLElement).getBoundingClientRect()
+      setContextMenu({
+        appId: app.id,
+        x: rect.left,
+        y: rect.bottom + 5
+      })
+    }, 500)
+    setLongPressTimer(timer)
+  }
+
+  const handleLongPressEnd = () => {
+    if (longPressTimer) {
+      clearTimeout(longPressTimer)
+      setLongPressTimer(null)
+    }
+    setContextMenu(null)
+    setLongPressedApp(null)
+  }
+
+  const downloadApp = (app: SavedApp) => {
+    const blob = new Blob([app.code], { type: 'text/html' })
+    const url = URL.createObjectURL(blob)
+    const a = document.createElement('a')
+    a.href = url
+    a.download = `${app.name.replace(/\s+/g, '_').toLowerCase()}.html`
+    document.body.appendChild(a)
+    a.click()
+    document.body.removeChild(a)
+    URL.revokeObjectURL(url)
+    setContextMenu(null)
+    setLongPressedApp(null)
+  }
+
+  const removeApp = (appId: string) => {
+    const app = savedApps.find(a => a.id === appId)
+    setSavedApps(prev => prev.filter(a => a.id !== appId))
+    setContextMenu(null)
+    setLongPressedApp(null)
+  }
+
+  return (
     <div className="flex h-screen bg-background">
       {/* Left Settings Panel */}
       {showSettings && (
@@ -346,10 +458,6 @@ useEffect(() => {
             </div>
           </div>
 
-          <div className="p-4 border-b">
-            <FolderPicker folderPath={projectFolder} />
-          </div>
-
           <div className="p-4 border-t mt-auto sm:block hidden">
             <h3 className="text-sm font-semibold mb-3">Keyboard Shortcuts</h3>
             <div className="space-y-2 text-sm">
@@ -381,8 +489,8 @@ useEffect(() => {
             </Button>
           </div>
           <div className="h-[calc(100vh-53px)]">
-            {previewUrl ? (
-              <PreviewPanel previewUrl={previewUrl} onConsoleMessage={handleConsoleMessage} stopAutoReload={status === "ready"} />
+            {blobUrl ? (
+              <PreviewPanel previewUrl={blobUrl} onConsoleMessage={handleConsoleMessage} stopAutoReload={status === "ready"} />
             ) : (
               <div className="h-full flex items-center justify-center text-muted-foreground">
                 <div className="text-center">
@@ -413,16 +521,26 @@ useEffect(() => {
             <Button
               variant="ghost"
               size="icon"
+              className="h-6 w-6 relative"
+              onClick={() => setShowAppDrawer(!showAppDrawer)}
+              title="My Apps"
+            >
+              <Grid className="h-4 w-4" />
+              {savedApps.length > 0 && (
+                <span className="absolute -top-1 -right-1 w-3 h-3 bg-red-500 rounded-full text-[8px] flex items-center justify-center text-white">
+                  {savedApps.length}
+                </span>
+              )}
+            </Button>
+            <Button
+              variant="ghost"
+              size="icon"
               className="h-6 w-6"
               onClick={() => {
                 if (window.innerWidth < 768) {
                   setShowPreview(!showPreview)
                 } else {
-                  if (!showPreview) {
-                    setShowPreview(true)
-                  } else {
-                    setShowPreview(false)
-                  }
+                  setShowPreview(!showPreview)
                 }
               }}
             >
@@ -437,22 +555,14 @@ useEffect(() => {
             {messages.map((message) => {
               const isUser = message.role === 'user'
               return (
-                <div key={message.id} className={`flex ${isUser ? 'justify-end' : 'justify-start'} gap-1`}>
-                  <div className="max-w-[85%] sm:max-w-[70%]">
+                <div key={message.id} className={`flex ${isUser ? 'justify-end' : 'justify-start'} gap-2`}>
+                  <div className="max-w-[80%] sm:max-w-[70%]">
                     <ChatMessage message={message} />
                   </div>
                 </div>
               )
             })}
-            {isGenerating && (
-              <div className="flex justify-start gap-1">
-                <div className="max-w-[85%] sm:max-w-[70%]">
-                  <div className="p-4 sm:p-5 rounded-2xl shadow-sm bg-muted/30 text-foreground rounded-bl-sm">
-                    <div className="text-sm">...</div>
-                  </div>
-                </div>
-              </div>
-            )}
+
             <div ref={messagesEndRef} />
           </div>
         </ScrollArea>
@@ -463,47 +573,141 @@ useEffect(() => {
         >
           <div className="max-w-2xl mx-auto">
             <div className="relative">
-              <div className="relative">
-<Textarea
-                    value={input}
-                    onChange={(e) => setInput(e.target.value)}
-                    onKeyDown={(e) => {
-                      if (e.key === "Enter" && !e.shiftKey) {
-                        e.preventDefault()
-                        handleSubmit()
-                      }
-                    }}
-                    placeholder="Describe the app you want to build..."
-                     className="min-h-[50px] max-h-[150px] resize-none rounded-xl border-input shadow-sm pr-20 text-left"
-                     disabled={isGenerating}
-                  />
-                  <div className="absolute right-2 top-1/2 -translate-y-1/2 flex items-center gap-1">
-                     {isGenerating && (
-                       <Button
-                         type="button"
-                         variant="secondary"
-                         size="icon"
-                         className="h-7 w-7 rounded-lg"
-                         onClick={stopGeneration}
-                       >
-                         <Square className="h-3 w-3" />
-                       </Button>
-                     )}
-                     <Button
-                       type="submit"
-                       variant="secondary"
-                       size="icon"
-                       className="h-7 w-7 rounded-lg"
-                       disabled={!input.trim() || isGenerating}
-                     >
-                       <Send className="h-3 w-3" />
-                     </Button>
-                   </div>
+              <Textarea
+                value={input}
+                onChange={(e) => setInput(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter" && !e.shiftKey) {
+                    e.preventDefault()
+                    handleSubmit()
+                  }
+                }}
+                placeholder="Describe the app you want to build..."
+                className="min-h-[50px] max-h-[150px] resize-none rounded-xl border-input shadow-sm pr-24 text-left"
+                disabled={isGenerating}
+              />
+              <div className="absolute right-2 top-1/2 -translate-y-1/2 flex items-center gap-1">
+                {isGenerating && (
+                  <Button
+                    type="button"
+                    variant="secondary"
+                    size="icon"
+                    className="h-7 w-7 rounded-lg"
+                    onClick={stopGeneration}
+                  >
+                    <Square className="h-3 w-3" />
+                  </Button>
+                )}
+                <Button
+                  type="submit"
+                  variant="secondary"
+                  size="icon"
+                  className="h-7 w-7 rounded-lg"
+                  disabled={!input.trim() || isGenerating}
+                >
+                  <Send className="h-3 w-3" />
+                </Button>
               </div>
             </div>
           </div>
         </form>
       </div>
+
+      {/* App Drawer - Android/iPhone style */}
+      {showAppDrawer && (
+        <div className="fixed inset-0 z-50 flex flex-col">
+          {/* Background overlay */}
+          <div 
+            className="absolute inset-0 bg-black/40 backdrop-blur-sm"
+            onClick={() => setShowAppDrawer(false)}
+          />
+          
+          {/* Main content area */}
+          <div className="relative z-10 flex-1 flex flex-col p-4 sm:p-6">
+            {/* Header */}
+            <div className="flex items-center justify-between mb-6">
+              <h2 className="text-2xl font-bold text-foreground">My Apps</h2>
+              <button
+                className="text-muted-foreground hover:text-foreground text-2xl"
+                onClick={() => setShowAppDrawer(false)}
+              >
+                ✕
+              </button>
+            </div>
+            
+            {/* All apps section */}
+            {savedApps.length > 0 && (
+              <div className="flex-1">
+                <h3 className="text-sm font-medium text-muted-foreground mb-3">My Apps</h3>
+                <div className="grid grid-cols-3 sm:grid-cols-4 lg:grid-cols-6 gap-3 sm:gap-4">
+                  {savedApps.map((app) => (
+                    <div
+                      key={app.id}
+                      className="flex flex-col items-center gap-2"
+                    >
+                      {/* App icon */}
+                      <div
+                        className="relative w-16 h-16 sm:w-20 sm:h-20 rounded-2xl flex items-center justify-center text-3xl sm:text-4xl shadow-md hover:scale-105 transition-transform cursor-pointer bg-card/50 border border-card-foreground/10"
+                        onClick={() => openSavedApp(app)}
+                        onContextMenu={(e: React.MouseEvent) => {
+                          e.preventDefault()
+                          handleLongPressStart(app, e)
+                        }}
+                        onMouseDown={() => handleLongPressStart(app, { target: document.activeElement } as any)}
+                        onMouseUp={handleLongPressEnd}
+                        onMouseLeave={handleLongPressEnd}
+                        onTouchStart={(e) => {
+                          const timer = setTimeout(() => {
+                            const rect = (e.target as HTMLElement).getBoundingClientRect()
+                            setContextMenu({
+                              appId: app.id,
+                              x: rect.left,
+                              y: rect.bottom + 5
+                            })
+                          }, 500)
+                          setLongPressTimer(timer)
+                        }}
+                        onTouchEnd={handleLongPressEnd}
+                      >
+                        {app.icon}
+                        {/* Dot indicator */}
+                        <div className="absolute -bottom-1 w-1.5 h-1.5 sm:w-2 sm:h-2 bg-primary rounded-full" />
+                      </div>
+                      {/* App name */}
+                      <p className="text-xs sm:text-sm text-muted-foreground text-center truncate w-full px-1">
+                        {app.name}
+                      </p>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+          </div>
+          
+          {/* Context Menu */}
+          {contextMenu && longPressedApp && (
+            <div
+              className="absolute z-50 bg-card border border-card-foreground/20 rounded-xl shadow-xl overflow-hidden"
+              style={{ left: contextMenu.x, top: contextMenu.y }}
+            >
+              <button
+                className="w-full px-4 py-3 text-left hover:bg-muted/50 flex items-center gap-3 text-foreground"
+                onClick={() => downloadApp(longPressedApp)}
+              >
+                <span className="text-xl">⬇️</span>
+                <span>Download</span>
+              </button>
+              <button
+                className="w-full px-4 py-3 text-left hover:bg-destructive/20 flex items-center gap-3 text-destructive"
+                onClick={() => removeApp(contextMenu.appId)}
+              >
+                <span className="text-xl">🗑️</span>
+                <span>Remove</span>
+              </button>
+            </div>
+          )}
+        </div>
+      )}
 
       {/* Right Preview Panel - Full Height */}
       <div
@@ -520,8 +724,8 @@ useEffect(() => {
               <div className="flex-1 overflow-hidden"
                     style={{ scrollbarColor: '#404040 #000000', scrollbarWidth: 'thin' }}>
                 <div className="h-full">
-                  {previewUrl ? (
-                    <PreviewPanel previewUrl={previewUrl} onConsoleMessage={handleConsoleMessage} stopAutoReload={status === "ready"} />
+                  {blobUrl ? (
+                    <PreviewPanel previewUrl={blobUrl} onConsoleMessage={handleConsoleMessage} stopAutoReload={status === "ready"} />
                   ) : (
                     <div className="h-full flex items-center justify-center text-muted-foreground">
                       <div className="text-center">

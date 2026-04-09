@@ -7,11 +7,11 @@ interface StatusIndicatorProps {
 export function StatusIndicator({ status }: StatusIndicatorProps) {
   const statusConfig = {
     idle: { icon: CheckCircle2, color: "text-gray-500", label: "Ready" },
-    planning: { icon: Loader2, color: "text-blue-500", label: "Planning" },
-    coding: { icon: Loader2, color: "text-purple-500", label: "Coding" },
-    testing: { icon: Loader2, color: "text-green-500", label: "Testing" },
-    fixing: { icon: Loader2, color: "text-red-500", label: "Fixing" },
-    ready: { icon: CheckCircle2, color: "text-green-600", label: "Ready" },
+    planning: { icon: Loader2, color: "text-blue-500", label: "Thinking..." },
+    coding: { icon: Loader2, color: "text-purple-500", label: "Creating app..." },
+    testing: { icon: Loader2, color: "text-green-500", label: "Checking..." },
+    fixing: { icon: Loader2, color: "text-red-500", label: "Fixing..." },
+    ready: { icon: CheckCircle2, color: "text-green-600", label: "Done!" },
     error: { icon: AlertCircle, color: "text-red-600", label: "Error" },
   }
 
