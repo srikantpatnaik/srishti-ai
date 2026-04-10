@@ -1,7 +1,5 @@
-"use client"
-
 import { useEffect, useRef, useState } from "react"
-import { RefreshCw, ExternalLink, Download } from "lucide-react"
+import { RefreshCw, ExternalLink, Download, Bookmark, ChevronLeft, ChevronRight } from "lucide-react"
 import JSZip from "jszip"
 
 interface PreviewPanelProps {
@@ -9,9 +7,26 @@ interface PreviewPanelProps {
   localCode?: string
   onConsoleMessage: (msg: string) => void
   stopAutoReload?: boolean
+  onSaveToGallery?: (code: string, name: string) => void
+  hasSavedToGallery?: boolean
+  sessionApps?: any[]
+  currentAppIndex?: number
+  onNavigateNext?: () => void
+  onNavigatePrev?: () => void
 }
 
-export function PreviewPanel({ previewUrl, localCode = "", onConsoleMessage, stopAutoReload = false }: PreviewPanelProps) {
+export function PreviewPanel({
+  previewUrl,
+  localCode = "",
+  onConsoleMessage,
+  stopAutoReload = false,
+  onSaveToGallery,
+  hasSavedToGallery = false,
+  sessionApps = [],
+  currentAppIndex = -1,
+  onNavigateNext,
+  onNavigatePrev
+}: PreviewPanelProps) {
   const iframeRef = useRef<HTMLIFrameElement>(null)
   const [isLoaded, setIsLoaded] = useState(false)
   const [isLoading, setIsLoading] = useState(true)
@@ -60,18 +75,6 @@ export function PreviewPanel({ previewUrl, localCode = "", onConsoleMessage, sto
     return () => clearInterval(interval)
   }, [isLoaded, stopAutoReload])
 
-  const reloadPreview = () => {
-    if (iframeRef.current) {
-      iframeRef.current.src = iframeRef.current.src
-    }
-  }
-
-  const displayUrl = previewUrl
-
-  if (!displayUrl && !localCode) {
-    return null
-  }
-
   const getHtmlForDownload = () => {
     if (localCode) {
       return `
@@ -91,6 +94,9 @@ export function PreviewPanel({ previewUrl, localCode = "", onConsoleMessage, sto
           <div class="app-container">
             ${localCode}
           </div>
+          <script>
+            window.parent.postMessage({ type: 'loaded' }, '*');
+          </script>
         </body>
         </html>
       `
@@ -98,10 +104,69 @@ export function PreviewPanel({ previewUrl, localCode = "", onConsoleMessage, sto
     return null
   }
 
+  const handleSaveToGallery = () => {
+    const html = getHtmlForDownload()
+    if (html) {
+      const titleMatch = html.match(/<title>([^<]+)<\/title>/i)
+      const appName = titleMatch ? titleMatch[1].trim() : 'My App'
+      if (onSaveToGallery) onSaveToGallery(html, appName)
+    }
+  }
+
+  const displayUrl = previewUrl
+
+  if (!displayUrl && !localCode) {
+    return null
+  }
+
   return (
     <div className="flex-1 flex flex-col h-full">
       <div className="flex-1 h-full bg-card relative">
+        <div className="absolute top-4 left-4 z-10 flex gap-1">
+          {sessionApps.length > 1 && (
+            <>
+              <button
+                onClick={onNavigatePrev}
+                disabled={currentAppIndex <= 0}
+                className={`p-1.5 backdrop-blur-xl rounded-md border transition-all ${
+                  currentAppIndex <= 0
+                    ? 'bg-muted/30 border-muted/20 text-muted/50 cursor-not-allowed'
+                    : 'bg-card/30 border-card-foreground/5 hover:bg-card/40'
+                }`}
+                title="Previous version"
+              >
+                <ChevronLeft className="h-3.5 w-3.5" />
+              </button>
+              <span className="px-2 text-xs text-muted-foreground self-center bg-card/50 rounded">
+                {currentAppIndex + 1}/{sessionApps.length}
+              </span>
+              <button
+                onClick={onNavigateNext}
+                disabled={currentAppIndex >= sessionApps.length - 1}
+                className={`p-1.5 backdrop-blur-xl rounded-md border transition-all ${
+                  currentAppIndex >= sessionApps.length - 1
+                    ? 'bg-muted/30 border-muted/20 text-muted/50 cursor-not-allowed'
+                    : 'bg-card/30 border-card-foreground/5 hover:bg-card/40'
+                }`}
+                title="Next version"
+              >
+                <ChevronRight className="h-3.5 w-3.5" />
+              </button>
+            </>
+          )}
+        </div>
         <div className="absolute top-4 right-4 z-10 flex gap-2">
+          <button
+            onClick={handleSaveToGallery}
+            className={`p-1.5 backdrop-blur-xl rounded-md border transition-all ${
+              hasSavedToGallery
+                ? 'bg-green-500/20 border-green-500/30 text-green-500'
+                : 'bg-primary/20 border-primary/10 hover:bg-primary/30 text-primary'
+            }`}
+            title={hasSavedToGallery ? "Saved to Gallery" : "Save to Gallery"}
+          >
+            <Bookmark className={`h-3.5 w-3.5 ${hasSavedToGallery ? 'fill-current' : ''}`} />
+          </button>
           <button
             onClick={() => {
               const html = getHtmlForDownload()
