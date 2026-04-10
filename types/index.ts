@@ -13,4 +13,6 @@ export interface SavedApp {
   icon: string
   code: string
   url: string
+  chatMessages?: any[]
+  createdAt: number
 }

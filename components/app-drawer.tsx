@@ -1,6 +1,7 @@
 import React, { useState } from "react"
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { SavedApp } from "@/types"
+import { Edit, Share2, ExternalLink, Trash2, MessageSquare, Plus } from "lucide-react"
+import { Button } from "@/components/ui/button"
 
 interface AppDrawerProps {
   showAppDrawer: boolean
@@ -8,10 +9,14 @@ interface AppDrawerProps {
   savedApps: SavedApp[]
   openSavedApp: (app: SavedApp) => void
   removeApp: (appId: string) => void
+  editApp: (app: SavedApp) => void
+  shareApp: (app: SavedApp) => void
   handleLongPressStart: (app: SavedApp, e: any) => void
   handleLongPressEnd: () => void
-  contextMenu: { appId: string; x: number; y: number } | null
+  handleSwitchToSavedApp: (app: SavedApp) => void
   setContextMenu: (val: any) => void
+  setLongPressedApp: (val: any) => void
+  contextMenu: { appId: string; x: number; y: number } | null
   longPressedApp: SavedApp | null
 }
 
@@ -21,15 +26,22 @@ export function AppDrawer({
   savedApps,
   openSavedApp,
   removeApp,
+  editApp,
+  shareApp,
   handleLongPressStart,
   handleLongPressEnd,
-  contextMenu,
+  handleSwitchToSavedApp,
   setContextMenu,
+  setLongPressedApp,
+  contextMenu,
   longPressedApp
 }: AppDrawerProps) {
   const [activeTab, setActiveTab] = useState("apps")
+  const [activeChatTab, setActiveChatTab] = useState<string | null>(null)
 
   if (!showAppDrawer) return null
+
+  const chatApps = savedApps.filter(app => app.chatMessages && app.chatMessages.length > 0)
 
   const filteredApps = savedApps.filter(app => {
     const lowered = app.name.toLowerCase()
@@ -47,7 +59,7 @@ export function AppDrawer({
       />
       
       <div className="relative z-10 flex-1 flex flex-col p-4 sm:p-6">
-        <div className="flex items-center justify-between mb-6">
+        <div className="flex items-center justify-between mb-4">
           <h2 className="text-2xl font-bold text-foreground">My Gallery</h2>
           <button
             className="text-muted-foreground hover:text-foreground text-2xl"
@@ -57,12 +69,55 @@ export function AppDrawer({
           </button>
         </div>
 
-        <Tabs defaultValue="apps" onValueChange={setActiveTab} className="w-full flex-1 flex flex-col">
-          <TabsList className="grid w-full grid-cols-3 mb-6">
-            <TabsTrigger value="apps">Apps</TabsTrigger>
-            <TabsTrigger value="music">Music</TabsTrigger>
-            <TabsTrigger value="media">Media</TabsTrigger>
-          </TabsList>
+        {chatApps.length > 0 && (
+          <div className="mb-4 space-y-2">
+            <div
+              className={`flex items-center gap-2 p-3 rounded-lg cursor-pointer transition-colors ${activeChatTab === null ? 'bg-primary text-primary-foreground' : 'bg-card hover:bg-muted/50'}`}
+              onClick={() => setActiveChatTab(null)}
+            >
+              <MessageSquare className="h-4 w-4" />
+              <span className="text-sm font-medium">Current Chat</span>
+            </div>
+            {chatApps.map((app) => (
+              <div
+                key={app.id}
+                className={`flex items-center gap-2 p-3 rounded-lg cursor-pointer transition-colors ${activeChatTab === app.id ? 'bg-primary text-primary-foreground' : 'bg-card hover:bg-muted/50'}`}
+                onClick={() => setActiveChatTab(app.id)}
+              >
+                <span className="text-lg">{app.icon}</span>
+                <span className="text-sm font-medium">{app.name}</span>
+              </div>
+            ))}
+          </div>
+        )}
+
+        <div className="flex-1 flex flex-col">
+          <div className="flex gap-2 mb-4">
+            <button
+              onClick={() => setActiveTab("apps")}
+              className={`flex-1 py-2 px-4 rounded-lg text-sm font-medium transition-colors ${
+                activeTab === "apps" ? "bg-primary text-primary-foreground" : "bg-card hover:bg-muted/50"
+              }`}
+            >
+              Apps
+            </button>
+            <button
+              onClick={() => setActiveTab("music")}
+              className={`flex-1 py-2 px-4 rounded-lg text-sm font-medium transition-colors ${
+                activeTab === "music" ? "bg-primary text-primary-foreground" : "bg-card hover:bg-muted/50"
+              }`}
+            >
+              Music
+            </button>
+            <button
+              onClick={() => setActiveTab("media")}
+              className={`flex-1 py-2 px-4 rounded-lg text-sm font-medium transition-colors ${
+                activeTab === "media" ? "bg-primary text-primary-foreground" : "bg-card hover:bg-muted/50"
+              }`}
+            >
+              Media
+            </button>
+          </div>
 
           <div className="flex-1 overflow-y-auto custom-scrollbar">
             {filteredApps.length > 0 ? (
@@ -71,7 +126,7 @@ export function AppDrawer({
                   <div key={app.id} className="flex flex-col items-center gap-2">
                     <div
                       className="relative w-16 h-16 sm:w-20 sm:h-20 rounded-2xl flex items-center justify-center text-3xl sm:text-4xl shadow-md hover:scale-105 transition-transform cursor-pointer bg-card/50 border border-card-foreground/10"
-                      onClick={() => openSavedApp(app)}
+                      onClick={() => handleSwitchToSavedApp(app)}
                       onContextMenu={(e: React.MouseEvent) => {
                         e.preventDefault()
                         handleLongPressStart(app, e)
@@ -106,7 +161,7 @@ export function AppDrawer({
               </div>
             )}
           </div>
-        </Tabs>
+        </div>
       </div>
 
       {contextMenu && longPressedApp && (
@@ -115,11 +170,49 @@ export function AppDrawer({
           style={{ left: contextMenu.x, top: contextMenu.y }}
         >
           <button
-            className="w-full px-4 py-3 text-left hover:bg-destructive/20 flex items-center gap-3 text-destructive"
-            onClick={() => removeApp(contextMenu.appId)}
+            className="w-full px-4 py-3 text-left hover:bg-muted/50 flex items-center gap-3"
+            onClick={() => {
+              openSavedApp(longPressedApp)
+              setContextMenu(null)
+              setLongPressedApp(null)
+            }}
           >
-            <span className="text-xl">🗑️</span>
-            <span>Delete</span>
+            <ExternalLink className="h-4 w-4" />
+            <span>Open</span>
+          </button>
+          <button
+            className="w-full px-4 py-3 text-left hover:bg-muted/50 flex items-center gap-3"
+            onClick={() => {
+              editApp(longPressedApp)
+              setContextMenu(null)
+              setLongPressedApp(null)
+            }}
+          >
+            <Edit className="h-4 w-4" />
+            <span>Edit</span>
+          </button>
+          <button
+            className="w-full px-4 py-3 text-left hover:bg-muted/50 flex items-center gap-3"
+            onClick={() => {
+              shareApp(longPressedApp)
+              setContextMenu(null)
+              setLongPressedApp(null)
+            }}
+          >
+            <Share2 className="h-4 w-4" />
+            <span>Share</span>
+          </button>
+          <div className="h-px bg-border mx-2" />
+          <button
+            className="w-full px-4 py-3 text-left hover:bg-destructive/20 flex items-center gap-3 text-destructive"
+            onClick={() => {
+              removeApp(contextMenu.appId)
+              setContextMenu(null)
+              setLongPressedApp(null)
+            }}
+          >
+            <Trash2 className="h-4 w-4" />
+            <span>Uninstall</span>
           </button>
         </div>
       )}

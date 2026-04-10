@@ -7,7 +7,7 @@ interface PreviewPanelProps {
   localCode?: string
   onConsoleMessage: (msg: string) => void
   stopAutoReload?: boolean
-  onSaveToGallery?: (code: string, name: string) => void
+  onSaveToGallery?: () => void
   hasSavedToGallery?: boolean
   sessionApps?: any[]
   currentAppIndex?: number
@@ -31,6 +31,7 @@ export function PreviewPanel({
   const [isLoaded, setIsLoaded] = useState(false)
   const [isLoading, setIsLoading] = useState(true)
   const [hasUserInteracted, setHasUserInteracted] = useState(false)
+  const [bookmarkClicked, setBookmarkClicked] = useState(false)
 
   useEffect(() => {
     const handleMessage = (event: MessageEvent) => {
@@ -75,6 +76,14 @@ export function PreviewPanel({
     return () => clearInterval(interval)
   }, [isLoaded, stopAutoReload])
 
+  useEffect(() => {
+    setBookmarkClicked(false)
+  }, [previewUrl, localCode])
+
+  useEffect(() => {
+    setBookmarkClicked(false)
+  }, [sessionApps, currentAppIndex])
+
   const getHtmlForDownload = () => {
     if (localCode) {
       return `
@@ -105,12 +114,10 @@ export function PreviewPanel({
   }
 
   const handleSaveToGallery = () => {
-    const html = getHtmlForDownload()
-    if (html) {
-      const titleMatch = html.match(/<title>([^<]+)<\/title>/i)
-      const appName = titleMatch ? titleMatch[1].trim() : 'My App'
-      if (onSaveToGallery) onSaveToGallery(html, appName)
+    if (onSaveToGallery) {
+      onSaveToGallery()
     }
+    setBookmarkClicked(prev => !prev)
   }
 
   const displayUrl = previewUrl
@@ -159,13 +166,13 @@ export function PreviewPanel({
           <button
             onClick={handleSaveToGallery}
             className={`p-1.5 backdrop-blur-xl rounded-md border transition-all ${
-              hasSavedToGallery
+              bookmarkClicked
                 ? 'bg-green-500/20 border-green-500/30 text-green-500'
                 : 'bg-primary/20 border-primary/10 hover:bg-primary/30 text-primary'
             }`}
-            title={hasSavedToGallery ? "Saved to Gallery" : "Save to Gallery"}
+            title={bookmarkClicked ? "Saved to Gallery" : "Save to Gallery"}
           >
-            <Bookmark className={`h-3.5 w-3.5 ${hasSavedToGallery ? 'fill-current' : ''}`} />
+            <Bookmark className={`h-3.5 w-3.5 ${bookmarkClicked ? 'fill-current' : ''}`} />
           </button>
           <button
             onClick={() => {

@@ -1,5 +1,5 @@
 import React from "react"
-import { Send, Square } from "lucide-react"
+import { Send, Square, Save } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Textarea } from "@/components/ui/textarea"
 import { useChat } from "@ai-sdk/react"
@@ -10,6 +10,8 @@ interface ChatInputProps {
   isGenerating: boolean
   handleSubmit: (e?: React.FormEvent) => void
   stopGeneration: () => void
+  onEditSave?: () => void
+  isEditing?: boolean
 }
 
 export function ChatInput({
@@ -17,7 +19,9 @@ export function ChatInput({
   setInput,
   isGenerating,
   handleSubmit,
-  stopGeneration
+  stopGeneration,
+  onEditSave,
+  isEditing
 }: ChatInputProps) {
   return (
     <form
@@ -40,7 +44,17 @@ export function ChatInput({
             disabled={isGenerating}
           />
           <div className="absolute right-2 top-1/2 -translate-y-1/2 flex items-center gap-1">
-            {isGenerating && (
+            {isEditing && onEditSave ? (
+              <Button
+                type="button"
+                variant="secondary"
+                size="icon"
+                className="h-7 w-7 rounded-lg"
+                onClick={onEditSave}
+              >
+                <Save className="h-3 w-3" />
+              </Button>
+            ) : isGenerating && (
               <Button
                 type="button"
                 variant="secondary"
