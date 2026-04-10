@@ -621,10 +621,9 @@ const [hasSavedToGallery, setHasSavedToGallery] = useState(false)
             <h1 className="font-semibold text-lg">Srishti <span className="text-red-600">AI</span></h1>
             <StatusIndicator status={status} />
           </div>
-          <div className="flex items-center gap-2">
-            <Button variant="ghost" size="icon" className="h-6 w-6 relative" onClick={() => setShowAppDrawer(!showAppDrawer)}>
+<div className="flex items-center gap-2">
+            <Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => setShowAppDrawer(!showAppDrawer)}>
               <Grid className="h-4 w-4" />
-              {savedApps.length > 0 && <span className="absolute -top-1 -right-1 w-3 h-3 bg-red-500 rounded-full text-[8px] flex items-center justify-center text-white">{savedApps.length}</span>}
             </Button>
             <Button variant="ghost" size="icon" className="h-6 w-6" onClick={newSession}><Plus className="h-4 w-4" /></Button>
             <Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => setShowPreview(!showPreview)}><Eye className="h-4 w-4" /></Button>
