@@ -360,15 +360,15 @@ useEffect(() => {
   }
 
   const handleEditApp = async (app: SavedApp) => {
-    localStorage.setItem("chatMessages", JSON.stringify(messages))
-    setCurrentChatMessages(app.chatMessages || [])
-    setEditedAppCode(app.code)
+    setIsEditing(false)
     setInitialMessages(app.chatMessages || [])
-    setIsEditing(true)
+    setCurrentChatMessages(app.chatMessages || [])
     setLocalPreviewCode(app.code)
+    setEditedAppCode(app.code)
     setShowPreview(true)
     setShowAppDrawer(false)
     setBlobUrl("")
+    setHasSavedToGallery(false)
     setTimeout(() => {
       const htmlContent = `<!DOCTYPE html><html lang="en"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no"><title>Edit: ${app.name}</title><style>*{margin:0;padding:0;box-sizing:border-box;}body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;background:#1a1a2e;color:#eaeaea;min-height:100vh;padding:16px;}.app-container{max-width:100%;margin:0 auto;}</style></head><body><div class="app-container">${app.code}</div><script>window.parent.postMessage({ type: 'loaded' }, '*');</script></body></html>`
       const blob = new Blob([htmlContent], { type: 'text/html' })
@@ -586,7 +586,8 @@ const [hasSavedToGallery, setHasSavedToGallery] = useState(false)
           {shareMessage}
         </div>
       )}
-      <SettingsPanel 
+      
+           <SettingsPanel 
         showSettings={showSettings} setShowSettings={setShowSettings}
         darkMode={darkMode} setDarkMode={setDarkMode}
         providers={providers} selectedProvider={selectedProvider}
@@ -596,14 +597,14 @@ const [hasSavedToGallery, setHasSavedToGallery] = useState(false)
       {showPreview && window.innerWidth < 768 && (
         <div className="fixed inset-0 z-50 bg-card">
           <div className="flex items-center justify-between px-4 py-3 border-b">
-            <span className="text-sm font-medium">Preview</span>
+            <span className="text-sm font-medium">{savedApps.find(app => app.code === editedAppCode)?.name || "Current Chat"}</span>
             <Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => setShowPreview(false)}>
               <Eye className="h-4 w-4" />
             </Button>
           </div>
           <div className="h-[calc(100vh-53px)]">
             {blobUrl ? (
-              <PreviewPanel previewUrl={blobUrl} onConsoleMessage={handleConsoleMessage} stopAutoReload={status === "ready"} onSaveToGallery={handleSaveToGallery} hasSavedToGallery={hasSavedToGallery} sessionApps={sessionApps} currentAppIndex={currentAppIndex} onNavigateNext={navigateToNextApp} onNavigatePrev={navigateToPrevApp} />
+              <PreviewPanel previewUrl={blobUrl} onConsoleMessage={handleConsoleMessage} stopAutoReload={status === "ready"} onSaveToGallery={handleSaveToGallery} hasSavedToGallery={hasSavedToGallery} sessionApps={sessionApps} currentAppIndex={currentAppIndex} onNavigateNext={navigateToNextApp} onNavigatePrev={navigateToPrevApp} onEditApp={editedAppCode ? () => { const app = savedApps.find(a => a.code === editedAppCode); if (app) handleEditApp(app); } : undefined} />
             ) : (
               <div className="h-full flex items-center justify-center text-muted-foreground"><p className="text-sm">Preview will appear here</p></div>
             )}
@@ -655,7 +656,7 @@ const [hasSavedToGallery, setHasSavedToGallery] = useState(false)
         editApp={handleEditApp} shareApp={handleShareApp}
         handleLongPressStart={handleLongPressStart} handleLongPressEnd={handleLongPressEnd}
         handleSwitchToSavedApp={handleSwitchToSavedApp} setContextMenu={setContextMenu}
-        setLongPressedApp={setLongPressedApp}
+        setLongPressedApp={setLongPressedApp} setLongPressTimer={setLongPressTimer}
         contextMenu={contextMenu} longPressedApp={longPressedApp}
       />
 
@@ -663,7 +664,7 @@ const [hasSavedToGallery, setHasSavedToGallery] = useState(false)
         {showPreview && (
           <>
             <div className="flex-1 h-full overflow-hidden" style={{ scrollbarColor: '#404040 #000000', scrollbarWidth: 'thin' }}>
-              {blobUrl ? <PreviewPanel previewUrl={blobUrl} onConsoleMessage={handleConsoleMessage} stopAutoReload={status === "ready"} onSaveToGallery={() => handleSaveToGallery()} hasSavedToGallery={hasSavedToGallery} sessionApps={sessionApps} currentAppIndex={currentAppIndex} onNavigateNext={navigateToNextApp} onNavigatePrev={navigateToPrevApp} /> : <div className="h-full flex items-center justify-center text-muted-foreground"><p className="text-sm">Preview will appear here</p></div>}
+              {blobUrl ? <PreviewPanel previewUrl={blobUrl} onConsoleMessage={handleConsoleMessage} stopAutoReload={status === "ready"} onSaveToGallery={() => handleSaveToGallery()} hasSavedToGallery={hasSavedToGallery} sessionApps={sessionApps} currentAppIndex={currentAppIndex} onNavigateNext={navigateToNextApp} onNavigatePrev={navigateToPrevApp} onEditApp={editedAppCode ? () => { const app = savedApps.find(a => a.code === editedAppCode); if (app) handleEditApp(app); } : undefined} /> : <div className="h-full flex items-center justify-center text-muted-foreground"><p className="text-sm">Preview will appear here</p></div>}
             </div>
             <div className="cursor-col-resize hover:bg-primary/20 transition-colors" style={{ width: '4px' }} onMouseDown={handleResizeMouseDown} />
           </>

@@ -1,6 +1,6 @@
 import React, { useState } from "react"
 import { SavedApp } from "@/types"
-import { Edit, Share2, ExternalLink, Trash2, MessageSquare, Plus } from "lucide-react"
+import { Edit, Share2, ExternalLink, Trash2 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 
 interface AppDrawerProps {
@@ -16,6 +16,7 @@ interface AppDrawerProps {
   handleSwitchToSavedApp: (app: SavedApp) => void
   setContextMenu: (val: any) => void
   setLongPressedApp: (val: any) => void
+  setLongPressTimer: (val: any) => void
   contextMenu: { appId: string; x: number; y: number } | null
   longPressedApp: SavedApp | null
 }
@@ -33,23 +34,13 @@ export function AppDrawer({
   handleSwitchToSavedApp,
   setContextMenu,
   setLongPressedApp,
+  setLongPressTimer,
   contextMenu,
   longPressedApp
 }: AppDrawerProps) {
-  const [activeTab, setActiveTab] = useState("apps")
-  const [activeChatTab, setActiveChatTab] = useState<string | null>(null)
-
   if (!showAppDrawer) return null
 
-  const chatApps = savedApps.filter(app => app.chatMessages && app.chatMessages.length > 0)
-
-  const filteredApps = savedApps.filter(app => {
-    const lowered = app.name.toLowerCase()
-    if (activeTab === "apps") return true
-    if (activeTab === "music") return lowered.includes('music') || lowered.includes('song') || lowered.includes('audio') || lowered.includes('player')
-    if (activeTab === "media") return lowered.includes('photo') || lowered.includes('image') || lowered.includes('video') || lowered.includes('movie') || lowered.includes('film')
-    return true
-  })
+  const filteredApps = savedApps
 
   return (
     <div className="fixed inset-0 z-50 flex flex-col">
@@ -69,57 +60,8 @@ export function AppDrawer({
           </button>
         </div>
 
-        {chatApps.length > 0 && (
-          <div className="mb-4 space-y-2">
-            <div
-              className={`flex items-center gap-2 p-3 rounded-lg cursor-pointer transition-colors ${activeChatTab === null ? 'bg-primary text-primary-foreground' : 'bg-card hover:bg-muted/50'}`}
-              onClick={() => setActiveChatTab(null)}
-            >
-              <MessageSquare className="h-4 w-4" />
-              <span className="text-sm font-medium">Current Chat</span>
-            </div>
-            {chatApps.map((app) => (
-              <div
-                key={app.id}
-                className={`flex items-center gap-2 p-3 rounded-lg cursor-pointer transition-colors ${activeChatTab === app.id ? 'bg-primary text-primary-foreground' : 'bg-card hover:bg-muted/50'}`}
-                onClick={() => setActiveChatTab(app.id)}
-              >
-                <span className="text-lg">{app.icon}</span>
-                <span className="text-sm font-medium">{app.name}</span>
-              </div>
-            ))}
-          </div>
-        )}
-
-        <div className="flex-1 flex flex-col">
-          <div className="flex gap-2 mb-4">
-            <button
-              onClick={() => setActiveTab("apps")}
-              className={`flex-1 py-2 px-4 rounded-lg text-sm font-medium transition-colors ${
-                activeTab === "apps" ? "bg-primary text-primary-foreground" : "bg-card hover:bg-muted/50"
-              }`}
-            >
-              Apps
-            </button>
-            <button
-              onClick={() => setActiveTab("music")}
-              className={`flex-1 py-2 px-4 rounded-lg text-sm font-medium transition-colors ${
-                activeTab === "music" ? "bg-primary text-primary-foreground" : "bg-card hover:bg-muted/50"
-              }`}
-            >
-              Music
-            </button>
-            <button
-              onClick={() => setActiveTab("media")}
-              className={`flex-1 py-2 px-4 rounded-lg text-sm font-medium transition-colors ${
-                activeTab === "media" ? "bg-primary text-primary-foreground" : "bg-card hover:bg-muted/50"
-              }`}
-            >
-              Media
-            </button>
-          </div>
-
-          <div className="flex-1 overflow-y-auto custom-scrollbar">
+        <div className="flex-1 overflow-y-auto custom-scrollbar">
+          <div className="grid grid-cols-3 sm:grid-cols-4 lg:grid-cols-6 gap-3 sm:gap-4 pb-6">
             {filteredApps.length > 0 ? (
               <div className="grid grid-cols-3 sm:grid-cols-4 lg:grid-cols-6 gap-3 sm:gap-4 pb-6">
                 {filteredApps.map((app) => (
@@ -132,6 +74,7 @@ export function AppDrawer({
                         handleLongPressStart(app, e)
                       }}
                       onTouchStart={(e) => {
+                        e.preventDefault()
                         const timer = setTimeout(() => {
                           const target = e.target as HTMLElement
                           const rect = target.getBoundingClientRect()
@@ -141,8 +84,12 @@ export function AppDrawer({
                             y: rect.bottom + 5
                           })
                         }, 500)
+                        setLongPressTimer(timer)
                       }}
-                      onTouchEnd={handleLongPressEnd}
+                      onTouchEnd={(e) => {
+                        e.preventDefault()
+                        handleLongPressEnd()
+                      }}
                       onMouseUp={handleLongPressEnd}
                       onMouseLeave={handleLongPressEnd}
                     >

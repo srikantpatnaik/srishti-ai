@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react"
-import { RefreshCw, ExternalLink, Download, Bookmark, ChevronLeft, ChevronRight } from "lucide-react"
+import { RefreshCw, ExternalLink, Download, Bookmark, ChevronLeft, ChevronRight, Pencil } from "lucide-react"
 import JSZip from "jszip"
 
 interface PreviewPanelProps {
@@ -13,6 +13,7 @@ interface PreviewPanelProps {
   currentAppIndex?: number
   onNavigateNext?: () => void
   onNavigatePrev?: () => void
+  onEditApp?: () => void
 }
 
 export function PreviewPanel({
@@ -25,7 +26,8 @@ export function PreviewPanel({
   sessionApps = [],
   currentAppIndex = -1,
   onNavigateNext,
-  onNavigatePrev
+  onNavigatePrev,
+  onEditApp
 }: PreviewPanelProps) {
   const iframeRef = useRef<HTMLIFrameElement>(null)
   const [isLoaded, setIsLoaded] = useState(false)
@@ -117,7 +119,7 @@ export function PreviewPanel({
     if (onSaveToGallery) {
       onSaveToGallery()
     }
-    setBookmarkClicked(prev => !prev)
+    setBookmarkClicked(true)
   }
 
   const displayUrl = previewUrl
@@ -128,8 +130,8 @@ export function PreviewPanel({
 
   return (
     <div className="flex-1 flex flex-col h-full">
-      <div className="flex-1 h-full bg-card relative">
-        <div className="absolute top-4 left-4 z-10 flex gap-1">
+      <div className="flex-1 h-full bg-card relative pt-12">
+        <div className="absolute top-4 left-4 z-10 flex gap-1 items-center">
           {sessionApps.length > 1 && (
             <>
               <button
@@ -161,14 +163,23 @@ export function PreviewPanel({
               </button>
             </>
           )}
+          {onEditApp && (
+            <button
+              onClick={onEditApp}
+              className="p-1.5 backdrop-blur-xl rounded-md border bg-card/30 border-card-foreground/5 hover:bg-card/40 transition-all"
+              title="Edit"
+            >
+              <Pencil className="h-3.5 w-3.5" />
+            </button>
+          )}
         </div>
         <div className="absolute top-4 right-4 z-10 flex gap-2">
           <button
             onClick={handleSaveToGallery}
             className={`p-1.5 backdrop-blur-xl rounded-md border transition-all ${
               bookmarkClicked
-                ? 'bg-green-500/20 border-green-500/30 text-green-500'
-                : 'bg-primary/20 border-primary/10 hover:bg-primary/30 text-primary'
+                ? 'bg-muted/50 border-muted/30 text-foreground fill-current'
+                : 'bg-transparent border-transparent hover:bg-muted/30 text-muted-foreground'
             }`}
             title={bookmarkClicked ? "Saved to Gallery" : "Save to Gallery"}
           >
