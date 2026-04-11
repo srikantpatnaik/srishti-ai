@@ -1,7 +1,6 @@
 import { useEffect, useRef, useState } from "react"
 import { ExternalLink, Download, Bookmark } from "lucide-react"
 import JSZip from "jszip"
-import type { SavedApp } from "@/types"
 
 interface PreviewPanelProps {
   previewUrl: string
@@ -10,11 +9,6 @@ interface PreviewPanelProps {
   stopAutoReload?: boolean
   onSaveToGallery?: () => void
   hasSavedToGallery?: boolean
-  sessionApps?: SavedApp[]
-  currentAppIndex?: number
-  onNavigateNext?: () => void
-  onNavigatePrev?: () => void
-  onEditApp?: () => void
 }
 
 export function PreviewPanel({
@@ -24,11 +18,6 @@ export function PreviewPanel({
   stopAutoReload = false,
   onSaveToGallery,
   hasSavedToGallery = false,
-  sessionApps = [],
-  currentAppIndex = -1,
-  onNavigateNext,
-  onNavigatePrev,
-  onEditApp
 }: PreviewPanelProps) {
   const iframeRef = useRef<HTMLIFrameElement>(null)
   const [isLoaded, setIsLoaded] = useState(false)

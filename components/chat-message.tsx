@@ -168,9 +168,9 @@ export function ChatMessage({ message, previewUrl, onPreviewClick, status }: Cha
       <div
         className={cn(
           "px-4 py-3 text-[15px] leading-relaxed",
-          isUser 
-            ? "bg-[#2e2e32] text-[#e5e5e5] max-w-[95%] sm:max-w-[92%] rounded-2xl rounded-br-md ml-auto" 
-            : "bg-[#1a1a1f] text-[#e5e5e5] max-w-[95%] sm:max-w-[92%] rounded-2xl rounded-bl-md"
+isUser 
+             ? "bg-[#2e2e32] text-[#e5e5e5] max-w-[100%] sm:max-w-[98%] rounded-2xl rounded-br-md ml-auto" 
+             : "bg-[#1a1a1f] text-[#e5e5e5] max-w-[100%] sm:max-w-[98%] rounded-2xl rounded-bl-md"
         )}
       >
         <div className="min-w-0">
@@ -179,7 +179,7 @@ export function ChatMessage({ message, previewUrl, onPreviewClick, status }: Cha
       </div>
       
       {/* Status / Loading indicator in chat area */}
-      {status && status !== "idle" && status !== "ready" && (
+      {!isUser && status && status !== "idle" && status !== "ready" && (
         <div className="flex items-center gap-2 text-sm text-[#888888] px-2">
           <Loader2 className="h-4 w-4 animate-spin" />
           <span>
@@ -197,11 +197,12 @@ export function ChatMessage({ message, previewUrl, onPreviewClick, status }: Cha
           onClick={onPreviewClick}
           className="mt-2 cursor-pointer group relative overflow-hidden rounded-xl border border-[#2e2e32] hover:border-[#3b82f6] transition-colors"
         >
-          <iframe
-            src={previewUrl}
-            className="w-full h-48 sm:h-64 border-0 bg-[#0a0a0f]"
-            sandbox="allow-scripts allow-same-origin"
-          />
+<iframe
+             src={previewUrl}
+             className="w-full h-48 sm:h-64 border-0 bg-[#0a0a0f]"
+             style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}
+             sandbox="allow-scripts allow-same-origin"
+           />
           <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
             <div className="bg-[#3b82f6] text-white px-4 py-2 rounded-lg flex items-center gap-2">
               <ExternalLink className="h-4 w-4" />
