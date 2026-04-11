@@ -38,19 +38,6 @@ export function PreviewPanel({
   }, [onConsoleMessage])
 
   useEffect(() => {
-    if (stopAutoReload || !isLoaded) {
-      return
-    }
-
-    const interval = setInterval(() => {
-      if (iframeRef.current) {
-        iframeRef.current.src = iframeRef.current.src
-      }
-    }, 5000)
-    return () => clearInterval(interval)
-  }, [isLoaded, stopAutoReload])
-
-  useEffect(() => {
     setBookmarkClicked(false)
   }, [previewUrl, localCode])
 

@@ -58,23 +58,22 @@
   }
 }
 
-/* DeepSeek-inspired scrollbar styling */
+/* Hide all scrollbars */
 ::-webkit-scrollbar {
-  width: 6px;
-  height: 6px;
+  display: none;
 }
 
 ::-webkit-scrollbar-track {
-  background: transparent;
+  display: none;
 }
 
 ::-webkit-scrollbar-thumb {
-  background: rgba(255, 255, 255, 0.15);
-  border-radius: 3px;
+  display: none;
 }
 
-::-webkit-scrollbar-thumb:hover {
-  background: rgba(255, 255, 255, 0.25);
+* {
+  scrollbar-width: none;
+  -ms-overflow-style: none;
 }
 
 /* Mobile-first responsive utilities */

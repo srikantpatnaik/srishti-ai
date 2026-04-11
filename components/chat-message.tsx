@@ -1,3 +1,4 @@
+import React from "react"
 import { User, Bot, FileCode, CheckCircle2, AlertCircle, TerminalIcon, Code2, Play, Check, ExternalLink, Loader2 } from "lucide-react"
 import { cn } from "@/lib/utils"
 import ReactMarkdown from "react-markdown"
@@ -21,7 +22,7 @@ interface ChatMessageProps {
   status?: string
 }
 
-export function ChatMessage({ message, previewUrl, onPreviewClick, status }: ChatMessageProps) {
+export const ChatMessage = React.memo(function ChatMessage({ message, previewUrl, onPreviewClick, status }: ChatMessageProps) {
   const isUser = message.role === "user"
 
   const renderContent = () => {
@@ -167,7 +168,7 @@ export function ChatMessage({ message, previewUrl, onPreviewClick, status }: Cha
     <div className="space-y-3">
       <div
         className={cn(
-          "px-4 py-3 text-[15px] leading-relaxed",
+          "px-3 py-2 text-[14px] leading-relaxed",
 isUser 
               ? "bg-[#2e2e32] text-[#e5e5e5] max-w-[100%] sm:max-w-[100%] rounded-2xl rounded-br-md ml-auto" 
               : "bg-[#1a1a1f] text-[#e5e5e5] max-w-[100%] sm:max-w-[100%] rounded-2xl rounded-bl-md"
@@ -191,18 +192,23 @@ isUser
         </div>
       )}
       
-      {/* Preview thumbnail in chat - shown when there's a preview URL */}
+{/* Preview thumbnail in chat - shown when there's a preview URL */}
       {previewUrl && !isUser && (
         <div 
           onClick={onPreviewClick}
           className="mt-2 cursor-pointer group relative overflow-hidden rounded-xl border border-[#2e2e32] hover:border-[#3b82f6] transition-colors"
         >
-<iframe
-             src={previewUrl}
-             className="w-full h-48 sm:h-64 border-0 bg-[#0a0a0f]"
-             style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}
-             sandbox="allow-scripts allow-same-origin"
-           />
+          <iframe
+            src={previewUrl}
+            className="w-full h-48 sm:h-64 border-0 bg-[#0a0a0f]"
+            style={{ 
+              scrollbarWidth: 'none', 
+              msOverflowStyle: 'none', 
+              overflow: 'hidden'
+            } as React.CSSProperties}
+            scrolling="no"
+            sandbox="allow-scripts allow-same-origin"
+          />
           <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
             <div className="bg-[#3b82f6] text-white px-4 py-2 rounded-lg flex items-center gap-2">
               <ExternalLink className="h-4 w-4" />
@@ -213,4 +219,4 @@ isUser
       )}
     </div>
   )
-}
+})

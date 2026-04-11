@@ -1,5 +1,5 @@
-import React, { useState } from "react"
-import { Clock, ChevronDown, ChevronRight } from "lucide-react"
+import React, { useState, useMemo } from "react"
+import { Clock, ChevronDown, ChevronRight, PanelLeftClose } from "lucide-react"
 
 interface RecentChat {
   id: string
@@ -14,6 +14,21 @@ interface SettingsPanelProps {
   onLoadChat: (chatId: string) => void
 }
 
+function formatChatDate(timestamp: number): string {
+  const date = new Date(timestamp)
+  const now = new Date()
+  const today = new Date(now.getFullYear(), now.getMonth(), now.getDate())
+  const yesterday = new Date(today.getTime() - 24 * 60 * 60 * 1000)
+  const weekAgo = new Date(today.getTime() - 7 * 24 * 60 * 60 * 1000)
+  
+  const chatDate = new Date(date.getFullYear(), date.getMonth(), date.getDate())
+  
+  if (chatDate.getTime() === today.getTime()) return "Today"
+  if (chatDate.getTime() === yesterday.getTime()) return "Yesterday"
+  if (chatDate.getTime() > weekAgo.getTime()) return "This Week"
+  return "Older"
+}
+
 export function SettingsPanel({
   showSettings,
   setShowSettings,
@@ -22,13 +37,30 @@ export function SettingsPanel({
 }: SettingsPanelProps) {
   const [showShortcuts, setShowShortcuts] = useState(false)
 
+  const groupedChats = useMemo(() => {
+    const groups: { [key: string]: RecentChat[] } = {}
+    recentChats.forEach(chat => {
+      const dateKey = formatChatDate(chat.timestamp)
+      if (!groups[dateKey]) groups[dateKey] = []
+      groups[dateKey].push(chat)
+    })
+    return groups
+  }, [recentChats])
+
+  const groupOrder = ["Today", "Yesterday", "This Week", "Older"]
+
   if (!showSettings) return null
 
   return (
-    <div className="h-full bg-[#121215] flex flex-col transition-all duration-300 overflow-y-auto"
-         style={{ scrollbarColor: '#404040 #000000', scrollbarWidth: 'thin' }}>
-      <div className="p-4">
+    <div className="w-[70%] sm:w-[20%] h-full bg-[#0d0d10] flex flex-col transition-all duration-300 overflow-y-auto [&::-webkit-scrollbar]:hidden border-r border-[#1f1f23]">
+      <div className="p-4 flex items-center justify-between">
         <h2 className="text-[#e5e5e5] text-base font-medium">Settings</h2>
+        <button 
+          onClick={() => setShowSettings(false)}
+          className="p-2 rounded-lg transition-all text-[#888888] hover:text-[#e5e5e5] hover:bg-[#1f1f23]"
+        >
+          <PanelLeftClose className="h-4 w-4" />
+        </button>
       </div>
 
       {recentChats.length > 0 && (
@@ -37,16 +69,27 @@ export function SettingsPanel({
             <Clock className="h-4 w-4 text-[#888888]" />
             <h3 className="text-[#888888] text-sm font-semibold">Recent Chats</h3>
           </div>
-          <div className="space-y-1">
-            {recentChats.map((chat) => (
-              <button
-                key={chat.id}
-                onClick={() => onLoadChat(chat.id)}
-                className="w-full text-left px-3 py-2 rounded-lg text-sm text-[#e5e5e5] hover:bg-[#2e2e32] transition-colors truncate"
-              >
-                {chat.title}
-              </button>
-            ))}
+          <div className="space-y-4">
+            {groupOrder.map(group => {
+              const chats = groupedChats[group]
+              if (!chats || chats.length === 0) return null
+              return (
+                <div key={group}>
+                  <p className="text-[#666666] text-xs font-medium mb-1 px-1">{group}</p>
+                  <div className="space-y-0.5">
+                    {chats.map((chat) => (
+                      <button
+                        key={chat.id}
+                        onClick={() => onLoadChat(chat.id)}
+                        className="w-full text-left px-3 py-2 rounded-lg text-sm text-[#e5e5e5] hover:bg-[#2e2e32] transition-colors truncate"
+                      >
+                        {chat.title}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              )
+            })}
           </div>
         </div>
       )}

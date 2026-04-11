@@ -1,6 +1,7 @@
 import React, { useState, useMemo } from "react"
 import { SavedApp } from "@/types"
-import { Edit, Share2, ExternalLink, Trash2, Search, X } from "lucide-react"
+import { Edit, Share2, ExternalLink, Trash2, Search, X, Download } from "lucide-react"
+import JSZip from "jszip"
 
 interface AppDrawerProps {
   showAppDrawer: boolean
@@ -18,6 +19,7 @@ interface AppDrawerProps {
   setLongPressTimer: (val: any) => void
   contextMenu: { appId: string; x: number; y: number } | null
   longPressedApp: SavedApp | null
+  onDownloadApp?: (app: SavedApp) => void
 }
 
 type Category = "All" | "Apps" | "Games" | "Media"
@@ -47,10 +49,59 @@ export function AppDrawer({
   setLongPressedApp,
   setLongPressTimer,
   contextMenu,
-  longPressedApp
+  longPressedApp,
+  onDownloadApp
 }: AppDrawerProps) {
   const [activeCategory, setActiveCategory] = useState<Category>("All")
   const [searchQuery, setSearchQuery] = useState("")
+  const [menuOpenedByTouch, setMenuOpenedByTouch] = useState(false)
+
+  const downloadApp = async (app: SavedApp) => {
+    try {
+      const zip = new JSZip()
+      const htmlContent = `<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>${app.name}</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background: #1a1a2e; color: #eaeaea; min-height: 100vh; padding: 16px; }
+    .app-container { max-width: 100%; margin: 0 auto; }
+  </style>
+</head>
+<body>
+  <div class="app-container">
+    ${app.code}
+  </div>
+</body>
+</html>`
+      zip.file("index.html", htmlContent)
+      const zipBlob = await zip.generateAsync({ type: "blob" })
+      const url = URL.createObjectURL(zipBlob)
+      const link = document.createElement('a')
+      link.href = url
+      link.download = `${app.name.replace(/[^a-z0-9]/gi, '-').toLowerCase()}.zip`
+      document.body.appendChild(link)
+      link.click()
+      document.body.removeChild(link)
+      URL.revokeObjectURL(url)
+    } catch (error) {
+      console.error('Failed to download:', error)
+    }
+  }
+
+  const handleContextMenu = (app: SavedApp, e: React.MouseEvent) => {
+    e.preventDefault()
+    setMenuOpenedByTouch(false)
+    setContextMenu({
+      appId: app.id,
+      x: e.clientX,
+      y: e.clientY
+    })
+    setLongPressedApp(app)
+  }
 
   const filteredApps = useMemo(() => {
     return savedApps.filter(app => {
@@ -67,13 +118,13 @@ export function AppDrawer({
   return (
     <div className="fixed inset-0 z-50 flex flex-col">
       <div 
-        className="absolute inset-0 bg-black/60 backdrop-blur-md"
+        className="absolute inset-0 bg-black/80 backdrop-blur-xl"
         onClick={() => setShowAppDrawer(false)}
       />
       
-      <div className="relative z-10 flex-1 flex flex-col px-4 pt-4 pb-6 sm:px-6 sm:pt-6 max-w-2xl mx-auto w-full">
-        <div className="flex items-center justify-between mb-4">
-          <h2 className="text-xl font-medium text-white">App library</h2>
+      <div className="relative z-10 flex-1 flex flex-col px-4 pt-4 pb-6 sm:px-6 sm:pt-6 max-w-md mx-auto w-full mt-16">
+        <div className="flex items-center justify-between mb-6">
+          <h2 className="text-2xl font-semibold text-white">App Library</h2>
           <button
             className="w-8 h-8 flex items-center justify-center rounded-full hover:bg-white/10 text-white/70 hover:text-white transition-colors"
             onClick={() => setShowAppDrawer(false)}
@@ -82,48 +133,19 @@ export function AppDrawer({
           </button>
         </div>
 
-        <div className="relative mb-4">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-white/50" />
-          <input
-            type="text"
-            placeholder="Search apps"
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            className="w-full h-10 pl-10 pr-4 rounded-full bg-white/10 text-white placeholder:text-white/50 text-sm outline-none focus:ring-2 focus:ring-white/20"
-          />
-        </div>
-
-        <div className="flex gap-1 mb-4 -mx-2 px-2">
-          {categories.map((cat) => (
-            <button
-              key={cat}
-              onClick={() => setActiveCategory(cat)}
-              className={`px-4 py-2 rounded-full text-sm font-medium transition-colors ${
-                activeCategory === cat
-                  ? "bg-white text-black"
-                  : "text-white/70 hover:text-white hover:bg-white/10"
-              }`}
-            >
-              {cat}
-            </button>
-          ))}
-        </div>
-
         <div className="flex-1 overflow-y-auto custom-scrollbar">
           {filteredApps.length > 0 ? (
-            <div className="grid grid-cols-4 gap-1.5">
+            <div className="grid grid-cols-3 gap-4 py-2">
               {filteredApps.map((app) => (
-                <div key={app.id} className="flex flex-col items-center gap-1 py-2">
+                <div key={app.id} className="flex flex-col items-center gap-2 py-3">
                   <div
-                    className="w-14 h-14 rounded-xl flex items-center justify-center text-2xl hover:bg-white/10 transition-colors cursor-pointer"
+                    className="w-20 h-20 rounded-2xl flex items-center justify-center text-4xl bg-gradient-to-br from-white/20 to-white/5 shadow-lg hover:scale-105 hover:shadow-xl hover:from-white/30 hover:to-white/10 transition-all cursor-pointer border border-white/10"
                     onClick={() => handleSwitchToSavedApp(app)}
-                    onContextMenu={(e: React.MouseEvent) => {
-                      e.preventDefault()
-                      handleLongPressStart(app, e)
-                    }}
+                    onContextMenu={(e) => handleContextMenu(app, e)}
                     onTouchStart={(e) => {
                       e.preventDefault()
                       const timer = setTimeout(() => {
+                        setMenuOpenedByTouch(true)
                         const target = e.target as HTMLElement
                         const rect = target.getBoundingClientRect()
                         setContextMenu({
@@ -136,14 +158,24 @@ export function AppDrawer({
                     }}
                     onTouchEnd={(e) => {
                       e.preventDefault()
-                      handleLongPressEnd()
+                      if (!menuOpenedByTouch) {
+                        handleLongPressEnd()
+                      }
                     }}
-                    onMouseUp={handleLongPressEnd}
-                    onMouseLeave={handleLongPressEnd}
+                    onMouseUp={() => {
+                      if (!menuOpenedByTouch && !contextMenu) {
+                        handleLongPressEnd()
+                      }
+                    }}
+                    onMouseLeave={() => {
+                      if (!menuOpenedByTouch && !contextMenu) {
+                        handleLongPressEnd()
+                      }
+                    }}
                   >
                     {app.icon}
                   </div>
-                  <p className="text-[11px] text-white text-center truncate w-16 px-1 leading-tight">
+                  <p className="text-xs text-white/90 text-center truncate w-20 px-1 leading-tight font-medium">
                     {app.name}
                   </p>
                 </div>
@@ -159,8 +191,14 @@ export function AppDrawer({
 
       {contextMenu && longPressedApp && (
         <div
-          className="absolute z-50 bg-[#2a2a2a] rounded-2xl shadow-2xl overflow-hidden border border-white/10"
+          className="absolute z-50 bg-[#2a2a2a] rounded-2xl shadow-2xl overflow-hidden border border-white/10 min-w-[160px]"
           style={{ left: contextMenu.x, top: contextMenu.y }}
+          onMouseLeave={() => {
+            if (!menuOpenedByTouch) {
+              setContextMenu(null)
+              setLongPressedApp(null)
+            }
+          }}
         >
           <button
             className="w-full px-4 py-3 text-left hover:bg-white/10 flex items-center gap-3 text-white"
@@ -187,13 +225,13 @@ export function AppDrawer({
           <button
             className="w-full px-4 py-3 text-left hover:bg-white/10 flex items-center gap-3 text-white"
             onClick={() => {
-              shareApp(longPressedApp)
+              if (longPressedApp) downloadApp(longPressedApp)
               setContextMenu(null)
               setLongPressedApp(null)
             }}
           >
-            <Share2 className="h-4 w-4" />
-            <span>Share</span>
+            <Download className="h-4 w-4" />
+            <span>Download</span>
           </button>
           <div className="h-px bg-white/10 mx-2" />
           <button

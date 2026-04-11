@@ -1,6 +1,6 @@
 "use client"
 
-import React, { useState, useEffect, useRef, useCallback } from "react"
+import React, { useState, useEffect, useRef, useCallback, useMemo } from "react"
 import { Bot, ChevronLeft, ChevronRight, Grid, X, PanelLeftClose, PanelLeftOpen, PanelRightClose, PanelRightOpen } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { ScrollArea } from "@/components/ui/scroll-area"
@@ -43,6 +43,9 @@ export default function Home() {
   const [showScrollButton, setShowScrollButton] = useState(false)
   const [recentChats, setRecentChats] = useState<{ id: string; title: string; timestamp: number }[]>([])
   const [settingsExpanded, setSettingsExpanded] = useState(false)
+  const [currentChatId, setCurrentChatId] = useState<string>("")
+  const [chatKey, setChatKey] = useState("0")
+  const [messagePreviews, setMessagePreviews] = useState<Map<number, string>>(new Map())
 
   const { darkMode, setDarkMode } = useDarkMode()
 
@@ -63,6 +66,7 @@ export default function Home() {
     append,
     stop: stopChat,
   } = useChat({
+    key: chatKey,
     api: "/api/chat",
     initialMessages: initialMessages,
     body: { isAutonomous: true, selectedProvider },
@@ -121,6 +125,16 @@ export default function Home() {
   }, [])
 
   useEffect(() => {
+    const chatCleared = localStorage.getItem("chatCleared")
+    if (chatCleared === "true") {
+      localStorage.removeItem("chatCleared")
+      setInitialMessages([])
+      setCurrentChatMessages([])
+      setLocalPreviewCode("")
+      setMessagePreviews(new Map())
+      return
+    }
+    
     if (currentChatMessages.length > 0) {
       setInitialMessages(currentChatMessages)
       setInput("")
@@ -173,18 +187,30 @@ export default function Home() {
       if (userMessages.length > 0) {
         const lastUserMsg = userMessages[userMessages.length - 1]
         const title = lastUserMsg.content?.substring(0, 40).replace(/[^a-zA-Z0-9 ]/g, ' ').trim() || 'New Chat'
-        const chatId = Date.now().toString()
+        
+        const chatId = currentChatId || Date.now().toString()
+        if (!currentChatId) {
+          setCurrentChatId(chatId)
+        }
+        
+        localStorage.setItem(`chatHistory_${chatId}`, JSON.stringify(messages))
         
         setRecentChats(prev => {
-          const filtered = prev.filter(c => c.title !== title)
-          const newChat = { id: chatId, title, timestamp: Date.now() }
-          const updated = [newChat, ...filtered].slice(0, 10)
+          const existingIndex = prev.findIndex(c => c.id === chatId)
+          let updated
+          if (existingIndex >= 0) {
+            updated = prev.map((c, i) => i === existingIndex ? { ...c, title, timestamp: Date.now() } : c)
+          } else {
+            const filtered = prev.filter(c => c.title !== title)
+            const newChat = { id: chatId, title, timestamp: Date.now() }
+            updated = [newChat, ...filtered].slice(0, 10)
+          }
           localStorage.setItem("recentChats", JSON.stringify(updated))
           return updated
         })
       }
     }
-  }, [messages])
+  }, [messages, currentChatId])
 
   useEffect(() => {
     const urlParams = new URLSearchParams(window.location.search)
@@ -365,6 +391,19 @@ useEffect(() => {
       const blob = new Blob([htmlContent], { type: 'text/html' })
       const url = URL.createObjectURL(blob)
       setBlobUrl(url)
+      
+      // Find the assistant message that contains this code and store preview with it
+      for (let i = messages.length - 1; i >= 0; i--) {
+        const message = messages[i]
+        if (message.role === 'assistant' && message.content) {
+          const match = message.content.match(/```html([\s\S]*?)```/)
+          if (match && match[1].trim() === localPreviewCode) {
+            setMessagePreviews(prev => new Map(prev).set(i, url))
+            break
+          }
+        }
+      }
+      
       return () => URL.revokeObjectURL(url)
     }
   }, [localPreviewCode])
@@ -442,8 +481,10 @@ useEffect(() => {
     setLongPressedApp(null)
   }
 
-const newSession = () => {
-    localStorage.removeItem("chatMessages")
+  const newSession = () => {
+    setChatKey(prev => String(Number(prev) + 1))
+    const newChatId = Date.now().toString()
+    setCurrentChatId(newChatId)
     setCurrentChatMessages([])
     setInput("")
     setInitialMessages([])
@@ -453,13 +494,17 @@ const newSession = () => {
     setEditedAppCode("")
     setIsEditing(false)
     setHasSavedToGallery(false)
+    setMessagePreviews(new Map())
     if (blobUrl) { URL.revokeObjectURL(blobUrl); setBlobUrl("") }
+    localStorage.removeItem("chatMessages")
+    localStorage.setItem("chatCleared", "true")
   }
 
 const [hasSavedToGallery, setHasSavedToGallery] = useState(false)
   const [sessionApps, setSessionApps] = useState<SavedApp[]>([])
   const [currentAppIndex, setCurrentAppIndex] = useState(-1)
   const [activeChatTab, setActiveChatTab] = useState<string | null>(null)
+  const [visibleRange, setVisibleRange] = useState({ start: 0, end: 50 })
 
   useEffect(() => {
     if (sessionApps.length > 0) {
@@ -474,34 +519,54 @@ const [hasSavedToGallery, setHasSavedToGallery] = useState(false)
   }, [showPreview])
 
   const handleSaveToGallery = async () => {
-    if (isEditing) {
-      return
+    try {
+      const codeToSave = localPreviewCode || (sessionApps[currentAppIndex]?.code ?? '')
+      if (!codeToSave) {
+        return
+      }
+      const lastUserMsg = messages.filter(m => m.role === 'user').pop()
+      const fillerWords = ['a', 'an', 'the', 'make', 'make a', 'build', 'build a', 'create', 'create a', 'can you', 'please', 'i want', 'build me', 'create me', 'app', 'application', 'in', 'telugu', 'hindi', 'tamil', 'kannada', 'malayalam', 'bengali', 'marathi', 'gujarati']
+      let rawName = lastUserMsg?.content || 'My App'
+      fillerWords.forEach(word => {
+        rawName = rawName.replace(new RegExp('\\b' + word + '\\b', 'gi'), ' ')
+      })
+      rawName = rawName.replace(/[^\p{L}\p{N}\s]/gu, ' ').replace(/\s+/g, ' ').trim()
+      const words = rawName.split(' ').filter(w => w.trim().length > 0)
+      let appName = words.slice(0, 3).join(' ').trim() || 'My App'
+      appName = appName.split(' ').map((w, i) => {
+        const cleaned = w.trim()
+        if (!cleaned) return ''
+        return i === 0 ? cleaned.charAt(0).toUpperCase() + cleaned.slice(1).toLowerCase() : cleaned.toLowerCase()
+      }).join(' ').trim()
+      if (appName.length > 20) {
+        appName = words.slice(0, 2).join(' ').trim()
+        appName = appName.charAt(0).toUpperCase() + appName.slice(1).toLowerCase()
+      }
+      if (!appName || appName.length < 2) {
+        appName = 'My App'
+      }
+      const existingApp = savedApps.find(app => app.code === codeToSave)
+      if (existingApp) {
+        return
+      }
+      const newApp: SavedApp = {
+        id: Date.now().toString(),
+        name: appName,
+        icon: getAppIcon(appName),
+        code: codeToSave,
+        url: "",
+        chatMessages: messages,
+        createdAt: Date.now()
+      }
+      await saveAppToDB(newApp)
+      const blob = new Blob([codeToSave], { type: 'text/html' })
+      const url = URL.createObjectURL(blob)
+      const appWithUrl = { ...newApp, url }
+      setSavedApps(prev => [appWithUrl, ...prev])
+      setHasSavedToGallery(true)
+    } catch (error) {
+      console.error('Failed to save to gallery:', error)
     }
-    if (sessionApps.length > 0) {
-      return
-    }
-    const lastUserMsg = messages.filter(m => m.role === 'user').pop()
-    const rawName = lastUserMsg?.content?.substring(0, 30).replace(/[^a-zA-Z0-9 ]/g, ' ').trim() || 'My App'
-    const appName = rawName.split(' ').slice(0, 2).join(' ')
-    const existingApp = savedApps.find(app => app.code === localPreviewCode)
-    if (existingApp) {
-      return
-    }
-    const newApp: SavedApp = {
-      id: Date.now().toString(),
-      name: appName,
-      icon: getAppIcon(appName),
-      code: localPreviewCode,
-      url: "",
-      chatMessages: messages,
-      createdAt: Date.now()
-    }
-    await saveAppToDB(newApp)
-    const blob = new Blob([localPreviewCode], { type: 'text/html' })
-    const url = URL.createObjectURL(blob)
-    const appWithUrl = { ...newApp, url }
-    setSavedApps(prev => [appWithUrl, ...prev])
-    setHasSavedToGallery(true)
   }
 
   useEffect(() => {
@@ -515,6 +580,15 @@ const [hasSavedToGallery, setHasSavedToGallery] = useState(false)
       setHasSavedToGallery(false)
     }
   }, [showPreview])
+
+  useEffect(() => {
+    const totalMessages = messages.length
+    if (totalMessages > 50) {
+      setVisibleRange({ start: totalMessages - 50, end: totalMessages })
+    } else {
+      setVisibleRange({ start: 0, end: totalMessages })
+    }
+  }, [messages.length])
 
   const handleSwitchToSavedApp = (app: SavedApp) => {
     setIsEditing(false)
@@ -555,22 +629,21 @@ const [hasSavedToGallery, setHasSavedToGallery] = useState(false)
   }
 
   const handleNewChat = () => {
+    newSession()
     setActiveChatTab(null)
-    setInitialMessages([])
-    setLocalPreviewCode("")
-    setBlobUrl("")
-    setIsEditing(false)
   }
 
   const loadRecentChat = (chatId: string) => {
     const chat = recentChats.find(c => c.id === chatId)
     if (chat) {
-      const savedMessagesData = localStorage.getItem("chatMessages")
+      setCurrentChatId(chatId)
+      const savedMessagesData = localStorage.getItem(`chatHistory_${chatId}`)
       if (savedMessagesData) {
         try {
           const messagesData = JSON.parse(savedMessagesData)
           setInitialMessages(messagesData)
           setCurrentChatMessages(messagesData)
+          localStorage.setItem("chatMessages", JSON.stringify(messagesData))
         } catch (e) { console.error("Failed to load chat messages") }
       }
     }
@@ -650,73 +723,43 @@ const [hasSavedToGallery, setHasSavedToGallery] = useState(false)
       )}
 
       <div className="flex-1 flex flex-col min-w-0">
-        <header className="px-4 py-3 flex items-center justify-between bg-[#121215] flex-shrink-0 border-b border-[#2e2e32]">
-          <div className="flex items-center gap-2">
-            {showSettings ? (
-              <button 
-                onClick={() => setShowSettings(false)}
-                className="p-2 rounded-lg transition-colors bg-[#2e2e32] text-[#888888] hover:bg-[#2e2e32]/80"
-              >
-                <PanelLeftClose className="h-4 w-4" />
-              </button>
-            ) : (
-              <button 
-                onClick={() => setShowSettings(true)}
-                className="p-2 rounded-lg transition-colors bg-[#2e2e32] text-[#888888] hover:bg-[#2e2e32]/80"
-              >
-                <PanelLeftOpen className="h-4 w-4" />
-              </button>
-            )}
-            <h1 className="font-medium text-base text-[#e5e5e5]">Srishti <span className="text-red-600">AI</span></h1>
-            
+        {!showSettings && (
+          <div className="absolute top-4 left-4 z-50">
+            <button 
+              onClick={() => setShowSettings(true)}
+              className="p-3 rounded-xl transition-all bg-[#1f1f23] text-[#888888] hover:text-[#e5e5e5] hover:bg-[#2e2e32] shadow-lg border border-[#2e2e32]"
+            >
+              <PanelLeftOpen className="h-5 w-5" />
+            </button>
           </div>
-          <div className="flex items-center gap-2">
-            <Button variant="ghost" size="icon" className="h-6 w-6 text-[#888888]" onClick={() => setShowAppDrawer(!showAppDrawer)}>
-              <Grid className="h-4 w-4" />
-            </Button>
-            {showPreview ? (
-              <button 
-                onClick={() => setShowPreview(false)}
-                className="p-2 rounded-lg transition-colors bg-[#2e2e32] text-[#888888] hover:bg-[#2e2e32]/80"
-                title="Collapse Preview (Ctrl+X)"
-              >
-                <PanelRightClose className="h-4 w-4" />
-              </button>
-            ) : (
-              <button 
-                onClick={() => setShowPreview(true)}
-                className="p-2 rounded-lg transition-colors bg-[#2e2e32] text-[#888888] hover:bg-[#2e2e32]/80"
-                title="Expand Preview (Ctrl+X)"
-              >
-                <PanelRightOpen className="h-4 w-4" />
-              </button>
-            )}
-          </div>
-        </header>
+        )}
 
-        {/* Main Content Area */}
-        <div className="flex-1 flex min-h-0">
-          {/* Chat Area */}
+        <div className="flex-1 flex min-h-0 pt-0">
           <div className="flex-1 flex flex-col min-w-0">
-            <ScrollArea className="flex-1 p-4 bg-[#121215]" style={{ scrollbarColor: '#404040 #000000', scrollbarWidth: 'thin' }}>
+            <ScrollArea className="flex-1 p-4 pt-16 bg-[#121215] [&::-webkit-scrollbar]:hidden">
               <div className="max-w-2xl mx-auto space-y-4">
-                {messages.map((msg, idx) => {
-                  const isLastAssistant = msg.role === 'assistant' && idx === messages.findLastIndex(m => m.role === 'assistant')
-                  return (
-                    <div key={msg.id} className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'} gap-2`}>
-                      <div className="max-w-[80%] sm:max-w-[70%]"><ChatMessage message={msg} previewUrl={isLastAssistant ? blobUrl : undefined} onPreviewClick={() => setShowPreview(true)} status={status} /></div>
-                    </div>
-                  )
-                })}
+                {useMemo(() => {
+                  const visibleMessages = messages.slice(visibleRange.start, visibleRange.end)
+                  return visibleMessages.map((msg, idx) => {
+                    const actualIdx = visibleRange.start + idx
+                    const msgPreviewUrl = messagePreviews.get(actualIdx)
+                    const isLatestAssistant = msg.role === 'assistant' && actualIdx === messages.length - 1
+                    return (
+                      <div key={msg.id} className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'} gap-2`}>
+                        <div className="max-w-[80%] sm:max-w-[70%]"><ChatMessage message={msg} previewUrl={msgPreviewUrl} onPreviewClick={() => setShowPreview(true)} status={isLatestAssistant ? status : undefined} /></div>
+                      </div>
+                    )
+                  })
+                }, [messages, visibleRange.start, visibleRange.end, messagePreviews, status])}
                 <div ref={messagesEndRef} />
               </div>
             </ScrollArea>
-
 
             <ChatInput 
               input={input} setInput={setInput} isGenerating={isGenerating}
               handleSubmit={handleSubmit} stopGeneration={stopGeneration}
               onNewChat={newSession}
+              onShowAppDrawer={() => setShowAppDrawer(true)}
             />
           </div>
         </div>
@@ -735,7 +778,7 @@ const [hasSavedToGallery, setHasSavedToGallery] = useState(false)
       <div className={`transition-all duration-300 overflow-hidden ${showPreview ? "w-full sm:w-[50%]" : "w-0"}`}>
         {showPreview && (
           <>
-            <div className="flex-1 h-full overflow-hidden" style={{ scrollbarColor: '#404040 #000000', scrollbarWidth: 'thin' }}>
+            <div className="flex-1 h-full overflow-hidden [&::-webkit-scrollbar]:w-2 [&::-webkit-scrollbar-thumb]:bg-[#404040] [&::-webkit-scrollbar-track]:bg-transparent">
               {blobUrl ?               <PreviewPanel previewUrl={blobUrl} onConsoleMessage={handleConsoleMessage} stopAutoReload={status === "ready"} onSaveToGallery={handleSaveToGallery} hasSavedToGallery={hasSavedToGallery} /> : <div className="h-full flex items-center justify-center text-muted-foreground"><p className="text-sm">Preview will appear here</p></div>}
             </div>
             <div className="cursor-col-resize hover:bg-primary/20 transition-colors" style={{ width: '4px' }} onMouseDown={handleResizeMouseDown} />

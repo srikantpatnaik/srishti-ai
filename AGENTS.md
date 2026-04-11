@@ -27,10 +27,10 @@ app/
           └── route.ts        # Session management API
 components/
   ├── ui/                     # shadcn/ui components
+  ├── settings-panel.tsx      # Left sidebar with recent chats and settings
   ├── chat-message.tsx        # Chat messages with markdown rendering
-  ├── preview-panel.tsx       # Live preview iframe with edit button
-  ├── app-drawer.tsx          # Gallery with app icons and context menu
-  ├── chat-input.tsx          # Input with edit/save buttons
+  ├── preview-thumbnail.tsx    # Preview thumbnail below latest AI response
+  ├── chat-input.tsx          # Input with + and send button
   └── status-indicator.tsx    # Status indicator for agent phases
 lib/
   ├── db.ts                   # IndexedDB utilities for app storage
@@ -216,58 +216,97 @@ Configure AI providers in `settings.yaml`. See `settings.yaml.example` for templ
 
 Configure in `settings.yaml`
 
-## UI Guidelines
+## DeepSeek-Style UI Guidelines
 
-- **Default Theme**: Dark mode (day/night toggle inside settings panel with sun/moon icons)
-- **Layout**: Left settings panel (20% width on desktop, full on mobile), main chat area (flexible), right preview panel (100% width, full height)
-- **Title Bar**: Settings button after title, model dropdown on right, eye icon to toggle preview
-- **Design Inspiration**: Modern, clean UI inspired by https://www.assistant-ui.com/
-- **Responsive**: Mobile-first design with collapsible panels
-- **Accessibility**: WCAG compliant with proper ARIA labels
-- **Preview**: Full-height iframe with no address bar, "Waiting for preview" placeholder, auto-loads when planning phase starts, no auto-reload when ready
-- **Chat Input**: Stop button inside input area next to send button during generation, edit/save buttons when editing
-- **Chat Bubbles**: Telegram-style (user right-aligned darker shade, assistant left-aligned lighter shade), no avatars
-- **Auto-scroll**: Chat auto-scrolls to latest message
-- **Loading indicator**: Shows "..." while AI is thinking
-- **Scrollbars**: Black themed with custom scrollbar colors
-- **Preview Toggle**: Eye icon in header (desktop: right panel, mobile: fullscreen overlay)
-- **Preview Overlay Icons**: Two buttons always visible (desktop) - Open in new tab, Download as ZIP
-- **Preview Edit Button**: Pencil icon in preview toolbar to load app's chat for editing
-- **Keyboard Shortcuts**: Ctrl+B for settings panel, Ctrl+X for preview toggle, Ctrl+M for app drawer, Esc to close app drawer
-- **Settings Footer**: Keyboard shortcuts display section (desktop only)
-- **Settings Collapse**: Arrow button to collapse settings panel on mobile
-- **App Drawer**: Android/iPhone style fullscreen overlay with translucent background, app icons in grid layout with emoji
-- **Persistent Storage**: Apps saved to IndexedDB with chat metadata, survive page reloads
-- **Gallery**: Grid layout with app icons and names, right-click/long-press shows context menu (Open, Edit, Share, Uninstall)
-- **Edit Feature**: Loads saved app's chat conversation into current chat window, edit button in preview
-- **Share**: Generates shareable link with encoded app data and chat history
-- **New Session**: Plus button clears chat and preview for fresh conversation
-- **Bookmark**: Transparent save button in preview, turns filled when saved to gallery
+### Layout Structure
 
-## Session Management
+#### Settings Panel (Left Sidebar)
+- **Width**: 20% of viewport on desktop, 70% on mobile
+- **Position**: Fixed left sidebar, collapsible on mobile
+- **Content**: Recent chats list only (no settings, no gallery)
+- **Toggle**: Hidden by default on mobile, hamburger menu to open
+- **Background**: #171717 (dark charcoal)
+- **Border**: 1px solid #262626
 
-### Gallery Tabs
-- **Current Chat**: Shows title of currently active chat session
-- **App Tabs**: Shows saved apps with their names when edited
-- **Close Tab**: Click X button to close app tab and remove from gallery
+#### Main Chat Area
+- **Position**: Center, fills remaining space
+- **Background**: #000000 (pure black)
+- **Padding**: 16px horizontal, 24px vertical
 
-### Session Apps vs Gallery Apps
-- **Session Apps**: Temporary apps generated during current session, displayed with navigation arrows
-- **Gallery Apps**: Persistent apps saved to IndexedDB, displayed in full-screen drawer
-- Bookmark state resets when navigating between session apps or page reload
+#### Chat Input
+- **Position**: Fixed at bottom of chat area
+- **Buttons inside input**: "+" button (left) and send button (right) both inside the input field
+- **Input background**: #1e1e1e
+- **Border radius**: 12px
+- **Placeholder**: "Ask anything..."
 
-## Gallery Features
+### Color Scheme
 
-### Context Menu Options
-1. **Open**: Load app's code and chat into preview
-2. **Edit**: Load app's chat into current chat window with edit capability
-3. **Share**: Generate shareable link with encoded app data
-4. **Uninstall**: Delete app from IndexedDB and remove from gallery
+```css
+--bg-primary: #000000        /* Main chat background - pure black */
+--bg-secondary: #171717     /* Settings panel background - dark charcoal */
+--bg-input: #1e1e1e         /* Chat input background */
+--bg-hover: #262626          /* Hover states */
+--bg-active: #2a2a2a         /* Active/selected states */
 
-### Long Press / Right-Click
-- Long press on mobile or right-click on desktop shows context menu
-- Menu appears at icon position with smooth transitions
-- Clicking outside dismisses menu
+--text-primary: #ffffff      /* Main text - white */
+--text-secondary: #8b8b8b   /* Secondary text - muted gray */
+--text-tertiary: #5c5c5c     /* Disabled/placeholder - darker gray */
+
+--accent-primary: #2d5af8    /* Primary accent - blue */
+--accent-hover: #4f7afc      /* Accent hover state */
+--accent-active: #1d4ed8     /* Accent active state */
+
+--border-default: #262626    /* Default borders */
+--border-focus: #2d5af8      /* Focus state borders */
+
+--user-bubble: #2d2d2d       /* User message bubble */
+--ai-bubble: transparent      /* AI messages - no bubble, just text */
+```
+
+### Chat Bubbles
+
+- **User messages**: Right-aligned, background #2d2d2d, border-radius 12px, max-width 80%
+- **AI messages**: Left-aligned, no background bubble, full-width text area for maximum readability
+- **No avatars**: Clean, minimal design
+- **100% width**: AI responses use full container width for maximum text display
+
+### Preview in Chat
+
+- **Thumbnail below latest AI response**: Show preview iframe as collapsible thumbnail
+- **Toggle**: Click to expand/fullscreen, click again to collapse
+- **Thumbnail size**: 320x200px when collapsed, full width when expanded
+- **Placeholder**: "Generating preview..." while loading
+- **Background**: #1a1a1a for thumbnail container
+
+### Navigation & Scrolling
+
+- **No auto-scroll**: Chat does NOT auto-scroll to bottom on new messages
+- **Free navigation**: Users can scroll freely through conversation history
+- **Load more**: Load older messages as user scrolls up (virtual scrolling for performance)
+- **Scroll to bottom button**: Floating button appears when not at bottom, scrolls to latest
+
+### Performance Optimizations for Long Conversations
+
+- **Virtual scrolling**: Only render visible messages + buffer (50 above/below viewport)
+- **Message virtualization**: Use react-window or similar for 1000+ messages
+- **Lazy loading**: Load older messages on demand
+- **Memory management**: Unmount off-screen components
+- **Debounced scroll**: Debounce scroll events for performance
+- **Message pagination**: Fetch 50 messages at a time
+- **Max stored messages**: Keep last 500 messages in memory, older in IndexedDB
+
+### Theme Toggle
+
+- **Location**: Inside settings panel
+- **Icons**: Sun (light mode) / Moon (dark mode)
+- **Default**: Dark mode
+
+### Responsive Behavior
+
+- **Desktop (>1024px)**: Settings panel visible (20%), chat fills remaining, preview as thumbnail
+- **Tablet (768-1024px)**: Settings panel collapsible, chat full width, preview thumbnail below AI
+- **Mobile (<768px)**: Settings panel hidden (70% overlay when opened), chat full width, preview thumbnail below AI
 
 ## Deployment Checklist
 
@@ -280,17 +319,25 @@ Before marking as deployment-ready:
 - [ ] Dark/light theme working
 - [ ] All tool calls optimized for token efficiency
 - [ ] IndexedDB storage working correctly
-- [ ] Edit and share features functional
+- [ ] Virtual scrolling working for long conversations
+- [ ] Preview thumbnail displays correctly below AI responses
 
 ## Recent Updates
 
-- **IndexedDB Storage**: Apps now saved to IndexedDB instead of localStorage for better persistence
-- **Edit Feature**: Edit button in preview loads app's chat conversation into current chat window
-- **Session Navigation**: Preview arrows for navigating between session app versions
-- **Share Functionality**: Generate shareable links with encoded app data and chat history
-- **Gallery Grid**: Responsive grid layout for app icons with proper spacing
-- **Context Menu**: Right-click/long-press menu with Open, Edit, Share, Uninstall options
-- **Transparent Bookmark**: Save button matches adjacent button styling
-- **Chat Tabs**: Chrome-style tabs showing current chat and saved app sessions
-- **App Counter Removed**: No badge showing app count on gallery button
-- **PWA Support**: Service worker and manifest for offline capability
+- **DeepSeek-Style UI**: Complete UI redesign mimicking DeepSeek chat interface
+- **Settings Panel**: 20% desktop / 70% mobile width, contains recent chats only
+- **Chat Input**: "+" and send button positioned inside the input area
+- **Chat Bubbles**: AI messages use full 100% width for maximum text, user messages 80% max with background
+- **Preview in Chat**: Preview thumbnail displayed below latest AI response, collapsible/expandable
+- **No Auto-scroll**: Free navigation through conversation history, scroll to bottom button when not at bottom
+- **Virtual Scrolling**: Performance optimization for long conversations (1000+ messages)
+- **Color Scheme**: Complete color palette with specific hex codes (#000000, #171717, #1e1e1e, etc.)
+- **Memory Optimization**: Message pagination, lazy loading, max 500 messages in memory
+- **Context Menu**: Removed (no longer needed with simplified UI)
+- **Gallery/Edit/Share**: Removed from main UI (simplified to recent chats only in settings)
+- **Chat Tabs**: Removed (single chat interface)
+- **App Drawer**: Removed (replaced with simplified recent chats in settings panel)
+- **Bookmark Feature**: Removed (gallery removed)
+- **Session Navigation**: Removed (simplified single session)
+- **Preview Toggle Icons**: Removed (preview in chat as thumbnail)
+- **Preview Edit Button**: Removed (no gallery to edit from)
