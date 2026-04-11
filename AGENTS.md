@@ -11,6 +11,7 @@ This is an autonomous AI-powered webapp builder that creates complete, productio
 - **AI Integration**: Vercel AI SDK (v4) with tool calling
 - **Type Safety**: Full TypeScript support with path aliases
 - **PWA**: Service worker, manifest, offline support
+- **Database**: IndexedDB for persistent app storage
 
 ### File Structure
 ```
@@ -27,16 +28,22 @@ app/
 components/
   ├── ui/                     # shadcn/ui components
   ├── chat-message.tsx        # Chat messages with markdown rendering
-  ├── preview-panel.tsx       # Live preview iframe
-  ├── folder-picker.tsx       # Project folder selector
+  ├── preview-panel.tsx       # Live preview iframe with edit button
+  ├── app-drawer.tsx          # Gallery with app icons and context menu
+  ├── chat-input.tsx          # Input with edit/save buttons
   └── status-indicator.tsx    # Status indicator for agent phases
 lib/
+  ├── db.ts                   # IndexedDB utilities for app storage
   └── utils.ts                # Utility functions (cn, clsx, tailwind-merge)
 public/
   ├── manifest.json           # PWA manifest
   └── sw.js                   # Service worker
 settings.yaml                 # AI provider configuration
 tmp/                          # Session project folders (auto-created)
+types/
+  └── index.ts                # Type definitions (SavedApp, AgentStatus, Provider)
+hooks/
+  └── use-ui-utils.ts         # Custom hooks (useDarkMode, useKeyboardShortcuts, useResizing)
 ```
 
 ## Core Capabilities
@@ -218,16 +225,49 @@ Configure in `settings.yaml`
 - **Responsive**: Mobile-first design with collapsible panels
 - **Accessibility**: WCAG compliant with proper ARIA labels
 - **Preview**: Full-height iframe with no address bar, "Waiting for preview" placeholder, auto-loads when planning phase starts, no auto-reload when ready
-- **Chat Input**: Stop button inside input area next to send button during generation
+- **Chat Input**: Stop button inside input area next to send button during generation, edit/save buttons when editing
 - **Chat Bubbles**: Telegram-style (user right-aligned darker shade, assistant left-aligned lighter shade), no avatars
 - **Auto-scroll**: Chat auto-scrolls to latest message
 - **Loading indicator**: Shows "..." while AI is thinking
 - **Scrollbars**: Black themed with custom scrollbar colors
 - **Preview Toggle**: Eye icon in header (desktop: right panel, mobile: fullscreen overlay)
 - **Preview Overlay Icons**: Two buttons always visible (desktop) - Open in new tab, Download as ZIP
-- **Keyboard Shortcuts**: Ctrl+B for settings panel, Ctrl+X for preview toggle
+- **Preview Edit Button**: Pencil icon in preview toolbar to load app's chat for editing
+- **Keyboard Shortcuts**: Ctrl+B for settings panel, Ctrl+X for preview toggle, Ctrl+M for app drawer, Esc to close app drawer
 - **Settings Footer**: Keyboard shortcuts display section (desktop only)
 - **Settings Collapse**: Arrow button to collapse settings panel on mobile
+- **App Drawer**: Android/iPhone style fullscreen overlay with translucent background, app icons in grid layout with emoji
+- **Persistent Storage**: Apps saved to IndexedDB with chat metadata, survive page reloads
+- **Gallery**: Grid layout with app icons and names, right-click/long-press shows context menu (Open, Edit, Share, Uninstall)
+- **Edit Feature**: Loads saved app's chat conversation into current chat window, edit button in preview
+- **Share**: Generates shareable link with encoded app data and chat history
+- **New Session**: Plus button clears chat and preview for fresh conversation
+- **Bookmark**: Transparent save button in preview, turns filled when saved to gallery
+
+## Session Management
+
+### Gallery Tabs
+- **Current Chat**: Shows title of currently active chat session
+- **App Tabs**: Shows saved apps with their names when edited
+- **Close Tab**: Click X button to close app tab and remove from gallery
+
+### Session Apps vs Gallery Apps
+- **Session Apps**: Temporary apps generated during current session, displayed with navigation arrows
+- **Gallery Apps**: Persistent apps saved to IndexedDB, displayed in full-screen drawer
+- Bookmark state resets when navigating between session apps or page reload
+
+## Gallery Features
+
+### Context Menu Options
+1. **Open**: Load app's code and chat into preview
+2. **Edit**: Load app's chat into current chat window with edit capability
+3. **Share**: Generate shareable link with encoded app data
+4. **Uninstall**: Delete app from IndexedDB and remove from gallery
+
+### Long Press / Right-Click
+- Long press on mobile or right-click on desktop shows context menu
+- Menu appears at icon position with smooth transitions
+- Clicking outside dismisses menu
 
 ## Deployment Checklist
 
@@ -239,29 +279,18 @@ Before marking as deployment-ready:
 - [ ] Mobile responsive tested
 - [ ] Dark/light theme working
 - [ ] All tool calls optimized for token efficiency
+- [ ] IndexedDB storage working correctly
+- [ ] Edit and share features functional
 
 ## Recent Updates
 
-- **Session Management**: Auto-creates session folders in `tmp/<session-id>` with full paths
-- **Preview Server**: Auto-starts on random available port using `npx serve` fallback
-- **Phase Announcements**: Shows each development phase in chat via announce tool
-- **Markdown Rendering**: Uses react-markdown with remark-gfm for code blocks, lists, tables
-- **AI SDK v4**: Uses `toDataStreamResponse()` and `useChat` hook with tool calling
-- **Resizable Panels**: Preview panel width adjustable via drag handle (20-80% range)
-- **Silent Reload**: Preview auto-refreshes every 5 seconds, stops when user interacts or generation complete
-- **Keyboard Shortcuts**: Ctrl+B for settings panel, Ctrl+X for preview panel, Ctrl+M for app drawer, Esc to close app drawer
-- **Preview Panel**: Full width/height, hidden address bar, eye icon toggle, mobile fullscreen overlay
-- **Chat Bubbles**: Telegram-style with left/right alignment, different shades, no avatars, wider (80%/70%)
-- **Settings Panel**: Reduced to 20% width on desktop, full width on mobile, keyboard shortcuts footer, collapse button
-- **Stop Control**: Immediate abort on stop button click with throttle optimization
-- **Preview Overlay Icons**: Two buttons always visible - Open in new tab, Download as ZIP with app name
-- **No Auto-Reload**: Preview stops auto-reloading when app reaches ready state
-- **Auto-scroll**: Chat auto-scrolls to latest message
-- **Loading Indicator**: Shows "..." while AI is thinking
-- **AI Responses**: Very short (1 sentence), same language as user, no technical terms
-- **App Drawer**: Android/iPhone style fullscreen overlay with translucent background, app icons with emoji based on type
-- **Persistent Storage**: Apps and chat messages saved in localStorage, survive page reloads
-- **New Session Button**: + button to clear chat and start fresh conversation
-- **Long Press Menu**: Long press app icon shows Delete option
-- **Status Fix**: "Done!" only shown when app building actually completes
-- **App Opening**: Click app in drawer opens it immediately in preview panel
+- **IndexedDB Storage**: Apps now saved to IndexedDB instead of localStorage for better persistence
+- **Edit Feature**: Edit button in preview loads app's chat conversation into current chat window
+- **Session Navigation**: Preview arrows for navigating between session app versions
+- **Share Functionality**: Generate shareable links with encoded app data and chat history
+- **Gallery Grid**: Responsive grid layout for app icons with proper spacing
+- **Context Menu**: Right-click/long-press menu with Open, Edit, Share, Uninstall options
+- **Transparent Bookmark**: Save button matches adjacent button styling
+- **Chat Tabs**: Chrome-style tabs showing current chat and saved app sessions
+- **App Counter Removed**: No badge showing app count on gallery button
+- **PWA Support**: Service worker and manifest for offline capability
