@@ -1,7 +1,7 @@
 "use client"
 
 import React, { useState, useEffect, useRef, useCallback } from "react"
-import { Send, Square, ChevronRight, ChevronLeft, Bot, Eye, Moon, Sun, Grid, Plus, Save } from "lucide-react"
+import { Send, Square, ChevronRight, ChevronLeft, ChevronUp, Bot, Eye, Moon, Sun, Grid, Plus, Save } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { ScrollArea } from "@/components/ui/scroll-area"
 import { ChatMessage } from "@/components/chat-message"
@@ -40,6 +40,7 @@ export default function Home() {
   const [editedAppCode, setEditedAppCode] = useState<string>("")
   const [isEditing, setIsEditing] = useState(false)
   const [shareMessage, setShareMessage] = useState("")
+  const [showScrollButton, setShowScrollButton] = useState(false)
 
   const { darkMode, setDarkMode } = useDarkMode()
 
@@ -98,6 +99,15 @@ export default function Home() {
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" })
   }, [messages, isGenerating])
+
+  useEffect(() => {
+    if (messages.length > 0) {
+      const container = document.querySelector('[data-radix-scroll-area-viewport]') as HTMLElement
+      if (container && container.scrollHeight - container.scrollTop - container.clientHeight > 50) {
+        setShowScrollButton(true)
+      }
+    }
+  }, [messages.length])
 
   useEffect(() => {
     setHasSavedToGallery(false)
@@ -580,23 +590,23 @@ const [hasSavedToGallery, setHasSavedToGallery] = useState(false)
   }
 
   return (
-    <div className="flex h-screen bg-background">
+    <div className="flex h-screen bg-[#121215]">
       {shareMessage && (
         <div className="fixed top-4 left-1/2 transform -translate-x-1/2 bg-muted text-foreground px-4 py-2 rounded-lg shadow-md z-50">
           {shareMessage}
         </div>
       )}
       
-           <SettingsPanel 
-        showSettings={showSettings} setShowSettings={setShowSettings}
-        darkMode={darkMode} setDarkMode={setDarkMode}
-        providers={providers} selectedProvider={selectedProvider}
-        setSelectedProvider={setSelectedProvider} loadingProviders={loadingProviders}
-      />
+<SettingsPanel 
+          showSettings={showSettings} setShowSettings={setShowSettings}
+          darkMode={darkMode} setDarkMode={setDarkMode}
+          providers={providers} selectedProvider={selectedProvider}
+          setSelectedProvider={setSelectedProvider} loadingProviders={loadingProviders}
+        />
 
       {showPreview && window.innerWidth < 768 && (
-        <div className="fixed inset-0 z-50 bg-card">
-          <div className="flex items-center justify-between px-4 py-3 border-b">
+        <div className="fixed inset-0 z-50 bg-[#121215]">
+          <div className="flex items-center justify-between px-4 py-3">
             <span className="text-sm font-medium">{savedApps.find(app => app.code === editedAppCode)?.name || "Current Chat"}</span>
             <Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => setShowPreview(false)}>
               <Eye className="h-4 w-4" />
@@ -604,7 +614,7 @@ const [hasSavedToGallery, setHasSavedToGallery] = useState(false)
           </div>
           <div className="h-[calc(100vh-53px)]">
             {blobUrl ? (
-              <PreviewPanel previewUrl={blobUrl} onConsoleMessage={handleConsoleMessage} stopAutoReload={status === "ready"} onSaveToGallery={handleSaveToGallery} hasSavedToGallery={hasSavedToGallery} sessionApps={sessionApps} currentAppIndex={currentAppIndex} onNavigateNext={navigateToNextApp} onNavigatePrev={navigateToPrevApp} onEditApp={editedAppCode ? () => { const app = savedApps.find(a => a.code === editedAppCode); if (app) handleEditApp(app); } : undefined} />
+              <PreviewPanel previewUrl={blobUrl} onConsoleMessage={handleConsoleMessage} stopAutoReload={status === "ready"} onSaveToGallery={handleSaveToGallery} hasSavedToGallery={hasSavedToGallery} sessionApps={sessionApps} currentAppIndex={currentAppIndex} onNavigateNext={navigateToNextApp} onNavigatePrev={navigateToPrevApp} onEditApp={undefined} />
             ) : (
               <div className="h-full flex items-center justify-center text-muted-foreground"><p className="text-sm">Preview will appear here</p></div>
             )}
@@ -613,39 +623,45 @@ const [hasSavedToGallery, setHasSavedToGallery] = useState(false)
       )}
 
       <div className="flex-1 flex flex-col min-w-0">
-        <header className="border-b px-4 py-3 flex items-center justify-between bg-card flex-shrink-0">
+        <header className="px-4 py-3 flex items-center justify-between bg-[#121215] flex-shrink-0">
           <div className="flex items-center gap-2">
-            <Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => setShowSettings(!showSettings)}>
+            <Button variant="ghost" size="icon" className="h-6 w-6 text-[#888888]" onClick={() => setShowSettings(!showSettings)}>
               {showSettings ? <ChevronLeft className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />}
             </Button>
-            <h1 className="font-semibold text-lg">Srishti <span className="text-red-600">AI</span></h1>
+            <h1 className="font-medium text-base text-[#e5e5e5]">Srishti <span className="text-red-600">AI</span></h1>
             <StatusIndicator status={status} />
           </div>
 <div className="flex items-center gap-2">
-            <Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => setShowAppDrawer(!showAppDrawer)}>
+            <Button variant="ghost" size="icon" className="h-6 w-6 text-[#888888]" onClick={() => setShowAppDrawer(!showAppDrawer)}>
               <Grid className="h-4 w-4" />
             </Button>
-            <Button variant="ghost" size="icon" className="h-6 w-6" onClick={newSession}><Plus className="h-4 w-4" /></Button>
-            <Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => setShowPreview(!showPreview)}><Eye className="h-4 w-4" /></Button>
+            <Button variant="ghost" size="icon" className="h-6 w-6 text-[#888888]" onClick={() => setShowPreview(!showPreview)}><Eye className="h-4 w-4" /></Button>
           </div>
         </header>
 
-        <ScrollArea className="flex-1 p-4" style={{ scrollbarColor: '#404040 #000000', scrollbarWidth: 'thin' }}>
-          <div className="space-y-4">
+        <ScrollArea className="flex-1 p-4 bg-[#121215]" style={{ scrollbarColor: '#404040 #000000', scrollbarWidth: 'thin' }}>
+          <div className="max-w-2xl mx-auto space-y-4">
             {messages.map((msg) => (
               <div key={msg.id} className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'} gap-2`}>
-                <div className="max-w-[80%] sm:max-w-[70%]"><ChatMessage message={msg} /></div>
+                <div className="max-w-[80%] sm:max-w-[70%]"><ChatMessage message={msg} previewUrl={msg.role === 'assistant' ? blobUrl : undefined} onPreviewClick={() => setShowPreview(true)} status={status} /></div>
               </div>
             ))}
             <div ref={messagesEndRef} />
           </div>
         </ScrollArea>
+        {showScrollButton && (
+          <button
+            onClick={() => messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })}
+            className="fixed bottom-20 left-1/2 transform -translate-x-1/2 bg-[#2a2a2e] hover:bg-[#3a3a3e] text-white p-2 rounded-full shadow-lg transition-all"
+          >
+            <ChevronUp className="h-5 w-5" />
+          </button>
+        )}
 
         <ChatInput 
           input={input} setInput={setInput} isGenerating={isGenerating}
           handleSubmit={handleSubmit} stopGeneration={stopGeneration}
-          onEditSave={editedAppCode ? handleSaveEditedApp : undefined}
-          isEditing={isEditing}
+          onNewChat={newSession}
         />
       </div>
 
@@ -663,7 +679,7 @@ const [hasSavedToGallery, setHasSavedToGallery] = useState(false)
         {showPreview && (
           <>
             <div className="flex-1 h-full overflow-hidden" style={{ scrollbarColor: '#404040 #000000', scrollbarWidth: 'thin' }}>
-              {blobUrl ? <PreviewPanel previewUrl={blobUrl} onConsoleMessage={handleConsoleMessage} stopAutoReload={status === "ready"} onSaveToGallery={() => handleSaveToGallery()} hasSavedToGallery={hasSavedToGallery} sessionApps={sessionApps} currentAppIndex={currentAppIndex} onNavigateNext={navigateToNextApp} onNavigatePrev={navigateToPrevApp} onEditApp={editedAppCode ? () => { const app = savedApps.find(a => a.code === editedAppCode); if (app) handleEditApp(app); } : undefined} /> : <div className="h-full flex items-center justify-center text-muted-foreground"><p className="text-sm">Preview will appear here</p></div>}
+              {blobUrl ? <PreviewPanel previewUrl={blobUrl} onConsoleMessage={handleConsoleMessage} stopAutoReload={status === "ready"} onSaveToGallery={() => handleSaveToGallery()} hasSavedToGallery={hasSavedToGallery} sessionApps={sessionApps} currentAppIndex={currentAppIndex} onNavigateNext={navigateToNextApp} onNavigatePrev={navigateToPrevApp} onEditApp={undefined} /> : <div className="h-full flex items-center justify-center text-muted-foreground"><p className="text-sm">Preview will appear here</p></div>}
             </div>
             <div className="cursor-col-resize hover:bg-primary/20 transition-colors" style={{ width: '4px' }} onMouseDown={handleResizeMouseDown} />
           </>

@@ -1,4 +1,4 @@
-import { User, Bot, FileCode, CheckCircle2, AlertCircle, TerminalIcon, Code2, Play, Check } from "lucide-react"
+import { User, Bot, FileCode, CheckCircle2, AlertCircle, TerminalIcon, Code2, Play, Check, ExternalLink, Loader2 } from "lucide-react"
 import { cn } from "@/lib/utils"
 import ReactMarkdown from "react-markdown"
 import remarkGfm from "remark-gfm"
@@ -16,20 +16,23 @@ interface ChatMessageProps {
     result?: any
     phase?: string
   }
+  previewUrl?: string
+  onPreviewClick?: () => void
+  status?: string
 }
 
-export function ChatMessage({ message }: ChatMessageProps) {
+export function ChatMessage({ message, previewUrl, onPreviewClick, status }: ChatMessageProps) {
   const isUser = message.role === "user"
 
   const renderContent = () => {
     if (message.type === "code" && message.filePath) {
       return (
-        <div className="mt-4 bg-card/50 rounded-xl overflow-hidden border border-card-foreground/10">
-          <div className="flex items-center gap-2 px-4 py-3 bg-card/30 border-b border-card-foreground/10">
+        <div className="mt-3 bg-[#1a1a1f] rounded-xl overflow-hidden border border-[#2e2e32]">
+          <div className="flex items-center gap-2 px-4 py-2 bg-[#161618] border-b border-[#2e2e32]">
             <Code2 className="h-4 w-4" />
             <span className="text-xs font-mono">{message.filePath}</span>
           </div>
-          <pre className="p-4 text-sm overflow-x-auto bg-card/20">
+          <pre className="p-4 text-sm overflow-x-auto bg-[#121215]">
             <code>{message.content}</code>
           </pre>
         </div>
@@ -38,7 +41,7 @@ export function ChatMessage({ message }: ChatMessageProps) {
 
     if (message.type === "plan") {
       return (
-        <div className="mt-4 bg-card/40 rounded-xl p-4 border border-card-foreground/10">
+        <div className="mt-3 bg-[#1a1a1f] rounded-xl p-4 border border-[#2e2e32]">
            <h4 className="font-medium text-base mb-3 flex items-center gap-2">
              <FileCode className="h-5 w-5" />
              Development Plan
@@ -51,7 +54,7 @@ export function ChatMessage({ message }: ChatMessageProps) {
     if (message.type === "phase") {
       const phaseName = message.phase ? message.phase.charAt(0).toUpperCase() + message.phase.slice(1) : "Phase"
       return (
-         <div className="mt-4 bg-card/30 rounded-xl p-4 border border-card-foreground/10">
+         <div className="mt-3 bg-[#1a1a1f] rounded-xl p-4 border border-[#2e2e32]">
            <h4 className="font-medium text-base mb-3 flex items-center gap-2">
              <span className="animate-pulse">●</span>
              {phaseName} Phase
@@ -63,37 +66,24 @@ export function ChatMessage({ message }: ChatMessageProps) {
 
     if (message.type === "error") {
       return (
-        <div className="mt-4 bg-destructive/10 rounded-xl p-4 border border-destructive/30">
+        <div className="mt-3 bg-destructive/10 rounded-xl p-4 border border-destructive/30">
            <div className="flex items-center gap-2 mb-3">
              <AlertCircle className="h-6 w-6 text-destructive" />
              <span className="font-medium text-base text-destructive">Error Detected</span>
            </div>
            <pre className="text-base whitespace-pre-wrap">{message.content}</pre>
-         </div>
+        </div>
       )
     }
 
     if (message.type === "file") {
       return (
-       <div className="mt-4 bg-card/30 rounded-xl p-4 border border-card-foreground/10">
+       <div className="mt-3 bg-[#1a1a1f] rounded-xl p-4 border border-[#2e2e32]">
            <div className="flex items-center gap-2">
              <Check className="h-6 w-6" />
              <span className="font-medium text-base">File Created/Updated</span>
            </div>
            <p className="text-base mt-2">{message.content}</p>
-         </div>
-      )
-    }
-
-    if (message.type === "tool-result" && (message as any).toolName === "announce") {
-      const result = (message as any).result
-      return (
-     <div className="mt-4 bg-card/30 rounded-xl p-4 border border-card-foreground/10">
-           <h4 className="font-medium text-base mb-3 flex items-center gap-2">
-             <span className="animate-pulse">●</span>
-             {result.phase?.charAt(0).toUpperCase() + result.phase?.slice(1)} Phase
-           </h4>
-           <div className="text-base whitespace-pre-wrap">{result.message}</div>
          </div>
       )
     }
@@ -104,46 +94,12 @@ export function ChatMessage({ message }: ChatMessageProps) {
       
       if (toolName === "announce") {
         return (
-    <div className="mt-4 bg-card/30 rounded-xl p-4 border border-card-foreground/10">
+    <div className="mt-3 bg-[#1a1a1f] rounded-xl p-4 border border-[#2e2e32]">
              <h4 className="font-medium text-base mb-3 flex items-center gap-2">
                <span className="animate-pulse">●</span>
                {args.phase?.charAt(0).toUpperCase() + args.phase?.slice(1)} Phase
              </h4>
              <div className="text-base whitespace-pre-wrap">{args.message || "Processing..."}</div>
-           </div>
-        )
-      }
-      
-      if (toolName === "read") {
-        return (
-   <div className="mt-4 bg-card/30 rounded-xl p-4 border border-card-foreground/10">
-             <div className="flex items-center gap-2">
-               <FileCode className="h-6 w-6" />
-               <span className="font-medium text-base">Reading: {args.path}</span>
-             </div>
-           </div>
-        )
-      }
-      
-      if (toolName === "write") {
-        return (
-  <div className="mt-4 bg-card/30 rounded-xl p-4 border border-card-foreground/10">
-             <div className="flex items-center gap-2">
-               <Check className="h-6 w-6" />
-               <span className="font-medium text-base">Writing: {args.path}</span>
-             </div>
-           </div>
-        )
-      }
-      
-      if (toolName === "bash") {
-        return (
-     <div className="mt-4 bg-card/30 rounded-xl p-4 border border-card-foreground/10">
-             <div className="flex items-center gap-2">
-               <TerminalIcon className="h-6 w-6" />
-               <span className="font-medium text-base">Running command</span>
-             </div>
-             <pre className="text-sm mt-3 whitespace-pre-wrap">{args.command}</pre>
            </div>
         )
       }
@@ -155,55 +111,12 @@ export function ChatMessage({ message }: ChatMessageProps) {
       
       if (toolName === "announce") {
         return (
-   <div className="mt-4 bg-card/30 rounded-xl p-4 border border-card-foreground/10">
+   <div className="mt-3 bg-[#1a1a1f] rounded-xl p-4 border border-[#2e2e32]">
              <h4 className="font-medium text-base mb-3 flex items-center gap-2">
                <span className="animate-pulse">●</span>
                {result.phase?.charAt(0).toUpperCase() + result.phase?.slice(1)} Phase
              </h4>
              <div className="text-base whitespace-pre-wrap">{result.message}</div>
-           </div>
-        )
-      }
-      
-      if (toolName === "read") {
-        return (
-   <div className="mt-4 bg-card/30 rounded-xl p-4 border border-card-foreground/10">
-             <div className="flex items-center gap-2">
-               <FileCode className="h-6 w-6" />
-               <span className="font-medium text-base">Read: {result.filePath || "file"}</span>
-             </div>
-             {result.content && (
-               <pre className="text-sm mt-3 whitespace-pre-wrap max-h-32 overflow-y-auto">{result.content}</pre>
-             )}
-           </div>
-        )
-      }
-      
-      if (toolName === "write") {
-        return (
- <div className="mt-4 bg-card/30 rounded-xl p-4 border border-card-foreground/10">
-             <div className="flex items-center gap-2">
-               <Check className="h-6 w-6" />
-               <span className="font-medium text-base">Created: {result.filePath}</span>
-             </div>
-             {result.message && <p className="text-base mt-3">{result.message}</p>}
-           </div>
-        )
-      }
-      
-      if (toolName === "bash") {
-        return (
-   <div className="mt-4 bg-card/30 rounded-xl p-4 border border-card-foreground/10">
-             <div className="flex items-center gap-2">
-               <TerminalIcon className="h-6 w-6" />
-               <span className="font-medium text-base">Command executed</span>
-             </div>
-             {result.output && (
-               <pre className="text-sm mt-3 whitespace-pre-wrap max-h-32 overflow-y-auto">{result.output}</pre>
-             )}
-             {result.error && (
-               <pre className="text-sm mt-3 whitespace-pre-wrap max-h-32 overflow-y-auto">{result.error}</pre>
-             )}
            </div>
         )
       }
@@ -220,13 +133,13 @@ export function ChatMessage({ message }: ChatMessageProps) {
                 return null
               }
               return match ? (
-                <pre className="bg-card/50 rounded-xl p-4 my-4 overflow-x-auto border border-card-foreground/10">
+                <pre className="bg-[#1a1a1f] rounded-xl p-4 my-4 overflow-x-auto border border-[#2e2e32]">
                   <code className={className} {...props}>
                     {children}
                   </code>
                 </pre>
               ) : (
-                <code className="bg-card/50 rounded-lg px-2 py-1 font-mono text-base" {...props}>
+                <code className="bg-[#1a1a1f] rounded-lg px-2 py-1 font-mono text-base" {...props}>
                   {children}
                 </code>
               )
@@ -251,17 +164,52 @@ export function ChatMessage({ message }: ChatMessageProps) {
   }
 
   return (
-    <div
-      className={cn(
-        "p-4 sm:p-5 rounded-2xl shadow-sm text-base",
-        isUser 
-          ? "bg-muted/70 text-foreground rounded-br-sm" 
-          : "bg-muted/30 text-foreground rounded-bl-sm"
-      )}
-    >
-      <div className="min-w-0">
-        {renderContent()}
+    <div className="space-y-3">
+      <div
+        className={cn(
+          "px-4 py-3 text-[15px] leading-relaxed",
+          isUser 
+            ? "bg-[#2e2e32] text-[#e5e5e5] max-w-[95%] sm:max-w-[92%] rounded-2xl rounded-br-md ml-auto" 
+            : "bg-[#1a1a1f] text-[#e5e5e5] max-w-[95%] sm:max-w-[92%] rounded-2xl rounded-bl-md"
+        )}
+      >
+        <div className="min-w-0">
+          {renderContent()}
+        </div>
       </div>
+      
+      {/* Status / Loading indicator in chat area */}
+      {status && status !== "idle" && status !== "ready" && (
+        <div className="flex items-center gap-2 text-sm text-[#888888] px-2">
+          <Loader2 className="h-4 w-4 animate-spin" />
+          <span>
+            {status === "planning" && "Thinking..."}
+            {status === "coding" && "Creating app..."}
+            {status === "testing" && "Checking..."}
+            {status === "fixing" && "Fixing issues..."}
+          </span>
+        </div>
+      )}
+      
+      {/* Preview thumbnail in chat - shown when there's a preview URL */}
+      {previewUrl && !isUser && (
+        <div 
+          onClick={onPreviewClick}
+          className="mt-2 cursor-pointer group relative overflow-hidden rounded-xl border border-[#2e2e32] hover:border-[#3b82f6] transition-colors"
+        >
+          <iframe
+            src={previewUrl}
+            className="w-full h-48 sm:h-64 border-0 bg-[#0a0a0f]"
+            sandbox="allow-scripts allow-same-origin"
+          />
+          <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
+            <div className="bg-[#3b82f6] text-white px-4 py-2 rounded-lg flex items-center gap-2">
+              <ExternalLink className="h-4 w-4" />
+              <span className="text-sm font-medium">Open in Preview</span>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }

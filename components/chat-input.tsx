@@ -1,8 +1,7 @@
 import React from "react"
-import { Send, Square, Save } from "lucide-react"
+import { Square, ArrowUp, Plus } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Textarea } from "@/components/ui/textarea"
-import { useChat } from "@ai-sdk/react"
 
 interface ChatInputProps {
   input: string
@@ -10,8 +9,7 @@ interface ChatInputProps {
   isGenerating: boolean
   handleSubmit: (e?: React.FormEvent) => void
   stopGeneration: () => void
-  onEditSave?: () => void
-  isEditing?: boolean
+  onNewChat?: () => void
 }
 
 export function ChatInput({
@@ -20,16 +18,23 @@ export function ChatInput({
   isGenerating,
   handleSubmit,
   stopGeneration,
-  onEditSave,
-  isEditing
+  onNewChat
 }: ChatInputProps) {
+  const isDisabled = !input.trim() || isGenerating
+
   return (
-    <form
-      onSubmit={handleSubmit}
-      className="border-t p-4 bg-card"
-    >
+    <div className="px-4 pb-4">
       <div className="max-w-2xl mx-auto">
-        <div className="relative">
+        <div className="relative flex items-end gap-2">
+          {onNewChat && (
+            <button
+              type="button"
+              onClick={onNewChat}
+              className="p-2.5 rounded-xl bg-[#2e2e32] hover:bg-[#3e3e42] transition-colors flex-shrink-0"
+            >
+              <Plus className="h-4 w-4 text-white" />
+            </button>
+          )}
           <Textarea
             value={input}
             onChange={(e) => setInput(e.target.value)}
@@ -39,44 +44,37 @@ export function ChatInput({
                 handleSubmit()
               }
             }}
-            placeholder="Describe the app you want to build..."
-            className="min-h-[50px] max-h-[150px] resize-none rounded-xl border-input shadow-sm pr-24 text-left"
+            placeholder="Ask anything..."
+            className="min-h-[56px] max-h-[200px] resize-none rounded-2xl border-0 bg-[#1f1f23] text-[#e5e5e5] placeholder:text-[#888888] focus:ring-1 focus:ring-[#3b82f6] shadow-lg flex-1"
             disabled={isGenerating}
+            style={{ 
+              backgroundColor: '#1f1f23',
+              color: '#e5e5e5'
+            }}
           />
-          <div className="absolute right-2 top-1/2 -translate-y-1/2 flex items-center gap-1">
-            {isEditing && onEditSave ? (
+          <div className="flex items-center flex-shrink-0">
+            {isGenerating ? (
               <Button
                 type="button"
-                variant="secondary"
                 size="icon"
-                className="h-7 w-7 rounded-lg"
-                onClick={onEditSave}
-              >
-                <Save className="h-3 w-3" />
-              </Button>
-            ) : isGenerating && (
-              <Button
-                type="button"
-                variant="secondary"
-                size="icon"
-                className="h-7 w-7 rounded-lg"
+                className="h-10 w-10 rounded-xl bg-[#2e2e32] hover:bg-[#3e3e42] border-0 transition-colors"
                 onClick={stopGeneration}
               >
-                <Square className="h-3 w-3" />
+                <Square className="h-4 w-4 text-white" />
+              </Button>
+            ) : (
+              <Button
+                type="submit"
+                size="icon"
+                className="h-10 w-10 rounded-full bg-[#3b82f6] hover:bg-[#2563eb] border-0 transition-colors"
+                disabled={isDisabled}
+              >
+                <ArrowUp className="h-4 w-4 text-white" />
               </Button>
             )}
-            <Button
-              type="submit"
-              variant="secondary"
-              size="icon"
-              className="h-7 w-7 rounded-lg"
-              disabled={!input.trim() || isGenerating}
-            >
-              <Send className="h-3 w-3" />
-            </Button>
           </div>
         </div>
       </div>
-    </form>
+    </div>
   )
 }

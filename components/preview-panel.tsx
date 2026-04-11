@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from "react"
-import { RefreshCw, ExternalLink, Download, Bookmark, ChevronLeft, ChevronRight, Pencil } from "lucide-react"
+import { ExternalLink, Download, Bookmark } from "lucide-react"
 import JSZip from "jszip"
+import type { SavedApp } from "@/types"
 
 interface PreviewPanelProps {
   previewUrl: string
@@ -9,7 +10,7 @@ interface PreviewPanelProps {
   stopAutoReload?: boolean
   onSaveToGallery?: () => void
   hasSavedToGallery?: boolean
-  sessionApps?: any[]
+  sessionApps?: SavedApp[]
   currentAppIndex?: number
   onNavigateNext?: () => void
   onNavigatePrev?: () => void
@@ -31,8 +32,6 @@ export function PreviewPanel({
 }: PreviewPanelProps) {
   const iframeRef = useRef<HTMLIFrameElement>(null)
   const [isLoaded, setIsLoaded] = useState(false)
-  const [isLoading, setIsLoading] = useState(true)
-  const [hasUserInteracted, setHasUserInteracted] = useState(false)
   const [bookmarkClicked, setBookmarkClicked] = useState(false)
 
   useEffect(() => {
@@ -50,22 +49,6 @@ export function PreviewPanel({
   }, [onConsoleMessage])
 
   useEffect(() => {
-    const handleInteract = () => {
-      setHasUserInteracted(true)
-    }
-
-    window.addEventListener('mousedown', handleInteract)
-    window.addEventListener('touchstart', handleInteract)
-    window.addEventListener('keydown', handleInteract)
-
-    return () => {
-      window.removeEventListener('mousedown', handleInteract)
-      window.removeEventListener('touchstart', handleInteract)
-      window.removeEventListener('keydown', handleInteract)
-    }
-  }, [])
-
-  useEffect(() => {
     if (stopAutoReload || !isLoaded) {
       return
     }
@@ -81,10 +64,6 @@ export function PreviewPanel({
   useEffect(() => {
     setBookmarkClicked(false)
   }, [previewUrl, localCode])
-
-  useEffect(() => {
-    setBookmarkClicked(false)
-  }, [sessionApps, currentAppIndex])
 
   const getHtmlForDownload = () => {
     if (localCode) {
@@ -122,68 +101,24 @@ export function PreviewPanel({
     setBookmarkClicked(true)
   }
 
-  const displayUrl = previewUrl
-
-  if (!displayUrl && !localCode) {
+  if (!previewUrl && !localCode) {
     return null
   }
 
   return (
     <div className="flex-1 flex flex-col h-full">
-      <div className="flex-1 h-full bg-card relative pt-12">
-        <div className="absolute top-4 left-4 z-10 flex gap-1 items-center">
-          {sessionApps.length > 1 && (
-            <>
-              <button
-                onClick={onNavigatePrev}
-                disabled={currentAppIndex <= 0}
-                className={`p-1.5 backdrop-blur-xl rounded-md border transition-all ${
-                  currentAppIndex <= 0
-                    ? 'bg-muted/30 border-muted/20 text-muted/50 cursor-not-allowed'
-                    : 'bg-card/30 border-card-foreground/5 hover:bg-card/40'
-                }`}
-                title="Previous version"
-              >
-                <ChevronLeft className="h-3.5 w-3.5" />
-              </button>
-              <span className="px-2 text-xs text-muted-foreground self-center bg-card/50 rounded">
-                {currentAppIndex + 1}/{sessionApps.length}
-              </span>
-              <button
-                onClick={onNavigateNext}
-                disabled={currentAppIndex >= sessionApps.length - 1}
-                className={`p-1.5 backdrop-blur-xl rounded-md border transition-all ${
-                  currentAppIndex >= sessionApps.length - 1
-                    ? 'bg-muted/30 border-muted/20 text-muted/50 cursor-not-allowed'
-                    : 'bg-card/30 border-card-foreground/5 hover:bg-card/40'
-                }`}
-                title="Next version"
-              >
-                <ChevronRight className="h-3.5 w-3.5" />
-              </button>
-            </>
-          )}
-          {onEditApp && (
-            <button
-              onClick={onEditApp}
-              className="p-1.5 backdrop-blur-xl rounded-md border bg-card/30 border-card-foreground/5 hover:bg-card/40 transition-all"
-              title="Edit"
-            >
-              <Pencil className="h-3.5 w-3.5" />
-            </button>
-          )}
-        </div>
-        <div className="absolute top-4 right-4 z-10 flex gap-2">
+      <div className="flex-1 h-full bg-[#121215] relative">
+        <div className="absolute top-3 right-3 z-10 flex gap-2">
           <button
             onClick={handleSaveToGallery}
-            className={`p-1.5 backdrop-blur-xl rounded-md border transition-all ${
+            className={`p-2 rounded-lg transition-all ${
               bookmarkClicked
-                ? 'bg-muted/50 border-muted/30 text-foreground fill-current'
-                : 'bg-transparent border-transparent hover:bg-muted/30 text-muted-foreground'
+                ? 'bg-[#3b82f6]/20 text-[#3b82f6]'
+                : 'bg-[#1f1f23] text-[#888888] hover:bg-[#2e2e32] hover:text-[#e5e5e5]'
             }`}
             title={bookmarkClicked ? "Saved to Gallery" : "Save to Gallery"}
           >
-            <Bookmark className={`h-3.5 w-3.5 ${bookmarkClicked ? 'fill-current' : ''}`} />
+            <Bookmark className={`h-4 w-4 ${bookmarkClicked ? 'fill-current' : ''}`} />
           </button>
           <button
             onClick={() => {
@@ -197,10 +132,10 @@ export function PreviewPanel({
                 window.open(previewUrl, '_blank')
               }
             }}
-            className="p-1.5 bg-card/30 backdrop-blur-xl rounded-md border border-card-foreground/5 hover:bg-card/40 transition-all"
+            className="p-2 bg-[#1f1f23] rounded-lg text-[#888888] hover:bg-[#2e2e32] hover:text-[#e5e5e5] transition-all"
             title="Open in new tab"
           >
-            <ExternalLink className="h-3.5 w-3.5" />
+            <ExternalLink className="h-4 w-4" />
           </button>
           <button
             onClick={async () => {
@@ -229,14 +164,14 @@ export function PreviewPanel({
                 alert('Download failed. Try opening in a new tab and saving the page manually.')
               }
             }}
-            className="p-1.5 bg-card/30 backdrop-blur-xl rounded-md border border-card-foreground/5 hover:bg-card/40 transition-all"
+            className="p-2 bg-[#1f1f23] rounded-lg text-[#888888] hover:bg-[#2e2e32] hover:text-[#e5e5e5] transition-all"
             title="Download as offline app"
           >
-            <Download className="h-3.5 w-3.5" />
+            <Download className="h-4 w-4" />
           </button>
         </div>
         {!isLoaded && (
-          <div className="absolute inset-0 flex items-center justify-center text-muted-foreground">
+          <div className="absolute inset-0 flex items-center justify-center text-[#888888]">
             <div className="text-center">
               <p className="text-sm">Waiting for preview</p>
             </div>
@@ -244,11 +179,10 @@ export function PreviewPanel({
         )}
         <iframe
           ref={iframeRef}
-          src={displayUrl}
+          src={previewUrl}
           className="w-full h-full border-0"
           onLoad={() => {
             setIsLoaded(true)
-            setIsLoading(false)
           }}
           sandbox="allow-scripts allow-same-origin allow-popups allow-forms"
           allow="fullscreen"
