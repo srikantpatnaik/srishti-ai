@@ -1,5 +1,5 @@
 import React, { useState } from "react"
-import { ChevronLeft, Clock, ChevronDown, ChevronRight } from "lucide-react"
+import { Clock, ChevronDown, ChevronRight } from "lucide-react"
 
 interface RecentChat {
   id: string
@@ -28,15 +28,7 @@ export function SettingsPanel({
     <div className="h-full bg-[#121215] flex flex-col transition-all duration-300 overflow-y-auto"
          style={{ scrollbarColor: '#404040 #000000', scrollbarWidth: 'thin' }}>
       <div className="p-4">
-        <div className="flex items-center justify-between">
-          <h2 className="text-[#e5e5e5] text-base font-medium">Settings</h2>
-          <button
-            className="p-2 rounded-lg transition-colors bg-[#2e2e32] text-[#888888] hover:bg-[#2e2e32]/80"
-            onClick={() => setShowSettings(false)}
-          >
-            <ChevronLeft className="h-4 w-4" />
-          </button>
-        </div>
+        <h2 className="text-[#e5e5e5] text-base font-medium">Settings</h2>
       </div>
 
       {recentChats.length > 0 && (

@@ -671,6 +671,9 @@ const [hasSavedToGallery, setHasSavedToGallery] = useState(false)
             
           </div>
           <div className="flex items-center gap-2">
+            <Button variant="ghost" size="icon" className="h-6 w-6 text-[#888888]" onClick={() => setShowAppDrawer(!showAppDrawer)}>
+              <Grid className="h-4 w-4" />
+            </Button>
             {showPreview ? (
               <button 
                 onClick={() => setShowPreview(false)}
@@ -688,10 +691,6 @@ const [hasSavedToGallery, setHasSavedToGallery] = useState(false)
                 <PanelRightOpen className="h-4 w-4" />
               </button>
             )}
-            <Button variant="ghost" size="icon" className="h-6 w-6 text-[#888888]" onClick={() => setShowAppDrawer(!showAppDrawer)}>
-              <Grid className="h-4 w-4" />
-            </Button>
-            
           </div>
         </header>
 

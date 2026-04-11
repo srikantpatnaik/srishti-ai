@@ -169,8 +169,8 @@ export function ChatMessage({ message, previewUrl, onPreviewClick, status }: Cha
         className={cn(
           "px-4 py-3 text-[15px] leading-relaxed",
 isUser 
-             ? "bg-[#2e2e32] text-[#e5e5e5] max-w-[100%] sm:max-w-[98%] rounded-2xl rounded-br-md ml-auto" 
-             : "bg-[#1a1a1f] text-[#e5e5e5] max-w-[100%] sm:max-w-[98%] rounded-2xl rounded-bl-md"
+              ? "bg-[#2e2e32] text-[#e5e5e5] max-w-[100%] sm:max-w-[100%] rounded-2xl rounded-br-md ml-auto" 
+              : "bg-[#1a1a1f] text-[#e5e5e5] max-w-[100%] sm:max-w-[100%] rounded-2xl rounded-bl-md"
         )}
       >
         <div className="min-w-0">
