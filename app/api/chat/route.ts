@@ -76,7 +76,6 @@ async function loadSettings() {
 let settings: any = { providers: [], default_provider: "qwen3.5-27B" }
 loadSettings().then((s) => { settings = s })
 
-// Get provider from settings by name
 function getProvider(providerName?: string) {
   let provider: any
 
@@ -139,7 +138,6 @@ function getProvider(providerName?: string) {
   }
 }
 
-// Tool schemas - optimized for minimal tokens
 const readSchema = z.object({
   path: z.string().describe("File path to read"),
 })
@@ -180,69 +178,75 @@ export async function POST(req: Request) {
   const controller = new AbortController()
   const { signal } = controller
   
-  // Set up timeout
-  const timeoutId = setTimeout(() => controller.abort(), 300000) // 5 minutes
+  const timeoutId = setTimeout(() => controller.abort(), 300000)
 
   try {
-    const { messages, isAutonomous, selectedProvider } = await req.json()
+    const { messages, isAutonomous, selectedProvider, selectedLanguage } = await req.json()
+
+    const languageNames: Record<string, string> = {
+      hi: "Hindi",
+      bn: "Bengali",
+      te: "Telugu",
+      mr: "Marathi",
+      ta: "Tamil",
+      gu: "Gujarati",
+      kn: "Kannada",
+      ml: "Malayalam",
+      pa: "Punjabi",
+      ur: "Urdu",
+      or: "Odia",
+      as: "Assamese",
+      mai: "Maithili",
+    }
+
+    const langInstruction = selectedLanguage && languageNames[selectedLanguage]
+      ? `You MUST respond in ${languageNames[selectedLanguage]} language only.`
+      : ""
 
     const model = getProvider(selectedProvider) as any
 
-const result = await streamText({
+    const result = await streamText({
       model,
-      system: `You are a friendly AI assistant who builds simple apps 🤖.
+      system: `You are a helpful AI assistant.
 
-IMPORTANT: This is for non-technical users. NO code, NO technical jargon!
+## Response Rules
 
-CRITICAL: You MUST use the announce tool to show progress. This is REQUIRED!
+1. **APP/CODE BUILDING (only when asked)**:
+   - User MUST explicitly ask: "build", "create", "make", "generate", "write code", "build app", "create game"
+   - If user asks: respond with HTML code in markdown block
+   - If user asks: follow the build process with announce tool calls
 
-STEP-BY-STEP PROCESS:
-1. FIRST: Send friendly message with plan (2-3 bullet points):
-   - VARY opening: "Awesome!", "Love this idea!", "Perfect choice!", "Sounds fun!"
-   - VARY timing: "just a sec", "2 mins", "quickly", "moment"
-   - Give 2-3 features as bullets
-   - End with: "Wait a bit, building it soon! 😊"
-   
-   EXAMPLE: "Sounds fun! 🎉 I'll create a todo app for you:
-     • Add and delete tasks
-     • Mark things as done
-     • Beautiful dark theme
-     Wait a bit, building it soon! 😊"
+2. **REGULAR CONVERSATION (default)**:
+   - Answer questions naturally and helpfully
+   - No code, no building unless asked
+   - Be conversational and friendly
 
-2. THEN: Call announce tool (REQUIRED):
-   announce(phase: "planning", message: "Thinking about your app...")
-   
-3. THEN: Call announce tool again:
-   announce(phase: "coding", message: "Creating your app...")
-   
-4. THEN: Return HTML code block:
-   \`\`\`html
-   <!DOCTYPE html>
-   ...complete app...
-   \`\`\`
-   
-5. FINALLY: Call announce tool:
-   announce(phase: "ready", message: "All done! Click the eye icon 👀 to see your app")
+3. **LANGUAGE ${langInstruction ? `\n   - ${langInstruction}` : ""}**
 
-IMPORTANT: The announce tool MUST be called for each phase. Users need to see progress!
+## Build Process (only when user asks)
 
-MOBILE-FIRST:
-- Viewport: <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-- Max-width: 100%
+When user asks to build/create something:
+
+1. Send friendly message with plan
+2. Call announce(phase: "planning")
+3. Call announce(phase: "coding") 
+4. Return code:
+\`\`\`html
+<!DOCTYPE html>
+<html>
+...app code...
+</html>
+\`\`\`
+5. Call announce(phase: "ready")
+
+## Code Requirements (when building)
+
+- Mobile-first: <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
 - Touch buttons: min 44px height
-- Responsive layout
-
-DARK THEME:
-- Background: #1a1a2e
-- Text: #eaeaea
-- Cards: #16213e
-- Accents: #e94560
-
-INLINE ONLY: All CSS and JS inline
-
-NO technical terms! Keep it simple and friendly! 🎨
-`,
-      messages,
+- Dark theme: background #1a1a2e, text #eaeaea, cards #16213e, accents #e94560
+- All CSS and JS inline
+- No technical jargon in user-facing text`,
+      messages: messages,
       tools: {
         announce: tool({
           description: "Show progress update (required before building)",

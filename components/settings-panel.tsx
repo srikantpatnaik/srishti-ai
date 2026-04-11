@@ -1,5 +1,5 @@
 import React, { useState, useMemo } from "react"
-import { Clock, ChevronDown, ChevronRight, PanelLeftClose } from "lucide-react"
+import { Clock, ChevronDown, ChevronRight, PanelLeftClose, Trash2, Check, X } from "lucide-react"
 
 interface RecentChat {
   id: string
@@ -12,6 +12,7 @@ interface SettingsPanelProps {
   setShowSettings: (val: boolean) => void
   recentChats: RecentChat[]
   onLoadChat: (chatId: string) => void
+  onDeleteChat: (chatId: string) => void
 }
 
 function formatChatDate(timestamp: number): string {
@@ -34,8 +35,10 @@ export function SettingsPanel({
   setShowSettings,
   recentChats,
   onLoadChat,
+  onDeleteChat,
 }: SettingsPanelProps) {
   const [showShortcuts, setShowShortcuts] = useState(false)
+  const [deleteConfirmId, setDeleteConfirmId] = useState<string | null>(null)
 
   const groupedChats = useMemo(() => {
     const groups: { [key: string]: RecentChat[] } = {}
@@ -48,6 +51,22 @@ export function SettingsPanel({
   }, [recentChats])
 
   const groupOrder = ["Today", "Yesterday", "This Week", "Older"]
+
+  const handleDeleteClick = (chatId: string, e: React.MouseEvent) => {
+    e.stopPropagation()
+    setDeleteConfirmId(chatId)
+  }
+
+  const handleConfirmDelete = () => {
+    if (deleteConfirmId) {
+      onDeleteChat(deleteConfirmId)
+      setDeleteConfirmId(null)
+    }
+  }
+
+  const handleCancelDelete = () => {
+    setDeleteConfirmId(null)
+  }
 
   if (!showSettings) return null
 
@@ -78,13 +97,54 @@ export function SettingsPanel({
                   <p className="text-[#666666] text-xs font-medium mb-1 px-1">{group}</p>
                   <div className="space-y-0.5">
                     {chats.map((chat) => (
-                      <button
+                      <div
                         key={chat.id}
-                        onClick={() => onLoadChat(chat.id)}
-                        className="w-full text-left px-3 py-2 rounded-lg text-sm text-[#e5e5e5] hover:bg-[#2e2e32] transition-colors truncate"
+                        className={`group relative flex items-center justify-between px-3 py-2 rounded-lg text-sm transition-colors ${
+                          deleteConfirmId === chat.id 
+                            ? 'bg-[#3e3e42] border border-[#e94560]' 
+                            : 'hover:bg-[#2e2e32]'
+                        }`}
                       >
-                        {chat.title}
-                      </button>
+                        {deleteConfirmId === chat.id ? (
+                          <>
+                            <span className="flex-1 text-sm text-[#e5e5e5] truncate pr-2">
+                              Delete?
+                            </span>
+                            <div className="flex items-center gap-1">
+                              <button
+                                onClick={handleConfirmDelete}
+                                className="p-1.5 rounded-lg bg-[#e94560] hover:bg-[#d13a54] text-white transition-colors"
+                                title="Confirm delete"
+                              >
+                                <Check className="h-3 w-3" />
+                              </button>
+                              <button
+                                onClick={handleCancelDelete}
+                                className="p-1.5 rounded-lg bg-[#2e2e32] hover:bg-[#3e3e42] text-[#888888] hover:text-[#e5e5e5] transition-colors"
+                                title="Cancel"
+                              >
+                                <X className="h-3 w-3" />
+                              </button>
+                            </div>
+                          </>
+                        ) : (
+                          <>
+                            <button
+                              onClick={() => onLoadChat(chat.id)}
+                              className="flex-1 text-left text-[#e5e5e5] truncate pr-2"
+                            >
+                              {chat.title}
+                            </button>
+                            <button
+                              onClick={(e) => handleDeleteClick(chat.id, e)}
+                              className="opacity-0 group-hover:opacity-100 p-1 rounded hover:bg-[#3e3e42] text-[#888888] hover:text-[#e94560] transition-all"
+                              title="Delete chat"
+                            >
+                              <Trash2 className="h-3 w-3" />
+                            </button>
+                          </>
+                        )}
+                      </div>
                     ))}
                   </div>
                 </div>

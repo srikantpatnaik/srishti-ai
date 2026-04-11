@@ -1,7 +1,8 @@
 "use client"
 
 import React, { useState, useEffect, useRef, useCallback, useMemo } from "react"
-import { Bot, ChevronLeft, ChevronRight, Grid, X, PanelLeftClose, PanelLeftOpen, PanelRightClose, PanelRightOpen } from "lucide-react"
+import JSZip from "jszip"
+import { Bot, ChevronLeft, ChevronRight, ChevronDown, Grid, Grid3X3, X, PanelLeftClose, PanelLeftOpen, PanelRightClose, PanelRightOpen, Plus, MessageSquarePlus, Download, FolderHeart } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { ScrollArea } from "@/components/ui/scroll-area"
 import { ChatMessage } from "@/components/chat-message"
@@ -46,6 +47,31 @@ export default function Home() {
   const [currentChatId, setCurrentChatId] = useState<string>("")
   const [chatKey, setChatKey] = useState("0")
   const [messagePreviews, setMessagePreviews] = useState<Map<number, string>>(new Map())
+  const [selectedLanguage, setSelectedLanguage] = useState<string>("")
+  const [isDropdownOpen, setIsDropdownOpen] = useState(false)
+  const selectedLanguageRef = useRef(selectedLanguage)
+
+  const languages = [
+    { code: "", name: "English", native: "English" },
+    { code: "hi", name: "Hindi", native: "हिंदी" },
+    { code: "bn", name: "Bengali", native: "বাংলা" },
+    { code: "te", name: "Telugu", native: "తెలుగు" },
+    { code: "mr", name: "Marathi", native: "मराठी" },
+    { code: "ta", name: "Tamil", native: "தமிழ்" },
+    { code: "gu", name: "Gujarati", native: "ગુજરાતી" },
+    { code: "kn", name: "Kannada", native: "ಕನ್ನಡ" },
+    { code: "ml", name: "Malayalam", native: "മലയാളം" },
+    { code: "pa", name: "Punjabi", native: "ਪੰਜਾਬੀ" },
+    { code: "ur", name: "Urdu", native: "اردو" },
+    { code: "or", name: "Odia", native: "ଓଡ଼ିଆ" },
+    { code: "as", name: "Assamese", native: "অসমীয়া" },
+    { code: "mai", name: "Maithili", native: "मैथिली" },
+  ]
+  const currentLang = languages.find(l => l.code === selectedLanguage) || languages[0]
+  
+  useEffect(() => {
+    selectedLanguageRef.current = selectedLanguage
+  }, [selectedLanguage])
 
   const { darkMode, setDarkMode } = useDarkMode()
 
@@ -69,7 +95,7 @@ export default function Home() {
     key: chatKey,
     api: "/api/chat",
     initialMessages: initialMessages,
-    body: { isAutonomous: true, selectedProvider },
+    body: { isAutonomous: true, selectedProvider, selectedLanguage },
     onError: (error) => {
       console.error("Chat error:", error)
       setStatus("error")
@@ -99,6 +125,9 @@ export default function Home() {
         setRecentChats(JSON.parse(savedRecentChats))
       } catch (e) { console.error("Failed to load recent chats") }
     }
+
+    const savedLanguage = localStorage.getItem("selectedLanguage")
+    if (savedLanguage !== null) setSelectedLanguage(savedLanguage)
   }, [])
 
   useEffect(() => {
@@ -108,6 +137,10 @@ export default function Home() {
   useEffect(() => {
     localStorage.setItem("showSettings", showSettings.toString())
   }, [showSettings])
+
+  useEffect(() => {
+    localStorage.setItem("selectedLanguage", selectedLanguage)
+  }, [selectedLanguage])
 
   useEffect(() => {
     setHasSavedToGallery(false)
@@ -124,30 +157,128 @@ export default function Home() {
     loadSavedApps()
   }, [])
 
-  useEffect(() => {
-    const chatCleared = localStorage.getItem("chatCleared")
-    if (chatCleared === "true") {
-      localStorage.removeItem("chatCleared")
-      setInitialMessages([])
-      setCurrentChatMessages([])
-      setLocalPreviewCode("")
-      setMessagePreviews(new Map())
-      return
+  const regeneratePreviewsFromMessages = (msgs: any[]) => {
+    const newPreviews = new Map<number, string>()
+    msgs.forEach((message, i) => {
+      if (message.role === 'assistant' && message.content) {
+        const match = message.content.match(/```html([\s\S]*?)```/)
+        if (match) {
+          const htmlCode = match[1].trim()
+          const htmlContent = `<!DOCTYPE html><html lang="en"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no"><title>My App</title><style>*{margin:0;padding:0;box-sizing:border-box;}body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;background:#1a1a2e;color:#eaeaea;min-height:100vh;padding:16px;}.app-container{max-width:100%;margin:0 auto;}</style></head><body><div class="app-container">${htmlCode}</div><script>window.parent.postMessage({ type: 'loaded' }, '*');</script></body></html>`
+          const blob = new Blob([htmlContent], { type: 'text/html' })
+          const url = URL.createObjectURL(blob)
+          newPreviews.set(i, url)
+        }
+      }
+    })
+    setMessagePreviews(newPreviews)
+  }
+
+  const extractCodeFromMessage = (msg: any): string | null => {
+    if (msg.role === 'assistant' && msg.content) {
+      const match = msg.content.match(/```html([\s\S]*?)```/)
+      if (match) {
+        return match[1].trim()
+      }
     }
-    
+    return null
+  }
+
+  const handleSaveFromChat = async (msgIndex: number) => {
+    const msg = messages[msgIndex]
+    const code = extractCodeFromMessage(msg)
+    if (!code) return
+
+    const msgContent = msg.content || ''
+    const fillerWords = ['a', 'an', 'the', 'make', 'make a', 'build', 'build a', 'create', 'create a', 'can you', 'please', 'i want', 'build me', 'create me', 'app', 'application', 'in', 'telugu', 'hindi', 'tamil', 'kannada', 'malayalam', 'bengali', 'marathi', 'gujarati']
+    let rawName = msgContent.replace(/```html[\s\S]*?```/g, '').trim() || 'My App'
+    fillerWords.forEach(word => {
+      rawName = rawName.replace(new RegExp('\\b' + word + '\\b', 'gi'), ' ')
+    })
+    rawName = rawName.replace(/[^\p{L}\p{N}\s]/gu, ' ').replace(/\s+/g, ' ').trim()
+    const words = rawName.split(' ').filter(w => w.trim().length > 0)
+    let appName = words.slice(0, 3).join(' ').trim() || 'My App'
+    appName = appName.split(' ').map((w, i) => {
+      const cleaned = w.trim()
+      if (!cleaned) return ''
+      return i === 0 ? cleaned.charAt(0).toUpperCase() + cleaned.slice(1).toLowerCase() : cleaned.toLowerCase()
+    }).join(' ').trim()
+    if (appName.length > 20) {
+      appName = words.slice(0, 2).join(' ').trim()
+      appName = appName.charAt(0).toUpperCase() + appName.slice(1).toLowerCase()
+    }
+    if (!appName || appName.length < 2) {
+      appName = 'My App'
+    }
+
+    const existingApp = savedApps.find(app => app.code === code)
+    if (existingApp) return
+
+    const newApp: SavedApp = {
+      id: Date.now().toString(),
+      name: appName,
+      icon: getAppIcon(appName),
+      code: code,
+      url: "",
+      chatMessages: messages,
+      createdAt: Date.now()
+    }
+    await saveAppToDB(newApp)
+    const blob = new Blob([code], { type: 'text/html' })
+    const url = URL.createObjectURL(blob)
+    const appWithUrl = { ...newApp, url }
+    setSavedApps(prev => [appWithUrl, ...prev])
+  }
+
+  const handleDownloadFromChat = (msgIndex: number) => {
+    const msg = messages[msgIndex]
+    const code = extractCodeFromMessage(msg)
+    if (!code) return
+
+    const zip = new JSZip()
+    const htmlContent = `<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>My App</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background: #1a1a2e; color: #eaeaea; min-height: 100vh; padding: 16px; }
+    .app-container { max-width: 100%; margin: 0 auto; }
+  </style>
+</head>
+<body>
+  <div class="app-container">
+    ${code}
+  </div>
+</body>
+</html>`
+    zip.file("index.html", htmlContent)
+    zip.generateAsync({ type: "blob" }).then((content) => {
+      const url = URL.createObjectURL(content)
+      const link = document.createElement('a')
+      link.href = url
+      link.download = `app-${Date.now()}.zip`
+      document.body.appendChild(link)
+      link.click()
+      document.body.removeChild(link)
+      URL.revokeObjectURL(url)
+    })
+  }
+
+  const isAppSavedInChat = (msgIndex: number): boolean => {
+    const msg = messages[msgIndex]
+    const code = extractCodeFromMessage(msg)
+    if (!code) return false
+    return savedApps.some(app => app.code === code)
+  }
+
+  useEffect(() => {
     if (currentChatMessages.length > 0) {
       setInitialMessages(currentChatMessages)
       setInput("")
-      for (let i = currentChatMessages.length - 1; i >= 0; i--) {
-        const message = currentChatMessages[i]
-        if (message.role === 'assistant' && message.content) {
-          const match = message.content.match(/```html([\s\S]*?)```/)
-          if (match) {
-            setLocalPreviewCode(match[1].trim())
-            break
-          }
-        }
-      }
+      regeneratePreviewsFromMessages(currentChatMessages)
     } else {
       const savedMessagesData = localStorage.getItem("chatMessages")
       if (savedMessagesData) {
@@ -156,16 +287,7 @@ export default function Home() {
           if (messagesData.length > 0) {
             setInitialMessages(messagesData)
             setInput("")
-            for (let i = messagesData.length - 1; i >= 0; i--) {
-              const message = messagesData[i]
-              if (message.role === 'assistant' && message.content) {
-                const match = message.content.match(/```html([\s\S]*?)```/)
-                if (match) {
-                  setLocalPreviewCode(match[1].trim())
-                  break
-                }
-              }
-            }
+            regeneratePreviewsFromMessages(messagesData)
           }
         } catch (e) { console.error("Failed to load chat messages") }
       }
@@ -286,7 +408,7 @@ export default function Home() {
     stopChat()
   }
 
-  const handleSubmit = async (e?: React.FormEvent) => {
+  const handleSubmit = async (e?: React.FormEvent, language?: string) => {
     if (e) e.preventDefault()
     if (!input.trim() || isGenerating) return
     if (abortControllerRef.current) abortControllerRef.current.abort()
@@ -299,6 +421,8 @@ export default function Home() {
     setSessionApps([])
     setCurrentAppIndex(-1)
     setAutoGenerated(false)
+    
+    const currentLang = language || selectedLanguageRef.current
     await append({ role: "user", content: input })
     setInput("")
   }
@@ -482,8 +606,8 @@ useEffect(() => {
   }
 
   const newSession = () => {
-    setChatKey(prev => String(Number(prev) + 1))
     const newChatId = Date.now().toString()
+    setChatKey(prev => String(Number(prev) + 1))
     setCurrentChatId(newChatId)
     setCurrentChatMessages([])
     setInput("")
@@ -494,10 +618,11 @@ useEffect(() => {
     setEditedAppCode("")
     setIsEditing(false)
     setHasSavedToGallery(false)
+    setSessionApps([])
+    setCurrentAppIndex(-1)
     setMessagePreviews(new Map())
     if (blobUrl) { URL.revokeObjectURL(blobUrl); setBlobUrl("") }
     localStorage.removeItem("chatMessages")
-    localStorage.setItem("chatCleared", "true")
   }
 
 const [hasSavedToGallery, setHasSavedToGallery] = useState(false)
@@ -649,6 +774,23 @@ const [hasSavedToGallery, setHasSavedToGallery] = useState(false)
     }
   }
 
+  const deleteChat = (chatId: string) => {
+    setRecentChats(prev => {
+      const updated = prev.filter(c => c.id !== chatId)
+      localStorage.setItem("recentChats", JSON.stringify(updated))
+      return updated
+    })
+    localStorage.removeItem(`chatHistory_${chatId}`)
+    if (currentChatId === chatId) {
+      setCurrentChatMessages([])
+      setInput("")
+      setInitialMessages([])
+      setLocalPreviewCode("")
+      setMessagePreviews(new Map())
+      localStorage.removeItem("chatMessages")
+    }
+  }
+
   useEffect(() => {
     console.log('Session apps updated:', sessionApps.length, 'Current index:', currentAppIndex)
     if (sessionApps.length > 0) {
@@ -702,6 +844,7 @@ const [hasSavedToGallery, setHasSavedToGallery] = useState(false)
         setShowSettings={setShowSettings}
         recentChats={recentChats}
         onLoadChat={loadRecentChat}
+        onDeleteChat={deleteChat}
       />
 
       {showPreview && window.innerWidth < 768 && (
@@ -714,7 +857,7 @@ const [hasSavedToGallery, setHasSavedToGallery] = useState(false)
           </div>
           <div className="h-[calc(100vh-53px)]">
             {blobUrl ? (
-              <PreviewPanel previewUrl={blobUrl} onConsoleMessage={handleConsoleMessage} stopAutoReload={status === "ready"} onSaveToGallery={handleSaveToGallery} hasSavedToGallery={hasSavedToGallery} />
+              <PreviewPanel previewUrl={blobUrl} onConsoleMessage={handleConsoleMessage} stopAutoReload={status === "ready"} />
             ) : (
               <div className="h-full flex items-center justify-center text-muted-foreground"><p className="text-sm">Preview will appear here</p></div>
             )}
@@ -722,45 +865,103 @@ const [hasSavedToGallery, setHasSavedToGallery] = useState(false)
         </div>
       )}
 
-      <div className="flex-1 flex flex-col min-w-0">
-        {!showSettings && (
-          <div className="absolute top-4 left-4 z-50">
+      <div className="flex-1 flex flex-col min-w-0 w-full md:max-w-[70%] mx-auto">
+        <div className="absolute top-4 left-4 z-50">
+          {!showSettings && (
             <button 
               onClick={() => setShowSettings(true)}
-              className="p-3 rounded-xl transition-all bg-[#1f1f23] text-[#888888] hover:text-[#e5e5e5] hover:bg-[#2e2e32] shadow-lg border border-[#2e2e32]"
+              className="p-2 text-[#666666] hover:text-[#888888] transition-colors"
             >
               <PanelLeftOpen className="h-5 w-5" />
             </button>
-          </div>
-        )}
+          )}
+        </div>
 
-        <div className="flex-1 flex min-h-0 pt-0">
+        <div className="flex-1 flex min-h-0">
           <div className="flex-1 flex flex-col min-w-0">
-            <ScrollArea className="flex-1 p-4 pt-16 bg-[#121215] [&::-webkit-scrollbar]:hidden">
-              <div className="max-w-2xl mx-auto space-y-4">
+            <ScrollArea className="flex-1 bg-[#121215] [&::-webkit-scrollbar]:hidden">
+              <div className="px-4 py-2 space-y-4">
                 {useMemo(() => {
                   const visibleMessages = messages.slice(visibleRange.start, visibleRange.end)
                   return visibleMessages.map((msg, idx) => {
                     const actualIdx = visibleRange.start + idx
                     const msgPreviewUrl = messagePreviews.get(actualIdx)
                     const isLatestAssistant = msg.role === 'assistant' && actualIdx === messages.length - 1
+                    const hasCode = extractCodeFromMessage(msg) !== null
                     return (
                       <div key={msg.id} className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'} gap-2`}>
-                        <div className="max-w-[80%] sm:max-w-[70%]"><ChatMessage message={msg} previewUrl={msgPreviewUrl} onPreviewClick={() => setShowPreview(true)} status={isLatestAssistant ? status : undefined} /></div>
+                        <div className={`max-w-[80%] ${msg.role === 'user' ? 'items-end' : 'items-start'}`}>
+                          <ChatMessage 
+                            message={msg} 
+                            previewUrl={msgPreviewUrl} 
+                            onPreviewClick={() => setShowPreview(true)} 
+                            onSaveToGallery={hasCode ? () => handleSaveFromChat(actualIdx) : undefined}
+                            onDownload={hasCode ? () => handleDownloadFromChat(actualIdx) : undefined}
+                            hasSavedToGallery={hasCode && isAppSavedInChat(actualIdx)}
+                            status={isLatestAssistant ? status : undefined} 
+                          />
+                        </div>
                       </div>
                     )
                   })
-                }, [messages, visibleRange.start, visibleRange.end, messagePreviews, status])}
+                }, [messages, visibleRange.start, visibleRange.end, messagePreviews, status, savedApps])}
                 <div ref={messagesEndRef} />
               </div>
             </ScrollArea>
 
-            <ChatInput 
-              input={input} setInput={setInput} isGenerating={isGenerating}
-              handleSubmit={handleSubmit} stopGeneration={stopGeneration}
-              onNewChat={newSession}
-              onShowAppDrawer={() => setShowAppDrawer(true)}
-            />
+            <div className="px-4 pb-2">
+              <div className="flex items-center justify-between mb-2">
+                <div className="flex items-center gap-2">
+                  <button
+                    onClick={newSession}
+                    className="p-2 text-[#666666] hover:text-[#888888] transition-colors"
+                    title="New Chat"
+                  >
+                    <MessageSquarePlus className="h-5 w-5" />
+                  </button>
+                  <div className="relative">
+                    <button
+                      onClick={() => setIsDropdownOpen(!isDropdownOpen)}
+                      className="flex items-center gap-1 px-3 py-1.5 rounded-full bg-[#2e2e32] hover:bg-[#3e3e42] transition-colors text-xs"
+                    >
+                      <span className="text-[#e5e5e5]">{currentLang.native}</span>
+                      <ChevronDown className="h-3 w-3 text-[#888888]" />
+                    </button>
+                    {isDropdownOpen && (
+                      <div className="absolute bottom-full mb-2 left-0 z-50 bg-[#1f1f23] border border-[#2e2e32] rounded-xl shadow-xl overflow-hidden min-w-[140px] max-h-[300px] overflow-y-auto">
+                        {languages.map((lang) => (
+                          <button
+                            key={lang.code}
+                            type="button"
+                            onClick={() => {
+                              setSelectedLanguage(lang.code)
+                              setIsDropdownOpen(false)
+                            }}
+                            className={`w-full px-3 py-2 text-left hover:bg-[#2e2e32] transition-colors flex items-center justify-between ${
+                              selectedLanguage === lang.code ? 'bg-[#2e2e32]' : ''
+                            }`}
+                          >
+                            <span className="text-sm text-[#e5e5e5]">{lang.native}</span>
+                            <span className="text-xs text-[#888888]">{lang.name}</span>
+                          </button>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                </div>
+                <button
+                  onClick={() => setShowAppDrawer(true)}
+                  className="p-2 text-[#666666] hover:text-[#888888] transition-colors"
+                  title="Gallery"
+                >
+                  <Grid3X3 className="h-5 w-5" />
+                </button>
+              </div>
+              <ChatInput 
+                input={input} setInput={setInput} isGenerating={isGenerating}
+                handleSubmit={handleSubmit} stopGeneration={stopGeneration}
+              />
+            </div>
           </div>
         </div>
       </div>
@@ -779,7 +980,7 @@ const [hasSavedToGallery, setHasSavedToGallery] = useState(false)
         {showPreview && (
           <>
             <div className="flex-1 h-full overflow-hidden [&::-webkit-scrollbar]:w-2 [&::-webkit-scrollbar-thumb]:bg-[#404040] [&::-webkit-scrollbar-track]:bg-transparent">
-              {blobUrl ?               <PreviewPanel previewUrl={blobUrl} onConsoleMessage={handleConsoleMessage} stopAutoReload={status === "ready"} onSaveToGallery={handleSaveToGallery} hasSavedToGallery={hasSavedToGallery} /> : <div className="h-full flex items-center justify-center text-muted-foreground"><p className="text-sm">Preview will appear here</p></div>}
+              {blobUrl ? <PreviewPanel previewUrl={blobUrl} appName={sessionApps[currentAppIndex]?.name || "My App"} onConsoleMessage={handleConsoleMessage} stopAutoReload={status === "ready"} onClose={() => setShowPreview(false)} /> : <div className="h-full flex items-center justify-center text-muted-foreground"><p className="text-sm">Preview will appear here</p></div>}
             </div>
             <div className="cursor-col-resize hover:bg-primary/20 transition-colors" style={{ width: '4px' }} onMouseDown={handleResizeMouseDown} />
           </>

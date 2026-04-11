@@ -1,5 +1,5 @@
 import React from "react"
-import { User, Bot, FileCode, CheckCircle2, AlertCircle, TerminalIcon, Code2, Play, Check, ExternalLink, Loader2 } from "lucide-react"
+import { User, Bot, FileCode, CheckCircle2, AlertCircle, TerminalIcon, Code2, Play, Check, ExternalLink, Loader2, Download, FolderHeart } from "lucide-react"
 import { cn } from "@/lib/utils"
 import ReactMarkdown from "react-markdown"
 import remarkGfm from "remark-gfm"
@@ -19,10 +19,21 @@ interface ChatMessageProps {
   }
   previewUrl?: string
   onPreviewClick?: () => void
+  onSaveToGallery?: () => void
+  onDownload?: () => void
+  hasSavedToGallery?: boolean
   status?: string
 }
 
-export const ChatMessage = React.memo(function ChatMessage({ message, previewUrl, onPreviewClick, status }: ChatMessageProps) {
+export const ChatMessage = React.memo(function ChatMessage({ 
+  message, 
+  previewUrl, 
+  onPreviewClick, 
+  onSaveToGallery, 
+  onDownload,
+  hasSavedToGallery = false,
+  status 
+}: ChatMessageProps) {
   const isUser = message.role === "user"
 
   const renderContent = () => {
@@ -168,10 +179,10 @@ export const ChatMessage = React.memo(function ChatMessage({ message, previewUrl
     <div className="space-y-3">
       <div
         className={cn(
-          "px-3 py-2 text-[14px] leading-relaxed",
-isUser 
-              ? "bg-[#2e2e32] text-[#e5e5e5] max-w-[100%] sm:max-w-[100%] rounded-2xl rounded-br-md ml-auto" 
-              : "bg-[#1a1a1f] text-[#e5e5e5] max-w-[100%] sm:max-w-[100%] rounded-2xl rounded-bl-md"
+          "px-4 py-2.5 text-[14px] leading-relaxed max-w-[100%]",
+          isUser 
+            ? "bg-[#2e2e32] text-[#e5e5e5] rounded-2xl rounded-tr-md"
+            : "bg-[#1e1e23] text-[#e5e5e5] rounded-2xl rounded-tl-md border border-[#2e2e32]"
         )}
       >
         <div className="min-w-0">
@@ -192,12 +203,9 @@ isUser
         </div>
       )}
       
-{/* Preview thumbnail in chat - shown when there's a preview URL */}
+      {/* Preview thumbnail in chat - shown when there's a preview URL */}
       {previewUrl && !isUser && (
-        <div 
-          onClick={onPreviewClick}
-          className="mt-2 cursor-pointer group relative overflow-hidden rounded-xl border border-[#2e2e32] hover:border-[#3b82f6] transition-colors"
-        >
+        <div className="mt-2 group relative overflow-hidden rounded-xl border border-[#2e2e32] hover:border-[#e94560]/50 transition-colors">
           <iframe
             src={previewUrl}
             className="w-full h-48 sm:h-64 border-0 bg-[#0a0a0f]"
@@ -209,11 +217,40 @@ isUser
             scrolling="no"
             sandbox="allow-scripts allow-same-origin"
           />
-          <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
-            <div className="bg-[#3b82f6] text-white px-4 py-2 rounded-lg flex items-center gap-2">
-              <ExternalLink className="h-4 w-4" />
-              <span className="text-sm font-medium">Open in Preview</span>
-            </div>
+          
+          {/* Action buttons - visible on hover */}
+          <div className="absolute top-2 right-2 flex gap-1.5 opacity-0 group-hover:opacity-100 transition-opacity">
+            {onSaveToGallery && (
+              <button
+                onClick={(e) => { e.stopPropagation(); onSaveToGallery(); }}
+                className={`p-2 rounded-lg flex items-center gap-1.5 transition-colors ${
+                  hasSavedToGallery 
+                    ? "bg-[#e94560] text-white" 
+                    : "bg-[#1f1f23]/90 backdrop-blur-sm text-[#e5e5e5] hover:bg-[#e94560]"
+                }`}
+                title="Save to Gallery"
+              >
+                <FolderHeart className="h-4 w-4" />
+              </button>
+            )}
+            {onDownload && (
+              <button
+                onClick={(e) => { e.stopPropagation(); onDownload(); }}
+                className="p-2 bg-[#1f1f23]/90 backdrop-blur-sm rounded-lg text-[#e5e5e5] hover:bg-[#3b82f6] transition-colors"
+                title="Download"
+              >
+                <Download className="h-4 w-4" />
+              </button>
+            )}
+            {onPreviewClick && (
+              <button
+                onClick={(e) => { e.stopPropagation(); onPreviewClick(); }}
+                className="p-2 bg-[#1f1f23]/90 backdrop-blur-sm rounded-lg text-[#e5e5e5] hover:bg-[#3b82f6] transition-colors"
+                title="Expand"
+              >
+                <ExternalLink className="h-4 w-4" />
+              </button>
+            )}
           </div>
         </div>
       )}
