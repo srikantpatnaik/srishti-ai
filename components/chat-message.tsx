@@ -28,6 +28,7 @@ interface ChatMessageProps {
   onImageSave?: () => void
   onImageDownload?: () => void
   onImageOpen?: () => void
+  hasImageSavedToGallery?: boolean
 }
 
 export const ChatMessage = React.memo(function ChatMessage({ 
@@ -41,18 +42,22 @@ export const ChatMessage = React.memo(function ChatMessage({
   onImageSave,
   onImageDownload,
   onImageOpen,
+  hasImageSavedToGallery = false,
 }: ChatMessageProps) {
   const isUser = message.role === "user"
 
   const renderContent = () => {
     if (message.type === "code" && message.filePath) {
       return (
-        <div className="mt-3 bg-[#1a1a1f] rounded-xl overflow-hidden border border-[#2e2e32]">
-          <div className="flex items-center gap-2 px-4 py-2 bg-[#161618] border-b border-[#2e2e32]">
-            <Code2 className="h-4 w-4" />
-            <span className="text-xs font-mono">{message.filePath}</span>
+        <div className="mt-4 bg-[#0d0d10] rounded-xl overflow-hidden border border-[#2e2e32] shadow-lg">
+          <div className="flex items-center justify-between px-4 py-3 bg-[#161618] border-b border-[#2e2e32]">
+            <div className="flex items-center gap-2">
+              <Code2 className="h-4 w-4 text-[#e94560]" />
+              <span className="text-sm font-mono text-[#a0a0a0]">{message.filePath}</span>
+            </div>
+            <span className="text-xs text-[#666666]">CODE</span>
           </div>
-          <pre className="p-4 text-sm overflow-x-auto bg-[#121215]">
+          <pre className="p-4 text-sm overflow-x-auto bg-[#121215] text-[#d4d4d4]">
             <code>{message.content}</code>
           </pre>
         </div>
@@ -61,49 +66,59 @@ export const ChatMessage = React.memo(function ChatMessage({
 
     if (message.type === "plan") {
       return (
-        <div className="mt-3 bg-[#1a1a1f] rounded-xl p-4 border border-[#2e2e32]">
-           <h4 className="font-medium text-base mb-3 flex items-center gap-2">
-             <FileCode className="h-5 w-5" />
+        <div className="mt-4 bg-gradient-to-br from-[#1a1a1f] to-[#1f1f25] rounded-xl p-5 border border-[#3b82f6]/30 shadow-lg shadow-[#3b82f6]/5">
+           <h4 className="font-semibold text-base mb-4 flex items-center gap-3 text-[#3b82f6]">
+             <span className="p-1.5 bg-[#3b82f6]/20 rounded-lg">📋</span>
              Development Plan
            </h4>
-           <div className="text-base whitespace-pre-wrap">{message.content}</div>
-         </div>
+           <div className="text-base whitespace-pre-wrap text-[#e5e5e5] leading-relaxed">{message.content}</div>
+        </div>
       )
     }
 
     if (message.type === "phase") {
       const phaseName = message.phase ? message.phase.charAt(0).toUpperCase() + message.phase.slice(1) : "Phase"
+      const phaseColors: Record<string, string> = {
+        planning: "#f59e0b",
+        coding: "#3b82f6",
+        testing: "#10b981",
+        fixing: "#ef4444"
+      }
+      const color = phaseColors[message.phase || ""] || "#888888"
       return (
-         <div className="mt-3 bg-[#1a1a1f] rounded-xl p-4 border border-[#2e2e32]">
-           <h4 className="font-medium text-base mb-3 flex items-center gap-2">
-             <span className="animate-pulse">●</span>
-             {phaseName} Phase
+         <div className="mt-4 bg-[#1a1a1f] rounded-xl p-5 border border-[#2e2e32]">
+           <h4 className="font-semibold text-base mb-3 flex items-center gap-3">
+             <span className="animate-pulse text-lg" style={{ color }}>●</span>
+             <span style={{ color }}>{phaseName}</span>
+             <span className="text-xs text-[#666666] font-normal ml-auto">PHASE</span>
            </h4>
-           <div className="text-base whitespace-pre-wrap">{message.content}</div>
+           <div className="text-base whitespace-pre-wrap text-[#b0b0b0]">{message.content}</div>
          </div>
       )
     }
 
     if (message.type === "error") {
       return (
-        <div className="mt-3 bg-destructive/10 rounded-xl p-4 border border-destructive/30">
-           <div className="flex items-center gap-2 mb-3">
-             <AlertCircle className="h-6 w-6 text-destructive" />
-             <span className="font-medium text-base text-destructive">Error Detected</span>
+        <div className="mt-4 bg-gradient-to-br from-red-950/30 to-red-900/20 rounded-xl p-5 border border-red-500/30 shadow-lg shadow-red-500/10">
+           <div className="flex items-center gap-3 mb-4">
+             <AlertCircle className="h-5 w-5 text-red-500" />
+             <span className="font-semibold text-base text-red-400">Error Detected</span>
+             <span className="text-xs bg-red-500/20 text-red-400 px-2 py-0.5 rounded ml-auto">FIXING</span>
            </div>
-           <pre className="text-base whitespace-pre-wrap">{message.content}</pre>
+           <pre className="text-sm whitespace-pre-wrap text-red-300 leading-relaxed">{message.content}</pre>
         </div>
       )
     }
 
     if (message.type === "file") {
       return (
-       <div className="mt-3 bg-[#1a1a1f] rounded-xl p-4 border border-[#2e2e32]">
-           <div className="flex items-center gap-2">
-             <Check className="h-6 w-6" />
-             <span className="font-medium text-base">File Created/Updated</span>
+       <div className="mt-4 bg-gradient-to-br from-emerald-950/30 to-emerald-900/20 rounded-xl p-5 border border-emerald-500/30 shadow-lg shadow-emerald-500/10">
+           <div className="flex items-center gap-3 mb-2">
+             <Check className="h-5 w-5 text-emerald-500" />
+             <span className="font-semibold text-base text-emerald-400">File Created</span>
+             <span className="text-xs bg-emerald-500/20 text-emerald-400 px-2 py-0.5 rounded ml-auto">SUCCESS</span>
            </div>
-           <p className="text-base mt-2">{message.content}</p>
+           <p className="text-base mt-3 text-[#b0b0b0]">{message.content}</p>
          </div>
       )
     }
@@ -114,7 +129,7 @@ export const ChatMessage = React.memo(function ChatMessage({
       
       if (toolName === "announce") {
         return (
-    <div className="mt-3 bg-[#1a1a1f] rounded-xl p-4 border border-[#2e2e32]">
+    <div className="mt-4 bg-[#1a1a1f] rounded-xl p-4 border border-[#2e2e32]">
              <h4 className="font-medium text-base mb-3 flex items-center gap-2">
                <span className="animate-pulse">●</span>
                {args.phase?.charAt(0).toUpperCase() + args.phase?.slice(1)} Phase
@@ -143,7 +158,15 @@ export const ChatMessage = React.memo(function ChatMessage({
     }
 
     return (
-      <div className="prose prose-base dark:prose-invert max-w-none prose-headings:font-semibold prose-h3:font-semibold prose-p:my-3 prose-ul:my-3 prose-ol:my-3 prose-li:my-1">
+      <div className="prose prose-base dark:prose-invert max-w-none 
+        prose-headings:font-semibold prose-h3:font-semibold 
+        prose-p:my-4 prose-p:leading-7 prose-p:text-[#d5d5d5]
+        prose-ul:my-4 prose-ul:space-y-2 prose-ul:pl-2
+        prose-ol:my-4 prose-ol:space-y-2 prose-ol:pl-2
+        prose-li:my-1 prose-li:leading-7 prose-li:text-[#c5c5c5]
+        prose-blockquote:border-l-4 prose-blockquote:border-[#e94560] prose-blockquote:pl-4 prose-blockquote:py-1 prose-blockquote:italic prose-blockquote:text-[#a0a0a0]
+        prose-strong:text-[#e5e5e5] prose-strong:font-semibold
+        prose-a:text-[#3b82f6] prose-a:no-underline hover:prose-a:underline">
         <ReactMarkdown 
           remarkPlugins={[remarkGfm]}
           components={{
@@ -186,14 +209,14 @@ export const ChatMessage = React.memo(function ChatMessage({
   const hasOnlyImage = message.imageUrl && !message.content && message.role !== "user"
 
   return (
-    <div className="space-y-3">
+    <div className="space-y-4 py-2">
       {!hasOnlyImage && (
       <div
         className={cn(
-          "px-4 py-2 text-[14px] leading-relaxed",
+          "px-5 py-3 text-[15px] leading-relaxed",
           isUser 
-            ? "bg-[#3a3a42] text-[#e5e5e5] rounded-[20px] rounded-br-md"
-            : "bg-[#1e1e23] text-[#e5e5e5] rounded-[20px] rounded-bl-md border border-[#2e2e32] w-full"
+            ? "bg-gradient-to-r from-[#3a3a42] to-[#454550] text-[#e5e5e5] rounded-[20px] rounded-br-md shadow-sm"
+            : "bg-gradient-to-b from-[#1e1e23] to-[#232328] text-[#e5e5e5] rounded-[20px] rounded-bl-md border border-[#2e2e32] shadow-sm"
         )}
       >
         <div className="min-w-0">
@@ -203,20 +226,20 @@ export const ChatMessage = React.memo(function ChatMessage({
       
       {/* Status / Loading indicator in chat area */}
       {!isUser && status && status !== "idle" && status !== "ready" && (
-        <div className="flex items-center gap-2 text-sm text-[#888888] px-2 w-full">
-          <Loader2 className="h-4 w-4 animate-spin" />
-          <span>
-            {status === "planning" && "Thinking..."}
-            {status === "coding" && "Creating app..."}
-            {status === "testing" && "Checking..."}
-            {status === "fixing" && "Fixing issues..."}
+        <div className="flex items-center gap-3 text-sm text-[#9ca3af] px-3 py-2 bg-[#1a1a1f]/50 rounded-lg w-fit">
+          <Loader2 className="h-4 w-4 animate-spin text-[#e94560]" />
+          <span className="font-medium">
+            {status === "planning" && "🤔 Thinking..."}
+            {status === "coding" && "⚡ Building..."}
+            {status === "testing" && "🔍 Checking..."}
+            {status === "fixing" && "🔧 Fixing..."}
           </span>
         </div>
       )}
       
       {/* Preview thumbnail in chat - shown when there's a preview URL */}
       {previewUrl && !isUser && (
-        <div className="mt-2 group relative overflow-hidden rounded-xl border border-[#2e2e32] hover:border-[#e94560]/50 transition-colors w-full">
+        <div className="mt-4 group relative overflow-hidden rounded-2xl border border-[#2e2e32] hover:border-[#e94560]/60 hover:shadow-lg hover:shadow-[#e94560]/10 transition-all duration-300 w-full bg-[#0a0a0f]">
           <iframe
             src={previewUrl}
             className="w-full h-48 sm:h-64 border-0 bg-[#0a0a0f]"
@@ -268,7 +291,7 @@ export const ChatMessage = React.memo(function ChatMessage({
 
       {/* Image preview in chat - shown when there's an image URL */}
       {message.imageUrl && !isUser && (
-        <div className="mt-2 group relative overflow-hidden rounded-xl border border-[#2e2e32] hover:border-[#e94560]/50 transition-colors w-full">
+        <div className="mt-4 group relative overflow-hidden rounded-2xl border border-[#2e2e32] hover:border-[#e94560]/60 hover:shadow-lg hover:shadow-[#e94560]/10 transition-all duration-300 w-full bg-[#0a0a0f] p-1">
           <img
             src={message.imageUrl}
             alt="Generated image"
@@ -280,7 +303,11 @@ export const ChatMessage = React.memo(function ChatMessage({
             {onImageSave && (
               <button
                 onClick={(e) => { e.stopPropagation(); onImageSave(); }}
-                className="p-2 bg-[#1f1f23]/90 backdrop-blur-sm rounded-lg text-[#e5e5e5] hover:bg-[#e94560] transition-colors"
+                className={`p-2 rounded-lg flex items-center gap-1.5 transition-colors ${
+                  hasImageSavedToGallery 
+                    ? "bg-[#e94560] text-white" 
+                    : "bg-[#1f1f23]/90 backdrop-blur-sm text-[#e5e5e5] hover:bg-[#e94560]"
+                }`}
                 title="Save to Gallery"
               >
                 <FolderHeart className="h-4 w-4" />
@@ -310,10 +337,10 @@ export const ChatMessage = React.memo(function ChatMessage({
 
       {/* Audio preview in chat - shown when there's an audio URL */}
       {message.audioUrl && !isUser && (
-        <div className="mt-2 group relative overflow-hidden rounded-xl border border-[#2e2e32] hover:border-[#e94560]/50 transition-colors">
+        <div className="mt-4 group relative overflow-hidden rounded-2xl border border-[#2e2e32] hover:border-[#e94560]/60 hover:shadow-lg transition-all duration-300 p-3 bg-[#0a0a0f]">
           <audio
             controls
-            className="w-full h-12 bg-[#0a0a0f]"
+            className="w-full h-12 rounded-lg"
             src={message.audioUrl}
           />
         </div>

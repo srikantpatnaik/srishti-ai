@@ -153,8 +153,12 @@ export function AppDrawer({
                   <div className="absolute inset-0 bg-gradient-to-br from-[#e94560]/10 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500" />
                   
                   {/* App icon */}
-                  <div className="absolute inset-0 flex items-center justify-center text-4xl">
-                    {app.icon || "📱"}
+                  <div className="absolute inset-0 flex items-center justify-center">
+                    {app.code.startsWith('data:image/') ? (
+                      <img src={app.code} alt={app.name} className="w-full h-full object-cover" />
+                    ) : (
+                      <span className="text-4xl">{app.icon || "📱"}</span>
+                    )}
                   </div>
                   
                   {/* Glow effect */}

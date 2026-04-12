@@ -1,5 +1,5 @@
 import React, { useState, useMemo } from "react"
-import { MessageSquare, Trash2, PanelLeftClose } from "lucide-react"
+import { MessageSquare, Trash2, PanelLeftClose, Keyboard } from "lucide-react"
 
 interface RecentChat {
   id: string
@@ -165,6 +165,18 @@ export function SettingsPanel({
             <p className="text-sm">No conversations yet</p>
           </div>
         )}
+      </div>
+
+      <div className="hidden sm:block p-3 border-t border-[#343541]">
+        <div className="flex items-center gap-3 px-3 py-2.5 rounded-lg bg-[#2a2a2e] text-[#8b8b8d] text-sm">
+          <Keyboard className="h-4 w-4" />
+          <span className="flex-1">Keyboard Shortcuts</span>
+          <div className="hidden md:flex gap-1.5 text-xs">
+            <span className="px-1.5 py-0.5 bg-[#404040] rounded text-[#a0a0a0]">Ctrl+B</span>
+            <span className="px-1.5 py-0.5 bg-[#404040] rounded text-[#a0a0a0]">Ctrl+X</span>
+            <span className="px-1.5 py-0.5 bg-[#404040] rounded text-[#a0a0a0]">Ctrl+M</span>
+          </div>
+        </div>
       </div>
     </div>
   )

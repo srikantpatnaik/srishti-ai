@@ -162,6 +162,9 @@ export default function Home() {
     const loadSavedApps = async () => {
       const savedAppsData = await getAllAppsFromDB()
       const appsWithUrls = savedAppsData.map(app => {
+        if (app.code.startsWith('data:image/')) {
+          return { ...app, url: app.code }
+        }
         try {
           const blob = new Blob([app.code], { type: 'text/html' })
           return { ...app, url: URL.createObjectURL(blob) }
@@ -284,7 +287,7 @@ export default function Home() {
 
   const handleImageSaveFromChat = async (msgIndex: number) => {
     const msg = messages[msgIndex]
-    const imageUrl = messageImages.get(msgIndex)
+    const imageUrl = messageImages.get(msgIndex) || (msg as any).imageUrl
     if (!imageUrl) return
 
     const msgContent = msg.content || ''
@@ -339,7 +342,7 @@ export default function Home() {
 
   const handleImageDownloadFromChat = async (msgIndex: number) => {
     const msg = messages[msgIndex]
-    const imageUrl = messageImages.get(msgIndex)
+    const imageUrl = messageImages.get(msgIndex) || (msg as any).imageUrl
     if (!imageUrl) return
 
     const msgContent = msg.content || ''
@@ -366,7 +369,7 @@ export default function Home() {
   }
 
   const handleImageOpenFromChat = (msgIndex: number) => {
-    const imageUrl = messageImages.get(msgIndex)
+    const imageUrl = messageImages.get(msgIndex) || (messages[msgIndex] as any).imageUrl
     if (!imageUrl) return
     setPreviewImageUrl(imageUrl)
     setShowPreview(true)
@@ -377,6 +380,12 @@ export default function Home() {
     const code = extractCodeFromMessage(msg)
     if (!code) return false
     return savedApps.some(app => app.code === code)
+  }
+
+  const isImageSavedInChat = (msgIndex: number): boolean => {
+    const imageUrl = messageImages.get(msgIndex)
+    if (!imageUrl) return false
+    return savedApps.some(app => app.url === imageUrl || app.code === imageUrl)
   }
 
   useEffect(() => {
@@ -498,6 +507,9 @@ useEffect(() => {
         if (imageMatch) {
           newImages.set(i, imageMatch[1])
         }
+      }
+      if (msg.role === 'assistant' && (msg as any).imageUrl) {
+        newImages.set(i, (msg as any).imageUrl)
       }
     })
     if (newImages.size > 0) {
@@ -943,15 +955,24 @@ const [hasSavedToGallery, setHasSavedToGallery] = useState(false)
     setCurrentChatMessages(app.chatMessages || [])
     setLocalPreviewCode(app.code)
     setEditedAppCode(app.code)
-    setShowPreview(true)
     setShowAppDrawer(false)
-    setBlobUrl("")
     setActiveChatTab(app.id)
-    setTimeout(() => {
-      const htmlContent = `<!DOCTYPE html><html lang="en"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no"><title>${app.name}</title><style>*{margin:0;padding:0;box-sizing:border-box;}body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;background:#1a1a2e;color:#eaeaea;min-height:100vh;padding:16px;}.app-container{max-width:100%;margin:0 auto;}</style></head><body><div class="app-container">${app.code}</div><script>window.parent.postMessage({ type: 'loaded' }, '*');</script></body></html>`
-      const blob = new Blob([htmlContent], { type: 'text/html' })
-      setBlobUrl(URL.createObjectURL(blob))
-    }, 0)
+    setBlobUrl("")
+    
+    const isBase64Image = app.code.startsWith('data:image/')
+    
+    if (isBase64Image) {
+      setPreviewImageUrl(app.code)
+      setShowPreview(true)
+    } else {
+      setPreviewImageUrl(null)
+      setShowPreview(true)
+      setTimeout(() => {
+        const htmlContent = `<!DOCTYPE html><html lang="en"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no"><title>${app.name}</title><style>*{margin:0;padding:0;box-sizing:border-box;}body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;background:#1a1a2e;color:#eaeaea;min-height:100vh;padding:16px;}.app-container{max-width:100%;margin:0 auto;}</style></head><body><div class="app-container">${app.code}</div><script>window.parent.postMessage({ type: 'loaded' }, '*');</script></body></html>`
+        const blob = new Blob([htmlContent], { type: 'text/html' })
+        setBlobUrl(URL.createObjectURL(blob))
+      }, 0)
+    }
   }
 
   const handleShareApp = async (app: SavedApp) => {
@@ -1122,6 +1143,7 @@ const [hasSavedToGallery, setHasSavedToGallery] = useState(false)
                             onImageSave={msgImageUrl ? () => handleImageSaveFromChat(actualIdx) : undefined}
                             onImageDownload={msgImageUrl ? () => handleImageDownloadFromChat(actualIdx) : undefined}
                             onImageOpen={msgImageUrl ? () => handleImageOpenFromChat(actualIdx) : undefined}
+                            hasImageSavedToGallery={msgImageUrl && isImageSavedInChat(actualIdx)}
                           />
                         </div>
                       </div>
@@ -1173,14 +1195,6 @@ const [hasSavedToGallery, setHasSavedToGallery] = useState(false)
                   onConsoleMessage={handleConsoleMessage} 
                   stopAutoReload={status === "ready"} 
                   onClose={() => { setShowPreview(false); setPreviewImageUrl(null) }}
-                  onImageSave={() => {
-                    const idx = messages.findIndex((m, i) => messageImages.get(i) === previewImageUrl)
-                    if (idx >= 0) handleImageSaveFromChat(idx)
-                  }}
-                  onImageDownload={() => {
-                    const idx = messages.findIndex((m, i) => messageImages.get(i) === previewImageUrl)
-                    if (idx >= 0) handleImageDownloadFromChat(idx)
-                  }}
                 />
               ) : blobUrl ? (
                 <PreviewPanel previewUrl={blobUrl} appName={sessionApps[currentAppIndex]?.name || "My App"} onConsoleMessage={handleConsoleMessage} stopAutoReload={status === "ready"} onClose={() => setShowPreview(false)} />

@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react"
-import { X, ExternalLink, Download, FolderHeart } from "lucide-react"
+import { X, ExternalLink, Download } from "lucide-react"
 
 interface PreviewPanelProps {
   previewUrl?: string
@@ -9,8 +9,6 @@ interface PreviewPanelProps {
   onConsoleMessage: (msg: string) => void
   stopAutoReload?: boolean
   onClose?: () => void
-  onImageSave?: () => void
-  onImageDownload?: () => void
 }
 
 export function PreviewPanel({
@@ -21,8 +19,6 @@ export function PreviewPanel({
   onConsoleMessage,
   stopAutoReload = false,
   onClose,
-  onImageSave,
-  onImageDownload,
 }: PreviewPanelProps) {
   const iframeRef = useRef<HTMLIFrameElement>(null)
   const [isLoaded, setIsLoaded] = useState(false)
@@ -67,35 +63,11 @@ export function PreviewPanel({
     window.open(url, '_blank')
   }
 
-  if (!previewUrl && !localCode) {
-    return null
-  }
-
   if (imageUrl) {
     return (
       <div className="flex-1 flex flex-col h-full">
         <div className="flex-1 h-full bg-[#121215] relative flex items-center justify-center">
           <div className="absolute top-3 right-3 z-10 flex gap-2">
-            {onImageSave && (
-              <button
-                onClick={onImageSave}
-                className="flex items-center gap-1.5 px-3 py-2 bg-[#1f1f23] rounded-lg text-[#888888] hover:bg-[#e94560] hover:text-white transition-all text-xs"
-                title="Save to Gallery"
-              >
-                <FolderHeart className="h-4 w-4" />
-                <span>Save</span>
-              </button>
-            )}
-            {onImageDownload && (
-              <button
-                onClick={onImageDownload}
-                className="flex items-center gap-1.5 px-3 py-2 bg-[#1f1f23] rounded-lg text-[#888888] hover:bg-[#3b82f6] hover:text-white transition-all text-xs"
-                title="Download"
-              >
-                <Download className="h-4 w-4" />
-                <span>Download</span>
-              </button>
-            )}
             {onClose && (
               <button
                 onClick={onClose}
@@ -114,6 +86,10 @@ export function PreviewPanel({
         </div>
       </div>
     )
+  }
+
+  if (!previewUrl && !localCode) {
+    return null
   }
 
   return (
