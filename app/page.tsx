@@ -50,6 +50,7 @@ export default function Home() {
   const [selectedLanguage, setSelectedLanguage] = useState<string>("")
   const [isDropdownOpen, setIsDropdownOpen] = useState(false)
   const selectedLanguageRef = useRef(selectedLanguage)
+  const [messageImages, setMessageImages] = useState<Map<number, string>>(new Map())
 
   const languages = [
     { code: "", name: "English", native: "English" },
@@ -88,14 +89,15 @@ export default function Home() {
     messages,
     input,
     setInput,
+    setMessages,
     isLoading: isGenerating,
     append,
     stop: stopChat,
   } = useChat({
     key: chatKey,
-    api: "/api/chat",
+    api: "/api/router",
     initialMessages: initialMessages,
-    body: { isAutonomous: true, selectedProvider, selectedLanguage },
+    body: { selectedProvider, selectedLanguage },
     onError: (error) => {
       console.error("Chat error:", error)
       setStatus("error")
@@ -267,6 +269,46 @@ export default function Home() {
     })
   }
 
+  const handleImageSaveFromChat = async (msgIndex: number) => {
+    const msg = messages[msgIndex]
+    const imageUrl = messageImages.get(msgIndex)
+    if (!imageUrl) return
+
+    try {
+      const response = await fetch(imageUrl)
+      const blob = await response.blob()
+      const reader = new FileReader()
+      reader.onloadend = async () => {
+        const base64 = reader.result as string
+        const newApp: SavedApp = {
+          id: Date.now().toString(),
+          name: "Generated Image",
+          icon: "🖼️",
+          code: base64,
+          url: imageUrl,
+          createdAt: Date.now()
+        }
+        await saveAppToDB(newApp)
+        setSavedApps(prev => [newApp, ...prev])
+      }
+      reader.readAsDataURL(blob)
+    } catch (error) {
+      console.error("Failed to save image:", error)
+    }
+  }
+
+  const handleImageDownloadFromChat = (msgIndex: number) => {
+    const imageUrl = messageImages.get(msgIndex)
+    if (!imageUrl) return
+
+    const link = document.createElement('a')
+    link.href = imageUrl
+    link.download = `generated-image-${Date.now()}.jpg`
+    document.body.appendChild(link)
+    link.click()
+    document.body.removeChild(link)
+  }
+
   const isAppSavedInChat = (msgIndex: number): boolean => {
     const msg = messages[msgIndex]
     const code = extractCodeFromMessage(msg)
@@ -301,35 +343,50 @@ export default function Home() {
     })
   }, [savedApps])
 
-  useEffect(() => {
+useEffect(() => {
     if (messages.length > 0) {
-      localStorage.setItem("chatMessages", JSON.stringify(messages))
-      
-      const userMessages = messages.filter(m => m.role === 'user')
-      if (userMessages.length > 0) {
-        const lastUserMsg = userMessages[userMessages.length - 1]
-        const title = lastUserMsg.content?.substring(0, 40).replace(/[^a-zA-Z0-9 ]/g, ' ').trim() || 'New Chat'
-        
-        const chatId = currentChatId || Date.now().toString()
-        if (!currentChatId) {
-          setCurrentChatId(chatId)
-        }
-        
-        localStorage.setItem(`chatHistory_${chatId}`, JSON.stringify(messages))
-        
-        setRecentChats(prev => {
-          const existingIndex = prev.findIndex(c => c.id === chatId)
-          let updated
-          if (existingIndex >= 0) {
-            updated = prev.map((c, i) => i === existingIndex ? { ...c, title, timestamp: Date.now() } : c)
-          } else {
-            const filtered = prev.filter(c => c.title !== title)
-            const newChat = { id: chatId, title, timestamp: Date.now() }
-            updated = [newChat, ...filtered].slice(0, 10)
+      try {
+        // Only store the last 20 messages to avoid quota limits
+        const recentMessages = messages.slice(-20)
+        localStorage.setItem("chatMessages", JSON.stringify(recentMessages))
+
+        const userMessages = recentMessages.filter(m => m.role === 'user')
+        if (userMessages.length > 0) {
+          const lastUserMsg = userMessages[userMessages.length - 1]
+          const title = lastUserMsg.content?.substring(0, 40).replace(/[^a-zA-Z0-9 ]/g, ' ').trim() || 'New Chat'
+
+          const chatId = currentChatId || Date.now().toString()
+          if (!currentChatId) {
+            setCurrentChatId(chatId)
           }
-          localStorage.setItem("recentChats", JSON.stringify(updated))
-          return updated
-        })
+
+          try {
+            localStorage.setItem(`chatHistory_${chatId}`, JSON.stringify(recentMessages))
+          } catch (e) {
+            console.warn("Chat history too large, storing fewer messages")
+            localStorage.setItem(`chatHistory_${chatId}`, JSON.stringify(recentMessages.slice(-10)))
+          }
+
+          setRecentChats(prev => {
+            const existingIndex = prev.findIndex(c => c.id === chatId)
+            let updated
+            if (existingIndex >= 0) {
+              updated = prev.map((c, i) => i === existingIndex ? { ...c, title, timestamp: Date.now() } : c)
+            } else {
+              const filtered = prev.filter(c => c.title !== title)
+              const newChat = { id: chatId, title, timestamp: Date.now() }
+              updated = [newChat, ...filtered].slice(0, 10)
+            }
+            try {
+              localStorage.setItem("recentChats", JSON.stringify(updated))
+            } catch (e) {
+              // Ignore if recentChats fails
+            }
+            return updated
+          })
+        }
+      } catch (error) {
+        console.warn("Failed to save chat to localStorage:", error)
       }
     }
   }, [messages, currentChatId])
@@ -382,13 +439,33 @@ export default function Home() {
   }, [savedApps])
 
   useEffect(() => {
+    const newImages = new Map<number, string>()
+    messages.forEach((msg, i) => {
+      if (msg.role === 'assistant' && msg.content) {
+        const imageMatch = msg.content.match(/@image\[([^\]]+)\]/)
+        if (imageMatch) {
+          newImages.set(i, imageMatch[1])
+        }
+      }
+    })
+    if (newImages.size > 0) {
+      setMessageImages(prev => {
+        const updated = new Map(prev)
+        newImages.forEach((url, idx) => updated.set(idx, url))
+        return updated
+      })
+    }
+  }, [messages])
+
+  useEffect(() => {
     async function loadProviders() {
       try {
-        const res = await fetch("/api/chat")
+        const res = await fetch("/api/router")
         const data = await res.json()
-        setProviders(data.providers)
-        const defaultProvider = data.defaultProvider || data.providers.find((p: Provider) => p.default)
-        if (defaultProvider) setSelectedProvider(defaultProvider.name)
+        const textProviders = data.text_generation || []
+        setProviders(textProviders)
+        const routerProvider = textProviders.find((p: Provider) => p.router === true)
+        if (routerProvider) setSelectedProvider(routerProvider.name)
       } catch (error) {
         console.error("Failed to load providers:", error)
       } finally {
@@ -411,6 +488,101 @@ export default function Home() {
   const handleSubmit = async (e?: React.FormEvent, language?: string) => {
     if (e) e.preventDefault()
     if (!input.trim() || isGenerating) return
+
+    const userContent = input.toLowerCase()
+    const imageKeywords = ["image", "picture", "photo", "draw", "generate image", "create image", "make picture"]
+    const audioKeywords = ["audio", "sound", "speech", "voice", "tts", "music", "song"]
+    const isImageRequest = imageKeywords.some(kw => userContent.includes(kw))
+    const isAudioRequest = audioKeywords.some(kw => userContent.includes(kw))
+
+    // Handle image requests directly (bypass useChat which expects streaming)
+    if (isImageRequest) {
+      setStatus("coding")
+      try {
+        const response = await fetch("/api/image", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ prompt: input }),
+        })
+        const data = await response.json()
+        if (data.imageUrl) {
+          const imageMsg = {
+            id: Date.now().toString(),
+            role: "assistant" as const,
+            content: "Here's the image you requested:",
+            imageUrl: data.imageUrl,
+          }
+          const userMsg = {
+            id: (Date.now() - 1).toString(),
+            role: "user" as const,
+            content: input,
+          }
+          setMessages(prev => [...prev, userMsg, imageMsg])
+        } else {
+          const errorMsg = {
+            id: Date.now().toString(),
+            role: "assistant" as const,
+            content: "Sorry, I couldn't generate the image. Please try again.",
+          }
+          const userMsg = {
+            id: (Date.now() - 1).toString(),
+            role: "user" as const,
+            content: input,
+          }
+          setMessages(prev => [...prev, userMsg, errorMsg])
+        }
+      } catch (error) {
+        console.error("Image generation error:", error)
+      }
+      setStatus("idle")
+      setInput("")
+      return
+    }
+
+    // Handle audio requests directly
+    if (isAudioRequest) {
+      setStatus("coding")
+      try {
+        const response = await fetch("/api/audio", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ prompt: input }),
+        })
+        const data = await response.json()
+        if (data.audioUrl) {
+          const audioMsg = {
+            id: Date.now().toString(),
+            role: "assistant" as const,
+            content: "Here's the audio you requested:",
+            audioUrl: data.audioUrl,
+          }
+          const userMsg = {
+            id: (Date.now() - 1).toString(),
+            role: "user" as const,
+            content: input,
+          }
+          setMessages(prev => [...prev, userMsg, audioMsg])
+        } else {
+          const errorMsg = {
+            id: Date.now().toString(),
+            role: "assistant" as const,
+            content: "Sorry, I couldn't generate the audio. Please try again.",
+          }
+          const userMsg = {
+            id: (Date.now() - 1).toString(),
+            role: "user" as const,
+            content: input,
+          }
+          setMessages(prev => [...prev, userMsg, errorMsg])
+        }
+      } catch (error) {
+        console.error("Audio generation error:", error)
+      }
+      setStatus("idle")
+      setInput("")
+      return
+    }
+
     if (abortControllerRef.current) abortControllerRef.current.abort()
     abortControllerRef.current = null
     setLocalPreviewCode("")
@@ -621,6 +793,7 @@ useEffect(() => {
     setSessionApps([])
     setCurrentAppIndex(-1)
     setMessagePreviews(new Map())
+    setMessageImages(new Map())
     if (blobUrl) { URL.revokeObjectURL(blobUrl); setBlobUrl("") }
     localStorage.removeItem("chatMessages")
   }
@@ -886,25 +1059,29 @@ const [hasSavedToGallery, setHasSavedToGallery] = useState(false)
                   return visibleMessages.map((msg, idx) => {
                     const actualIdx = visibleRange.start + idx
                     const msgPreviewUrl = messagePreviews.get(actualIdx)
+                    const msgImageUrl = messageImages.get(actualIdx) || (msg as any).imageUrl
                     const isLatestAssistant = msg.role === 'assistant' && actualIdx === messages.length - 1
                     const hasCode = extractCodeFromMessage(msg) !== null
+                    const msgWithImage = { ...msg, imageUrl: msgImageUrl }
                     return (
                       <div key={msg.id} className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'} gap-2`}>
                         <div className={`max-w-[80%] ${msg.role === 'user' ? 'items-end' : 'items-start'}`}>
                           <ChatMessage 
-                            message={msg} 
+                            message={msgWithImage} 
                             previewUrl={msgPreviewUrl} 
                             onPreviewClick={() => setShowPreview(true)} 
                             onSaveToGallery={hasCode ? () => handleSaveFromChat(actualIdx) : undefined}
                             onDownload={hasCode ? () => handleDownloadFromChat(actualIdx) : undefined}
                             hasSavedToGallery={hasCode && isAppSavedInChat(actualIdx)}
-                            status={isLatestAssistant ? status : undefined} 
+                            status={isLatestAssistant ? status : undefined}
+                            onImageSave={msgImageUrl ? () => handleImageSaveFromChat(actualIdx) : undefined}
+                            onImageDownload={msgImageUrl ? () => handleImageDownloadFromChat(actualIdx) : undefined}
                           />
                         </div>
                       </div>
                     )
                   })
-                }, [messages, visibleRange.start, visibleRange.end, messagePreviews, status, savedApps])}
+                }, [messages, visibleRange.start, visibleRange.end, messagePreviews, messageImages, status, savedApps])}
                 <div ref={messagesEndRef} />
               </div>
             </ScrollArea>

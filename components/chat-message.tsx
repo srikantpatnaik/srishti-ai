@@ -16,6 +16,8 @@ interface ChatMessageProps {
     args?: any
     result?: any
     phase?: string
+    imageUrl?: string
+    audioUrl?: string
   }
   previewUrl?: string
   onPreviewClick?: () => void
@@ -23,6 +25,8 @@ interface ChatMessageProps {
   onDownload?: () => void
   hasSavedToGallery?: boolean
   status?: string
+  onImageSave?: () => void
+  onImageDownload?: () => void
 }
 
 export const ChatMessage = React.memo(function ChatMessage({ 
@@ -32,7 +36,9 @@ export const ChatMessage = React.memo(function ChatMessage({
   onSaveToGallery, 
   onDownload,
   hasSavedToGallery = false,
-  status 
+  status,
+  onImageSave,
+  onImageDownload
 }: ChatMessageProps) {
   const isUser = message.role === "user"
 
@@ -252,6 +258,59 @@ export const ChatMessage = React.memo(function ChatMessage({
               </button>
             )}
           </div>
+        </div>
+      )}
+
+      {/* Image preview in chat - shown when there's an image URL */}
+      {message.imageUrl && !isUser && (
+        <div className="mt-2 group relative overflow-hidden rounded-xl border border-[#2e2e32] hover:border-[#e94560]/50 transition-colors">
+          <img
+            src={message.imageUrl}
+            alt="Generated image"
+            className="w-full h-auto max-h-[500px] object-contain bg-[#0a0a0f]"
+          />
+          
+          {/* Action buttons - visible on hover */}
+          <div className="absolute top-2 right-2 flex gap-1.5 opacity-0 group-hover:opacity-100 transition-opacity">
+            {onImageSave && (
+              <button
+                onClick={(e) => { e.stopPropagation(); onImageSave(); }}
+                className="p-2 bg-[#1f1f23]/90 backdrop-blur-sm rounded-lg text-[#e5e5e5] hover:bg-[#e94560] transition-colors"
+                title="Save to Gallery"
+              >
+                <FolderHeart className="h-4 w-4" />
+              </button>
+            )}
+            {onImageDownload && (
+              <button
+                onClick={(e) => { e.stopPropagation(); onImageDownload(); }}
+                className="p-2 bg-[#1f1f23]/90 backdrop-blur-sm rounded-lg text-[#e5e5e5] hover:bg-[#3b82f6] transition-colors"
+                title="Download"
+              >
+                <Download className="h-4 w-4" />
+              </button>
+            )}
+            {onPreviewClick && (
+              <button
+                onClick={(e) => { e.stopPropagation(); onPreviewClick(); }}
+                className="p-2 bg-[#1f1f23]/90 backdrop-blur-sm rounded-lg text-[#e5e5e5] hover:bg-[#3b82f6] transition-colors"
+                title="Expand"
+              >
+                <ExternalLink className="h-4 w-4" />
+              </button>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* Audio preview in chat - shown when there's an audio URL */}
+      {message.audioUrl && !isUser && (
+        <div className="mt-2 group relative overflow-hidden rounded-xl border border-[#2e2e32] hover:border-[#e94560]/50 transition-colors">
+          <audio
+            controls
+            className="w-full h-12 bg-[#0a0a0f]"
+            src={message.audioUrl}
+          />
         </div>
       )}
     </div>

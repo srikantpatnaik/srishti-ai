@@ -4,7 +4,8 @@ export interface Provider {
   name: string
   type: string
   model: string
-  default: boolean
+  default?: boolean
+  router?: boolean
 }
 
 export interface SavedApp {

@@ -4,11 +4,11 @@
 providers:
   # Local llama.cpp instance (default)
   - type: openai-compatible
-    name: "Local Llama"
+    name: "llamacpp"
     url: "http://192.168.1.8:11434/v1"
     api_key: ""
-    model: "qwen3.5-27B"
-    default: true
+    model: "qwen3.5-35B"
+    default: false
 
   # Uncomment and configure other providers as needed
 
@@ -53,6 +53,25 @@ providers:
   #   api_key: "YOUR_TOGETHER_API_KEY"
   #   model: "meta-llama/Llama-3.2-3B-Instruct"
   #   default: false
+
+  # OpenRouter
+  # - type: openrouter
+  #   name: "OpenRouter"
+  #   api_key: "YOUR_OPENROUTER_API_KEY"
+  #   model: "anthropic/claude-3.5-sonnet"
+  #   default: false
+
+# Image Generation Settings (optional)
+# Configure local image generation using Stable Diffusion WebUI API
+image_generation:
+  enabled: false
+  base_url: "http://192.168.1.8:1234"
+  steps: 4
+  cfg_scale: 1
+  width: 256
+  height: 256
+  clip_skip: 1
+  output_format: "png"
 
 # Notes:
 # - Only one provider can have default: true

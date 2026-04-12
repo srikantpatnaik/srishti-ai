@@ -130,6 +130,16 @@ function getProvider(providerName?: string) {
         apiKey: provider.api_key,
       })(provider.model || "meta-llama/Meta-Llama-3.1-70B-Instruct-Turbo")
 
+    case "openrouter":
+      return createOpenAI({
+        baseURL: "https://openrouter.ai/api/v1",
+        apiKey: provider.api_key,
+        headers: {
+          "HTTP-Referer": "http://localhost:3000",
+          "X-Title": "App Builder PWA",
+        },
+      })(provider.model || "anthropic/claude-3.5-sonnet")
+
     default:
       return createOpenAI({
         baseURL: provider.base_url || "http://localhost:8080/v1",
@@ -156,6 +166,25 @@ const announceSchema = z.object({
   phase: z.enum(["planning", "coding", "testing", "fixing", "ready"]).describe("Current phase"),
   message: z.string().optional().describe("Optional message about this phase"),
 })
+
+const generateImageSchema = z.object({
+  prompt: z.string().describe("The image prompt/description"),
+})
+
+async function generateImage(prompt: string): Promise<string> {
+  const response = await fetch("/api/image", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ prompt }),
+  })
+  
+  if (!response.ok) {
+    throw new Error("Image generation failed")
+  }
+  
+  const data = await response.json()
+  return data.imageUrl
+}
 
 export const runtime = "nodejs"
 export const maxDuration = 60
@@ -221,7 +250,11 @@ export async function POST(req: Request) {
    - No code, no building unless asked
    - Be conversational and friendly
 
-3. **LANGUAGE ${langInstruction ? `\n   - ${langInstruction}` : ""}**
+3. **IMAGE GENERATION (when user asks to generate/create an image)**:
+   - If user asks to create/generate/draw/make an image or picture, call the generateImage tool
+   - Then show the image URL in a special format: @image[URL]
+
+4. **LANGUAGE ${langInstruction ? `\n   - ${langInstruction}` : ""}**
 
 ## Build Process (only when user asks)
 
@@ -259,9 +292,21 @@ When user asks to build/create something:
             }
           },
         }),
+        generateImage: tool({
+          description: "Generate an image from a text description. Use this when user asks to create, generate, draw, or make an image or picture.",
+          parameters: generateImageSchema,
+          execute: async ({ prompt }) => {
+            try {
+              const imageUrl = await generateImage(prompt)
+              return { success: true, imageUrl }
+            } catch (error) {
+              return { success: false, error: "Image generation failed" }
+            }
+          },
+        }),
       },
       maxSteps: settings.agent?.max_steps || 20,
-      experimental_activeTools: isAutonomous ? ["announce"] : [],
+      experimental_activeTools: isAutonomous ? ["announce", "generateImage"] : [],
     })
 
     clearTimeout(timeoutId)
