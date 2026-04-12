@@ -13,8 +13,9 @@ import { useDarkMode, useKeyboardShortcuts, useResizing } from "@/hooks/use-ui-u
 import { SettingsPanel } from "@/components/settings-panel"
 import { AppDrawer } from "@/components/app-drawer"
 import { ChatInput } from "@/components/chat-input"
+import { Dock } from "@/components/dock"
 import { AgentStatus, Provider, SavedApp } from "@/types"
-import { saveAppToDB, getAllAppsFromDB, deleteAppFromDB } from "@/lib/db"
+import { saveAppToDB, getAllAppsFromDB, deleteAppFromDB, saveChatHistoryToDB, getChatHistoryFromDB, deleteChatHistoryFromDB } from "@/lib/db"
 
 export default function Home() {
   const [status, setStatus] = useState<AgentStatus>("idle")
@@ -42,13 +43,13 @@ export default function Home() {
   const [isEditing, setIsEditing] = useState(false)
   const [shareMessage, setShareMessage] = useState("")
   const [showScrollButton, setShowScrollButton] = useState(false)
+  const [previewImageUrl, setPreviewImageUrl] = useState<string | null>(null)
   const [recentChats, setRecentChats] = useState<{ id: string; title: string; timestamp: number }[]>([])
   const [settingsExpanded, setSettingsExpanded] = useState(false)
   const [currentChatId, setCurrentChatId] = useState<string>("")
   const [chatKey, setChatKey] = useState("0")
   const [messagePreviews, setMessagePreviews] = useState<Map<number, string>>(new Map())
   const [selectedLanguage, setSelectedLanguage] = useState<string>("")
-  const [isDropdownOpen, setIsDropdownOpen] = useState(false)
   const selectedLanguageRef = useRef(selectedLanguage)
   const [messageImages, setMessageImages] = useState<Map<number, string>>(new Map())
 
@@ -274,6 +275,33 @@ export default function Home() {
     const imageUrl = messageImages.get(msgIndex)
     if (!imageUrl) return
 
+    const msgContent = msg.content || ''
+    const promptMatch = msgContent.match(/IMAGE_REQUEST:\s*(.+)/i)
+    const rawPrompt = promptMatch ? promptMatch[1].trim() : 'Image'
+    const fillerWords = ['a', 'an', 'the', 'generate', 'show', 'me', 'picture', 'photo', 'image', 'of', 'create', 'make']
+    let rawName = rawPrompt
+    fillerWords.forEach(word => {
+      rawName = rawName.replace(new RegExp('\\b' + word + '\\b', 'gi'), ' ')
+    })
+    rawName = rawName.replace(/[^\p{L}\p{N}\s]/gu, ' ').replace(/\s+/g, ' ').trim()
+    const words = rawName.split(' ').filter(w => w.trim().length > 0)
+    let appName = words.slice(0, 3).join(' ').trim() || 'Image'
+    appName = appName.split(' ').map((w, i) => {
+      const cleaned = w.trim()
+      if (!cleaned) return ''
+      return i === 0 ? cleaned.charAt(0).toUpperCase() + cleaned.slice(1).toLowerCase() : cleaned.toLowerCase()
+    }).join(' ').trim()
+    if (appName.length > 20) {
+      appName = words.slice(0, 2).join(' ').trim()
+      appName = appName.charAt(0).toUpperCase() + appName.slice(1).toLowerCase()
+    }
+    if (!appName || appName.length < 2) {
+      appName = 'Image'
+    }
+
+    const existingApp = savedApps.find(app => app.url === imageUrl)
+    if (existingApp) return
+
     try {
       const response = await fetch(imageUrl)
       const blob = await response.blob()
@@ -282,7 +310,7 @@ export default function Home() {
         const base64 = reader.result as string
         const newApp: SavedApp = {
           id: Date.now().toString(),
-          name: "Generated Image",
+          name: appName,
           icon: "🖼️",
           code: base64,
           url: imageUrl,
@@ -297,16 +325,39 @@ export default function Home() {
     }
   }
 
-  const handleImageDownloadFromChat = (msgIndex: number) => {
+  const handleImageDownloadFromChat = async (msgIndex: number) => {
+    const msg = messages[msgIndex]
     const imageUrl = messageImages.get(msgIndex)
     if (!imageUrl) return
 
+    const msgContent = msg.content || ''
+    const promptMatch = msgContent.match(/IMAGE_REQUEST:\s*(.+)/i)
+    const rawPrompt = promptMatch ? promptMatch[1].trim() : 'image'
+    const fillerWords = ['a', 'an', 'the', 'generate', 'show', 'me', 'picture', 'photo', 'image', 'of', 'create', 'make']
+    let rawName = rawPrompt
+    fillerWords.forEach(word => {
+      rawName = rawName.replace(new RegExp('\\b' + word + '\\b', 'gi'), ' ')
+    })
+    rawName = rawName.replace(/[^\p{L}\p{N}\s]/gu, ' ').replace(/\s+/g, ' ').trim()
+    const words = rawName.split(' ').filter(w => w.trim().length > 0)
+    let fileName = words.slice(0, 4).join('-').trim() || 'image'
+    fileName = fileName.replace(/[^a-zA-Z0-9-]/g, '-').toLowerCase()
+    if (!fileName) fileName = 'image'
+
+    const extension = imageUrl.includes('image/png') ? 'png' : 'jpg'
     const link = document.createElement('a')
     link.href = imageUrl
-    link.download = `generated-image-${Date.now()}.jpg`
+    link.download = `${fileName}-${Date.now()}.${extension}`
     document.body.appendChild(link)
     link.click()
     document.body.removeChild(link)
+  }
+
+  const handleImageOpenFromChat = (msgIndex: number) => {
+    const imageUrl = messageImages.get(msgIndex)
+    if (!imageUrl) return
+    setPreviewImageUrl(imageUrl)
+    setShowPreview(true)
   }
 
   const isAppSavedInChat = (msgIndex: number): boolean => {
@@ -345,48 +396,37 @@ export default function Home() {
 
 useEffect(() => {
     if (messages.length > 0) {
-      try {
-        // Only store the last 20 messages to avoid quota limits
-        const recentMessages = messages.slice(-20)
-        localStorage.setItem("chatMessages", JSON.stringify(recentMessages))
+      const recentMessages = messages.slice(-20)
 
-        const userMessages = recentMessages.filter(m => m.role === 'user')
-        if (userMessages.length > 0) {
-          const lastUserMsg = userMessages[userMessages.length - 1]
-          const title = lastUserMsg.content?.substring(0, 40).replace(/[^a-zA-Z0-9 ]/g, ' ').trim() || 'New Chat'
+      const userMessages = recentMessages.filter(m => m.role === 'user')
+      if (userMessages.length > 0) {
+        const lastUserMsg = userMessages[userMessages.length - 1]
+        const title = lastUserMsg.content?.substring(0, 40).replace(/[^a-zA-Z0-9 ]/g, ' ').trim() || 'New Chat'
 
-          const chatId = currentChatId || Date.now().toString()
-          if (!currentChatId) {
-            setCurrentChatId(chatId)
-          }
-
-          try {
-            localStorage.setItem(`chatHistory_${chatId}`, JSON.stringify(recentMessages))
-          } catch (e) {
-            console.warn("Chat history too large, storing fewer messages")
-            localStorage.setItem(`chatHistory_${chatId}`, JSON.stringify(recentMessages.slice(-10)))
-          }
-
-          setRecentChats(prev => {
-            const existingIndex = prev.findIndex(c => c.id === chatId)
-            let updated
-            if (existingIndex >= 0) {
-              updated = prev.map((c, i) => i === existingIndex ? { ...c, title, timestamp: Date.now() } : c)
-            } else {
-              const filtered = prev.filter(c => c.title !== title)
-              const newChat = { id: chatId, title, timestamp: Date.now() }
-              updated = [newChat, ...filtered].slice(0, 10)
-            }
-            try {
-              localStorage.setItem("recentChats", JSON.stringify(updated))
-            } catch (e) {
-              // Ignore if recentChats fails
-            }
-            return updated
-          })
+        const chatId = currentChatId || Date.now().toString()
+        if (!currentChatId) {
+          setCurrentChatId(chatId)
         }
-      } catch (error) {
-        console.warn("Failed to save chat to localStorage:", error)
+
+        saveChatHistoryToDB(chatId, recentMessages).catch(() => {})
+
+        setRecentChats(prev => {
+          const existingIndex = prev.findIndex(c => c.id === chatId)
+          let updated
+          if (existingIndex >= 0) {
+            updated = prev.map((c, i) => i === existingIndex ? { ...c, title, timestamp: Date.now() } : c)
+          } else {
+            const filtered = prev.filter(c => c.title !== title)
+            const newChat = { id: chatId, title, timestamp: Date.now() }
+            updated = [newChat, ...filtered].slice(0, 10)
+          }
+          try {
+            localStorage.setItem("recentChats", JSON.stringify(updated))
+          } catch (e) {
+            // Ignore if recentChats fails
+          }
+          return updated
+        })
       }
     }
   }, [messages, currentChatId])
@@ -935,15 +975,12 @@ const [hasSavedToGallery, setHasSavedToGallery] = useState(false)
     const chat = recentChats.find(c => c.id === chatId)
     if (chat) {
       setCurrentChatId(chatId)
-      const savedMessagesData = localStorage.getItem(`chatHistory_${chatId}`)
-      if (savedMessagesData) {
-        try {
-          const messagesData = JSON.parse(savedMessagesData)
-          setInitialMessages(messagesData)
-          setCurrentChatMessages(messagesData)
-          localStorage.setItem("chatMessages", JSON.stringify(messagesData))
-        } catch (e) { console.error("Failed to load chat messages") }
-      }
+      getChatHistoryFromDB(chatId).then((savedMessagesData) => {
+        if (savedMessagesData && savedMessagesData.length > 0) {
+          setInitialMessages(savedMessagesData)
+          setCurrentChatMessages(savedMessagesData)
+        }
+      })
     }
   }
 
@@ -953,14 +990,13 @@ const [hasSavedToGallery, setHasSavedToGallery] = useState(false)
       localStorage.setItem("recentChats", JSON.stringify(updated))
       return updated
     })
-    localStorage.removeItem(`chatHistory_${chatId}`)
+    deleteChatHistoryFromDB(chatId)
     if (currentChatId === chatId) {
       setCurrentChatMessages([])
       setInput("")
       setInitialMessages([])
       setLocalPreviewCode("")
       setMessagePreviews(new Map())
-      localStorage.removeItem("chatMessages")
     }
   }
 
@@ -1038,7 +1074,7 @@ const [hasSavedToGallery, setHasSavedToGallery] = useState(false)
         </div>
       )}
 
-      <div className="flex-1 flex flex-col min-w-0 w-full md:max-w-[70%] mx-auto">
+      <div className="flex-1 flex flex-col min-w-0 w-full md:max-w-[55%] mx-auto">
         <div className="absolute top-4 left-4 z-50">
           {!showSettings && (
             <button 
@@ -1076,6 +1112,7 @@ const [hasSavedToGallery, setHasSavedToGallery] = useState(false)
                             status={isLatestAssistant ? status : undefined}
                             onImageSave={msgImageUrl ? () => handleImageSaveFromChat(actualIdx) : undefined}
                             onImageDownload={msgImageUrl ? () => handleImageDownloadFromChat(actualIdx) : undefined}
+                            onImageOpen={msgImageUrl ? () => handleImageOpenFromChat(actualIdx) : undefined}
                           />
                         </div>
                       </div>
@@ -1086,58 +1123,21 @@ const [hasSavedToGallery, setHasSavedToGallery] = useState(false)
               </div>
             </ScrollArea>
 
-            <div className="px-4 pb-2">
-              <div className="flex items-center justify-between mb-2">
-                <div className="flex items-center gap-2">
-                  <button
-                    onClick={newSession}
-                    className="p-2 text-[#666666] hover:text-[#888888] transition-colors"
-                    title="New Chat"
-                  >
-                    <MessageSquarePlus className="h-5 w-5" />
-                  </button>
-                  <div className="relative">
-                    <button
-                      onClick={() => setIsDropdownOpen(!isDropdownOpen)}
-                      className="flex items-center gap-1 px-3 py-1.5 rounded-full bg-[#2e2e32] hover:bg-[#3e3e42] transition-colors text-xs"
-                    >
-                      <span className="text-[#e5e5e5]">{currentLang.native}</span>
-                      <ChevronDown className="h-3 w-3 text-[#888888]" />
-                    </button>
-                    {isDropdownOpen && (
-                      <div className="absolute bottom-full mb-2 left-0 z-50 bg-[#1f1f23] border border-[#2e2e32] rounded-xl shadow-xl overflow-hidden min-w-[140px] max-h-[300px] overflow-y-auto">
-                        {languages.map((lang) => (
-                          <button
-                            key={lang.code}
-                            type="button"
-                            onClick={() => {
-                              setSelectedLanguage(lang.code)
-                              setIsDropdownOpen(false)
-                            }}
-                            className={`w-full px-3 py-2 text-left hover:bg-[#2e2e32] transition-colors flex items-center justify-between ${
-                              selectedLanguage === lang.code ? 'bg-[#2e2e32]' : ''
-                            }`}
-                          >
-                            <span className="text-sm text-[#e5e5e5]">{lang.native}</span>
-                            <span className="text-xs text-[#888888]">{lang.name}</span>
-                          </button>
-                        ))}
-                      </div>
-                    )}
-                  </div>
-                </div>
-                <button
-                  onClick={() => setShowAppDrawer(true)}
-                  className="p-2 text-[#666666] hover:text-[#888888] transition-colors"
-                  title="Gallery"
-                >
-                  <Grid3X3 className="h-5 w-5" />
-                </button>
-              </div>
-              <ChatInput 
-                input={input} setInput={setInput} isGenerating={isGenerating}
-                handleSubmit={handleSubmit} stopGeneration={stopGeneration}
+            <div className="px-4 pb-4">
+              <Dock
+                onNewChat={newSession}
+                onToggleGallery={() => setShowAppDrawer(!showAppDrawer)}
+                selectedLanguage={selectedLanguage}
+                onLanguageChange={(lang) => {
+                  setSelectedLanguage(lang)
+                }}
               />
+              <div className="mt-2">
+                <ChatInput 
+                  input={input} setInput={setInput} isGenerating={isGenerating}
+                  handleSubmit={handleSubmit}
+                />
+              </div>
             </div>
           </div>
         </div>
@@ -1157,7 +1157,27 @@ const [hasSavedToGallery, setHasSavedToGallery] = useState(false)
         {showPreview && (
           <>
             <div className="flex-1 h-full overflow-hidden [&::-webkit-scrollbar]:w-2 [&::-webkit-scrollbar-thumb]:bg-[#404040] [&::-webkit-scrollbar-track]:bg-transparent">
-              {blobUrl ? <PreviewPanel previewUrl={blobUrl} appName={sessionApps[currentAppIndex]?.name || "My App"} onConsoleMessage={handleConsoleMessage} stopAutoReload={status === "ready"} onClose={() => setShowPreview(false)} /> : <div className="h-full flex items-center justify-center text-muted-foreground"><p className="text-sm">Preview will appear here</p></div>}
+              {previewImageUrl ? (
+                <PreviewPanel 
+                  imageUrl={previewImageUrl} 
+                  appName={sessionApps[currentAppIndex]?.name || "Image Preview"} 
+                  onConsoleMessage={handleConsoleMessage} 
+                  stopAutoReload={status === "ready"} 
+                  onClose={() => { setShowPreview(false); setPreviewImageUrl(null) }}
+                  onImageSave={() => {
+                    const idx = messages.findIndex((m, i) => messageImages.get(i) === previewImageUrl)
+                    if (idx >= 0) handleImageSaveFromChat(idx)
+                  }}
+                  onImageDownload={() => {
+                    const idx = messages.findIndex((m, i) => messageImages.get(i) === previewImageUrl)
+                    if (idx >= 0) handleImageDownloadFromChat(idx)
+                  }}
+                />
+              ) : blobUrl ? (
+                <PreviewPanel previewUrl={blobUrl} appName={sessionApps[currentAppIndex]?.name || "My App"} onConsoleMessage={handleConsoleMessage} stopAutoReload={status === "ready"} onClose={() => setShowPreview(false)} />
+              ) : (
+                <div className="h-full flex items-center justify-center text-muted-foreground"><p className="text-sm">Preview will appear here</p></div>
+              )}
             </div>
             <div className="cursor-col-resize hover:bg-primary/20 transition-colors" style={{ width: '4px' }} onMouseDown={handleResizeMouseDown} />
           </>

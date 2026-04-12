@@ -1,6 +1,5 @@
 import React from "react"
-import { Square, ArrowUp, Grid3X3 } from "lucide-react"
-import { Button } from "@/components/ui/button"
+import { ArrowUp } from "lucide-react"
 import { Textarea } from "@/components/ui/textarea"
 
 interface ChatInputProps {
@@ -8,8 +7,6 @@ interface ChatInputProps {
   setInput: (val: string) => void
   isGenerating: boolean
   handleSubmit: (e?: React.FormEvent, language?: string) => void
-  stopGeneration: () => void
-  onShowAppDrawer?: () => void
 }
 
 export function ChatInput({
@@ -17,8 +14,6 @@ export function ChatInput({
   setInput,
   isGenerating,
   handleSubmit,
-  stopGeneration,
-  onShowAppDrawer
 }: ChatInputProps) {
   const isDisabled = !input.trim() || isGenerating
 
@@ -37,45 +32,22 @@ export function ChatInput({
             onSubmit()
           }
         }}
-        placeholder=""
+        placeholder="Ask anything..."
         rows={1}
-        className="w-full min-h-[44px] max-h-[200px] resize-none border border-[#2e2e32] bg-[#1f1f23] text-[#e5e5e5] placeholder:text-[#888888] focus-visible:outline-none focus-visible:ring-0 pr-24 py-3 rounded-xl"
+        className="w-full min-h-[52px] max-h-[200px] resize-none border border-[#2e2e32] bg-[#1f1f23] text-[#e5e5e5] placeholder:text-[#888888] focus-visible:outline-none focus-visible:ring-0 pr-14 py-4 rounded-2xl"
         disabled={isGenerating}
       />
 
-      <div className="absolute right-3 top-1/2 -translate-y-1/2 flex items-center gap-2">
-        {onShowAppDrawer && (
-          <Button
-            type="button"
-            size="icon"
-            className="h-7 w-7 rounded-xl bg-transparent hover:bg-[#2e2e32] border-0 transition-colors"
-            onClick={onShowAppDrawer}
-            title="App Library"
-          >
-            <Grid3X3 className="h-4 w-4 text-[#888888]" />
-          </Button>
-        )}
-
-        {isGenerating ? (
-          <Button
-            type="button"
-            size="icon"
-            className="h-7 w-7 rounded-full bg-[#2e2e32] hover:bg-[#3e3e42] border-0 transition-colors"
-            onClick={stopGeneration}
-          >
-            <Square className="h-3 w-3 text-white" />
-          </Button>
-        ) : (
-          <Button
-            type="submit"
-            size="icon"
-            className="h-7 w-7 rounded-full bg-[#3b82f6] hover:bg-[#2563eb] border-0 transition-colors"
-            disabled={isDisabled}
-            onClick={onSubmit}
-          >
-            <ArrowUp className="h-3 w-3 text-white" />
-          </Button>
-        )}
+      <div className="absolute right-2.5 top-1/2 -translate-y-1/2">
+        <button
+          type="submit"
+          onClick={onSubmit}
+          disabled={isDisabled}
+          className="p-2 rounded-xl bg-[#3b82f6] hover:bg-[#2563eb] text-white transition-all disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:bg-[#3b82f6]"
+          title="Send"
+        >
+          <ArrowUp className="h-4 w-4" />
+        </button>
       </div>
     </div>
   )

@@ -1,6 +1,7 @@
 const DB_NAME = 'AppBuilderDB'
-const DB_VERSION = 1
+const DB_VERSION = 2
 const STORE_NAME = 'savedApps'
+const CHAT_STORE_NAME = 'chatHistory'
 
 export const openDB = (): Promise<IDBDatabase> => {
   return new Promise((resolve, reject) => {
@@ -14,6 +15,9 @@ export const openDB = (): Promise<IDBDatabase> => {
       if (!db.objectStoreNames.contains(STORE_NAME)) {
         const store = db.createObjectStore(STORE_NAME, { keyPath: 'id' })
         store.createIndex('code', 'code', { unique: true })
+      }
+      if (!db.objectStoreNames.contains(CHAT_STORE_NAME)) {
+        db.createObjectStore(CHAT_STORE_NAME, { keyPath: 'id' })
       }
     }
   })
@@ -78,5 +82,51 @@ export const appExistsInDB = async (appId: string): Promise<boolean> => {
   } catch (error) {
     console.error('Failed to check app in IndexedDB:', error)
     return false
+  }
+}
+
+export const saveChatHistoryToDB = async (chatId: string, messages: any[]): Promise<void> => {
+  try {
+    const db = await openDB()
+    return new Promise((resolve, reject) => {
+      const transaction = db.transaction([CHAT_STORE_NAME], 'readwrite')
+      const store = transaction.objectStore(CHAT_STORE_NAME)
+      const request = store.put({ id: chatId, messages, timestamp: Date.now() })
+      request.onsuccess = () => resolve()
+      request.onerror = () => reject(request.error)
+    })
+  } catch (error) {
+    console.error('Failed to save chat history to IndexedDB:', error)
+  }
+}
+
+export const getChatHistoryFromDB = async (chatId: string): Promise<any[] | null> => {
+  try {
+    const db = await openDB()
+    return new Promise((resolve, reject) => {
+      const transaction = db.transaction([CHAT_STORE_NAME], 'readonly')
+      const store = transaction.objectStore(CHAT_STORE_NAME)
+      const request = store.get(chatId)
+      request.onsuccess = () => resolve(request.result?.messages || null)
+      request.onerror = () => reject(request.error)
+    })
+  } catch (error) {
+    console.error('Failed to get chat history from IndexedDB:', error)
+    return null
+  }
+}
+
+export const deleteChatHistoryFromDB = async (chatId: string): Promise<void> => {
+  try {
+    const db = await openDB()
+    return new Promise((resolve, reject) => {
+      const transaction = db.transaction([CHAT_STORE_NAME], 'readwrite')
+      const store = transaction.objectStore(CHAT_STORE_NAME)
+      const request = store.delete(chatId)
+      request.onsuccess = () => resolve()
+      request.onerror = () => reject(request.error)
+    })
+  } catch (error) {
+    console.error('Failed to delete chat history from IndexedDB:', error)
   }
 }

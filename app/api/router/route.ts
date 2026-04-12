@@ -1,6 +1,5 @@
 import { NextRequest, NextResponse } from "next/server"
-import { z } from "zod"
-import { streamText, tool } from "ai"
+import { streamText } from "ai"
 import * as fs from "fs"
 import * as path from "path"
 import yaml from "js-yaml"
@@ -261,11 +260,17 @@ function routeTask(userMessage: string): { route: string; mode: string; prompt: 
 }
 
 function getTextProvider(settings: Settings, selectedProvider?: string): Provider {
+  if (!settings.text_generation || settings.text_generation.length === 0) {
+    throw new Error("No text generation provider configured")
+  }
   if (selectedProvider) {
     const provider = settings.text_generation.find(p => p.name === selectedProvider)
     if (provider) return provider
   }
-  return getRouterProvider(settings.text_generation) || settings.text_generation[0]
+  const routerProvider = getRouterProvider(settings.text_generation)
+  if (routerProvider) return routerProvider
+  if (settings.text_generation[0]) return settings.text_generation[0]
+  throw new Error("No enabled text generation provider")
 }
 
 function createOpenAIProvider(provider: Provider) {
@@ -346,15 +351,6 @@ function getModel(provider: Provider) {
   }
 }
 
-const announceSchema = z.object({
-  phase: z.enum(["planning", "coding", "testing", "fixing", "ready"]),
-  message: z.string().optional(),
-})
-
-const generateImageSchema = z.object({
-  prompt: z.string(),
-})
-
 async function handleChatRequest(body: any, settings: Settings) {
   const { messages, selectedProvider, selectedLanguage } = body
   
@@ -375,22 +371,19 @@ async function handleChatRequest(body: any, settings: Settings) {
 
 ${langInstruction ? `## Language\n${langInstruction}\n` : ""}
 ## Routing Rules
-- Image request (image, picture, photo, draw) → call generateImage tool
-- Audio request (audio, speech, voice, TTS) → call generateAudio tool
+- Image request (image, picture, photo, draw) → mention "IMAGE_REQUEST:" followed by the prompt. Do NOT add any prefix like "Here's the image" or "Sure, here's". Just output the IMAGE_REQUEST line.
+- Audio request (audio, speech, voice, TTS) → mention "AUDIO_REQUEST:" followed by the prompt. Do NOT add any prefix text.
 - App/Code request (build, create app, write code) → return HTML in markdown blocks
 - Other → respond naturally
 
 ## App Building (when asked)
-1. Call announce(phase: "planning")
-2. Call announce(phase: "coding")
-3. Return code:
+Return code:
 \`\`\`html
 <!DOCTYPE html>
 <html>
 ...app code...
 </html>
 \`\`\`
-4. Call announce(phase: "ready")
 
 ## Code Requirements
 - Mobile-first, touch buttons min 44px
@@ -400,29 +393,7 @@ ${langInstruction ? `## Language\n${langInstruction}\n` : ""}
     model,
     system: systemPrompt,
     messages: messages,
-    tools: {
-      announce: tool({
-        description: "Show progress update (required before building)",
-        parameters: announceSchema,
-        execute: async ({ phase, message }: { phase: string; message?: string }) => {
-          return { success: true, phase, message: message || "Working on it..." }
-        },
-      }),
-      generateImage: tool({
-        description: "Generate an image from a text description",
-        parameters: generateImageSchema,
-        execute: async ({ prompt }: { prompt: string }) => {
-          try {
-            const imageUrl = await generateImage(prompt)
-            return { success: true, imageUrl }
-          } catch (error) {
-            return { success: false, error: "Image generation failed" }
-          }
-        },
-      }),
-    },
-    maxSteps: 20,
-    experimental_activeTools: ["announce", "generateImage"],
+    maxSteps: 5,
   })
 
   return result.toDataStreamResponse({
@@ -464,7 +435,15 @@ export async function POST(req: NextRequest) {
       })
     }
 
-    return handleChatRequest(body, settings)
+    try {
+      return await handleChatRequest(body, settings)
+    } catch (chatError: any) {
+      console.error("Chat error:", chatError)
+      return NextResponse.json(
+        { error: chatError.message || "Chat failed" },
+        { status: 500 }
+      )
+    }
   } catch (error: any) {
     console.error("Router error:", error)
     return NextResponse.json(

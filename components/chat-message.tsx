@@ -1,5 +1,5 @@
 import React from "react"
-import { User, Bot, FileCode, CheckCircle2, AlertCircle, TerminalIcon, Code2, Play, Check, ExternalLink, Loader2, Download, FolderHeart } from "lucide-react"
+import { User, Bot, FileCode, CheckCircle2, AlertCircle, TerminalIcon, Code2, Play, Check, ExternalLink, Loader2, Download, FolderHeart, X } from "lucide-react"
 import { cn } from "@/lib/utils"
 import ReactMarkdown from "react-markdown"
 import remarkGfm from "remark-gfm"
@@ -27,6 +27,7 @@ interface ChatMessageProps {
   status?: string
   onImageSave?: () => void
   onImageDownload?: () => void
+  onImageOpen?: () => void
 }
 
 export const ChatMessage = React.memo(function ChatMessage({ 
@@ -38,7 +39,8 @@ export const ChatMessage = React.memo(function ChatMessage({
   hasSavedToGallery = false,
   status,
   onImageSave,
-  onImageDownload
+  onImageDownload,
+  onImageOpen,
 }: ChatMessageProps) {
   const isUser = message.role === "user"
 
@@ -185,10 +187,10 @@ export const ChatMessage = React.memo(function ChatMessage({
     <div className="space-y-3">
       <div
         className={cn(
-          "px-4 py-2.5 text-[14px] leading-relaxed max-w-[100%]",
+          "px-4 py-3 text-[14px] leading-relaxed max-w-[100%]",
           isUser 
-            ? "bg-[#2e2e32] text-[#e5e5e5] rounded-2xl rounded-tr-md"
-            : "bg-[#1e1e23] text-[#e5e5e5] rounded-2xl rounded-tl-md border border-[#2e2e32]"
+            ? "bg-[#3a3a42] text-[#e5e5e5] rounded-[20px] rounded-br-md"
+            : "bg-[#1e1e23] text-[#e5e5e5] rounded-[20px] rounded-bl-md border border-[#2e2e32]"
         )}
       >
         <div className="min-w-0">
@@ -290,11 +292,11 @@ export const ChatMessage = React.memo(function ChatMessage({
                 <Download className="h-4 w-4" />
               </button>
             )}
-            {onPreviewClick && (
+            {onImageOpen && (
               <button
-                onClick={(e) => { e.stopPropagation(); onPreviewClick(); }}
+                onClick={(e) => { e.stopPropagation(); onImageOpen(); }}
                 className="p-2 bg-[#1f1f23]/90 backdrop-blur-sm rounded-lg text-[#e5e5e5] hover:bg-[#3b82f6] transition-colors"
-                title="Expand"
+                title="Open in Preview"
               >
                 <ExternalLink className="h-4 w-4" />
               </button>
