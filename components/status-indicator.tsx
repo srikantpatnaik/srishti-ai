@@ -1,7 +1,7 @@
 import { Loader2, CheckCircle2, AlertCircle, Play, Pause } from "lucide-react"
 
 interface StatusIndicatorProps {
-  status: "idle" | "planning" | "coding" | "testing" | "fixing" | "ready" | "error"
+  status: "idle" | "planning" | "coding" | "testing" | "fixing" | "ready" | "error" | "generating_image"
 }
 
 export function StatusIndicator({ status }: StatusIndicatorProps) {
@@ -11,6 +11,7 @@ export function StatusIndicator({ status }: StatusIndicatorProps) {
     coding: { icon: Loader2, color: "text-purple-500", label: "Creating app..." },
     testing: { icon: Loader2, color: "text-green-500", label: "Checking..." },
     fixing: { icon: Loader2, color: "text-red-500", label: "Fixing..." },
+    generating_image: { icon: Loader2, color: "text-pink-500", label: "Generating image..." },
     ready: { icon: CheckCircle2, color: "text-green-600", label: "Done!" },
     error: { icon: AlertCircle, color: "text-red-600", label: "Error" },
   }

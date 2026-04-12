@@ -183,24 +183,27 @@ export const ChatMessage = React.memo(function ChatMessage({
     )
   }
 
+  const hasOnlyImage = message.imageUrl && !message.content && message.role !== "user"
+
   return (
     <div className="space-y-3">
+      {!hasOnlyImage && (
       <div
         className={cn(
-          "px-4 py-3 text-[14px] leading-relaxed max-w-[100%]",
+          "px-4 py-2 text-[14px] leading-relaxed",
           isUser 
             ? "bg-[#3a3a42] text-[#e5e5e5] rounded-[20px] rounded-br-md"
-            : "bg-[#1e1e23] text-[#e5e5e5] rounded-[20px] rounded-bl-md border border-[#2e2e32]"
+            : "bg-[#1e1e23] text-[#e5e5e5] rounded-[20px] rounded-bl-md border border-[#2e2e32] w-full"
         )}
       >
         <div className="min-w-0">
           {renderContent()}
         </div>
-      </div>
+      </div>)}
       
       {/* Status / Loading indicator in chat area */}
       {!isUser && status && status !== "idle" && status !== "ready" && (
-        <div className="flex items-center gap-2 text-sm text-[#888888] px-2">
+        <div className="flex items-center gap-2 text-sm text-[#888888] px-2 w-full">
           <Loader2 className="h-4 w-4 animate-spin" />
           <span>
             {status === "planning" && "Thinking..."}
@@ -213,7 +216,7 @@ export const ChatMessage = React.memo(function ChatMessage({
       
       {/* Preview thumbnail in chat - shown when there's a preview URL */}
       {previewUrl && !isUser && (
-        <div className="mt-2 group relative overflow-hidden rounded-xl border border-[#2e2e32] hover:border-[#e94560]/50 transition-colors">
+        <div className="mt-2 group relative overflow-hidden rounded-xl border border-[#2e2e32] hover:border-[#e94560]/50 transition-colors w-full">
           <iframe
             src={previewUrl}
             className="w-full h-48 sm:h-64 border-0 bg-[#0a0a0f]"
@@ -265,7 +268,7 @@ export const ChatMessage = React.memo(function ChatMessage({
 
       {/* Image preview in chat - shown when there's an image URL */}
       {message.imageUrl && !isUser && (
-        <div className="mt-2 group relative overflow-hidden rounded-xl border border-[#2e2e32] hover:border-[#e94560]/50 transition-colors">
+        <div className="mt-2 group relative overflow-hidden rounded-xl border border-[#2e2e32] hover:border-[#e94560]/50 transition-colors w-full">
           <img
             src={message.imageUrl}
             alt="Generated image"

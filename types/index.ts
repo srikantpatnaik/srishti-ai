@@ -1,4 +1,4 @@
-export type AgentStatus = "idle" | "planning" | "coding" | "testing" | "fixing" | "ready" | "error"
+export type AgentStatus = "idle" | "planning" | "coding" | "testing" | "fixing" | "ready" | "error" | "generating_image"
 
 export interface Provider {
   name: string

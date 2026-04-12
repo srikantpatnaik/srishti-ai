@@ -364,36 +364,22 @@ async function handleChatRequest(body: any, settings: Settings) {
     ? `You MUST respond in ${languageNames[selectedLanguage]} language only.`
     : ""
 
-  const provider = getTextProvider(settings, selectedProvider)
+const provider = getTextProvider(settings, selectedProvider)
   const model = getModel(provider)
 
-  const systemPrompt = `You are a helpful AI assistant.
+  const systemPrompt = `You are Srishti AI, a helpful assistant.
 
 ${langInstruction ? `## Language\n${langInstruction}\n` : ""}
-## Routing Rules
-- Image request (image, picture, photo, draw) → mention "IMAGE_REQUEST:" followed by the prompt. Do NOT add any prefix like "Here's the image" or "Sure, here's". Just output the IMAGE_REQUEST line.
-- Audio request (audio, speech, voice, TTS) → mention "AUDIO_REQUEST:" followed by the prompt. Do NOT add any prefix text.
-- App/Code request (build, create app, write code) → return HTML in markdown blocks
-- Other → respond naturally
 
-## App Building (when asked)
-Return code:
-\`\`\`html
-<!DOCTYPE html>
-<html>
-...app code...
-</html>
-\`\`\`
-
-## Code Requirements
-- Mobile-first, touch buttons min 44px
-- Dark theme: background #1a1a2e, text #eaeaea, cards #16213e, accents #e94560`
+## Guidelines
+- Be concise and helpful
+- For apps: return code in \`\`\`html\`\`\` blocks`
 
   const result = await streamText({
     model,
     system: systemPrompt,
     messages: messages,
-    maxSteps: 5,
+    maxSteps: 3,
   })
 
   return result.toDataStreamResponse({

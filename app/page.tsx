@@ -29,6 +29,7 @@ export default function Home() {
   const [isResizing, setIsResizing] = useState(false)
   const abortControllerRef = useRef<AbortController | null>(null)
   const messagesEndRef = useRef<HTMLDivElement>(null)
+  const lastAssistantMsgRef = useRef<string>("")
   const [localPreviewCode, setLocalPreviewCode] = useState("")
   const [blobUrl, setBlobUrl] = useState<string>("")
   const [savedApps, setSavedApps] = useState<SavedApp[]>([])
@@ -114,6 +115,17 @@ export default function Home() {
     },
     experimental_throttle: 100,
   })
+
+  // Auto scroll to bottom only when new assistant message arrives
+  useEffect(() => {
+    const lastMsg = messages[messages.length - 1]
+    if (lastMsg && lastMsg.role === 'assistant' && lastMsg.id !== lastAssistantMsgRef.current) {
+      lastAssistantMsgRef.current = lastMsg.id
+      setTimeout(() => {
+        messagesEndRef.current?.scrollIntoView({ behavior: "smooth" })
+      }, 100)
+    }
+  }, [messages])
 
   // Persistence and loading effects
   useEffect(() => {
@@ -537,7 +549,15 @@ useEffect(() => {
 
     // Handle image requests directly (bypass useChat which expects streaming)
     if (isImageRequest) {
-      setStatus("coding")
+      setStatus("generating_image")
+      const userMsg = {
+        id: Date.now().toString(),
+        role: "user" as const,
+        content: input,
+      }
+      setMessages(prev => [...prev, userMsg])
+      setInput("")
+      
       try {
         const response = await fetch("/api/image", {
           method: "POST",
@@ -549,33 +569,22 @@ useEffect(() => {
           const imageMsg = {
             id: Date.now().toString(),
             role: "assistant" as const,
-            content: "Here's the image you requested:",
+            content: "",
             imageUrl: data.imageUrl,
           }
-          const userMsg = {
-            id: (Date.now() - 1).toString(),
-            role: "user" as const,
-            content: input,
-          }
-          setMessages(prev => [...prev, userMsg, imageMsg])
+          setMessages(prev => [...prev, imageMsg])
         } else {
           const errorMsg = {
             id: Date.now().toString(),
             role: "assistant" as const,
             content: "Sorry, I couldn't generate the image. Please try again.",
           }
-          const userMsg = {
-            id: (Date.now() - 1).toString(),
-            role: "user" as const,
-            content: input,
-          }
-          setMessages(prev => [...prev, userMsg, errorMsg])
+          setMessages(prev => [...prev, errorMsg])
         }
       } catch (error) {
         console.error("Image generation error:", error)
       }
       setStatus("idle")
-      setInput("")
       return
     }
 
@@ -1101,7 +1110,7 @@ const [hasSavedToGallery, setHasSavedToGallery] = useState(false)
                     const msgWithImage = { ...msg, imageUrl: msgImageUrl }
                     return (
                       <div key={msg.id} className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'} gap-2`}>
-                        <div className={`max-w-[80%] ${msg.role === 'user' ? 'items-end' : 'items-start'}`}>
+                        <div className={`max-w-[90%] ${msg.role === 'user' ? 'items-end' : 'items-start'}`}>
                           <ChatMessage 
                             message={msgWithImage} 
                             previewUrl={msgPreviewUrl} 
@@ -1135,7 +1144,7 @@ const [hasSavedToGallery, setHasSavedToGallery] = useState(false)
               <div className="mt-2">
                 <ChatInput 
                   input={input} setInput={setInput} isGenerating={isGenerating}
-                  handleSubmit={handleSubmit}
+                  handleSubmit={handleSubmit} stopGeneration={stopGeneration}
                 />
               </div>
             </div>
