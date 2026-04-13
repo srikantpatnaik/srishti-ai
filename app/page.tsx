@@ -999,6 +999,19 @@ const [hasSavedToGallery, setHasSavedToGallery] = useState(false)
     }
   }
 
+  const handleDeleteApp = (appId: string) => {
+    setSavedApps(prev => prev.filter(app => app.id !== appId))
+  }
+
+  const handleDownloadApp = (app: SavedApp) => {
+    if (app.code.startsWith('data:image/') || app.code.startsWith('data:video/') || app.code.startsWith('data:audio/')) {
+      const link = document.createElement('a')
+      link.href = app.code
+      link.download = `${app.name}.${app.code.split(';')[0].split('/')[1] || 'bin'}`
+      link.click()
+    }
+  }
+
   const handleRunApp = (app: SavedApp) => {
     if (!app.code.startsWith('data:')) {
       setShowPreview(true)
@@ -1194,6 +1207,7 @@ const [hasSavedToGallery, setHasSavedToGallery] = useState(false)
         showAppDrawer={showAppDrawer} setShowAppDrawer={setShowAppDrawer}
         savedApps={savedApps} openSavedApp={openSavedApp} removeApp={removeApp}
         editApp={handleEditApp} shareApp={handleShareApp} runApp={handleRunApp}
+        deleteApp={handleDeleteApp} downloadApp={handleDownloadApp}
         handleSwitchToSavedApp={handleSwitchToSavedApp}
         setLongPressedApp={setLongPressedApp}
         contextMenu={contextMenu} longPressedApp={longPressedApp}

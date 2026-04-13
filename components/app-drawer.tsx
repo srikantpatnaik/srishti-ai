@@ -1,6 +1,6 @@
 import React, { useState, useRef, useEffect } from "react"
 import { SavedApp } from "@/types"
-import { Edit, Share2, X, ChevronLeft, ChevronRight, ArrowLeft, Play, Pause, Maximize2 } from "lucide-react"
+import { Edit, Share2, X, ChevronLeft, ChevronRight, ArrowLeft, Play, Pause, Maximize2, Trash2, Download } from "lucide-react"
 
 interface AppDrawerProps {
   showAppDrawer: boolean
@@ -8,6 +8,8 @@ interface AppDrawerProps {
   savedApps: SavedApp[]
   openSavedApp?: (app: SavedApp) => void
   removeApp?: (appId: string) => void
+  deleteApp?: (appId: string) => void
+  downloadApp?: (app: SavedApp) => void
   editApp?: (app: SavedApp) => void
   shareApp?: (app: SavedApp) => void
   runApp?: (app: SavedApp) => void
@@ -47,6 +49,8 @@ export function AppDrawer({
   editApp,
   shareApp,
   runApp,
+  deleteApp,
+  downloadApp,
   handleLongPressStart,
   handleLongPressEnd,
   handleSwitchToSavedApp,
@@ -57,6 +61,8 @@ export function AppDrawer({
   const _editApp = editApp ?? (() => {})
   const _shareApp = shareApp ?? (() => {})
   const _runApp = runApp ?? (() => {})
+  const _deleteApp = deleteApp ?? (() => {})
+  const _downloadApp = downloadApp ?? (() => {})
   const _handleSwitchToSavedApp = handleSwitchToSavedApp ?? (() => {})
   const _setLongPressedApp = setLongPressedApp ?? (() => {})
   
@@ -65,6 +71,7 @@ export function AppDrawer({
   const [viewMode, setViewMode] = useState<'grid' | 'app' | 'media'>('grid')
   const [previewApp, setPreviewApp] = useState<SavedApp | null>(null)
   const [mediaIndex, setMediaIndex] = useState(0)
+  const [contextMenuPos, setContextMenuPos] = useState<{x: number, y: number, app: SavedApp} | null>(null)
   const mediaScrollRef = useRef<HTMLDivElement>(null)
   const lastScrollY = useRef(0)
   const touchStartY = useRef(0)
@@ -99,8 +106,7 @@ export function AppDrawer({
       setMediaIndex(idx >= 0 ? idx : 0)
       setViewMode('media')
     } else {
-      setPreviewApp(app)
-      setViewMode('app')
+      _runApp(app)
     }
   }
 
@@ -108,14 +114,19 @@ export function AppDrawer({
     if (viewMode !== 'grid') {
       setViewMode('grid')
       setPreviewApp(null)
+      setMediaIndex(0)
     } else {
       setShowAppDrawer(false)
     }
   }
 
   const handleMediaScroll = (e: React.WheelEvent) => {
-    if (e.deltaY > 0) handleNext()
-    else if (e.deltaY < 0) handlePrev()
+    handleNext()
+  }
+
+  const handleLongPress = (app: SavedApp, e: React.MouseEvent | React.TouchEvent) => {
+    e.stopPropagation()
+    setContextMenuPos({ x: 'clientX' in e ? e.clientX : 0, y: 'clientY' in e ? e.clientY : 0, app })
   }
 
   const handleTouchStart = (e: React.TouchEvent) => {
@@ -159,6 +170,12 @@ export function AppDrawer({
             <ArrowLeft className="h-4 w-4" />
           </button>
           <h2 className="text-sm font-medium text-white flex-1 truncate">{previewApp.name}</h2>
+          <button onClick={() => { _editApp(previewApp); handleBack(); }} className="p-1.5 rounded-lg bg-[#2a2a2e] text-[#8b8b8d] hover:text-white">
+            <Edit className="h-4 w-4" />
+          </button>
+          <button onClick={() => { _deleteApp(previewApp.id); handleBack(); }} className="p-1.5 rounded-lg bg-[#2a2a2e] text-red-400 hover:text-red-300">
+            <Trash2 className="h-4 w-4" />
+          </button>
         </div>
         
         <div className="flex-1 flex items-center justify-center p-4 overflow-hidden">
@@ -178,25 +195,19 @@ export function AppDrawer({
         </div>
 
         <div className="flex-shrink-0 p-3 border-t border-[#2e2e32]">
-          <p className="text-sm text-white mb-3">{previewApp.description || 'Tap icon to open, long press for more options'}</p>
+          <p className="text-sm text-white mb-3">{previewApp.description || 'Tap icon to open'}</p>
           <div className="flex gap-2">
             <button
-              onClick={() => { _handleSwitchToSavedApp(previewApp); setShowAppDrawer(false); }}
+              onClick={() => { _runApp(previewApp); setShowAppDrawer(false); }}
               className="flex-1 py-2 bg-[#de0f17] hover:bg-[#b80d12] text-white rounded-lg text-sm font-medium"
             >
-              Open App
+              Run App
             </button>
             <button
-              onClick={() => { _editApp(previewApp); setShowAppDrawer(false); }}
-              className="p-2 bg-[#2a2a2e] hover:bg-[#343541] text-[#8b8b8d] rounded-lg"
+              onClick={() => { _handleSwitchToSavedApp(previewApp); setShowAppDrawer(false); }}
+              className="flex-1 py-2 bg-[#2a2a2e] hover:bg-[#343541] text-white rounded-lg text-sm font-medium"
             >
-              <Edit className="h-4 w-4" />
-            </button>
-            <button
-              onClick={() => _shareApp(previewApp)}
-              className="p-2 bg-[#2a2a2e] hover:bg-[#343541] text-[#8b8b8d] rounded-lg"
-            >
-              <Share2 className="h-4 w-4" />
+              Load
             </button>
           </div>
         </div>
@@ -219,6 +230,12 @@ export function AppDrawer({
             <ArrowLeft className="h-4 w-4" />
           </button>
           <span className="text-sm text-white/70 flex-1">{mediaIndex + 1} / {mediaApps.length}</span>
+          <button onClick={() => _downloadApp(currentMedia)} className="p-1.5 rounded-lg bg-white/10 text-white hover:bg-white/20">
+            <Download className="h-4 w-4" />
+          </button>
+          <button onClick={() => { _deleteApp(currentMedia.id); handleBack(); }} className="p-1.5 rounded-lg bg-white/10 text-red-400 hover:bg-white/20">
+            <Trash2 className="h-4 w-4" />
+          </button>
           <button onClick={handleBack} className="p-1.5 rounded-lg bg-white/10 text-white hover:bg-white/20">
             <X className="h-4 w-4" />
           </button>
@@ -295,10 +312,17 @@ export function AppDrawer({
           {filteredApps.map((app) => (
             <div key={app.id}>
               <div
-                onClick={() => handleAppClick(app)}
+                onClick={() => _runApp(app)}
                 onMouseEnter={() => setHoveredApp(app.id)}
                 onMouseLeave={() => setHoveredApp(null)}
-                onContextMenu={(e) => { e.preventDefault(); _setLongPressedApp(app); }}
+                onContextMenu={(e) => { e.preventDefault(); handleLongPress(app, e); }}
+                onTouchStart={(e) => { 
+                  touchStartY.current = e.touches[0].clientY
+                }}
+                onTouchEnd={(e) => {
+                  const deltaY = Math.abs(touchStartY.current - e.changedTouches[0].clientY)
+                  if (deltaY < 10) handleLongPress(app, e)
+                }}
                 className="aspect-square rounded-xl bg-[#1e1e23] border border-[#2e2e32] hover:border-[#de0f17]/50 hover:scale-105 transition-all cursor-pointer overflow-hidden"
               >
                 <div className="w-full h-full flex items-center justify-center">
@@ -321,6 +345,26 @@ export function AppDrawer({
         {filteredApps.length === 0 && (
           <div className="flex flex-col items-center justify-center py-16 text-[#666666]">
             <p className="text-sm">No apps yet</p>
+          </div>
+        )}
+
+        {contextMenuPos && (
+          <div 
+            className="fixed bg-[#1e1e23] border border-[#2e2e32] rounded-lg shadow-xl py-1 z-50"
+            style={{ left: contextMenuPos.x, top: contextMenuPos.y }}
+          >
+            <button
+              onClick={() => { _editApp(contextMenuPos.app); setContextMenuPos(null); }}
+              className="w-full px-4 py-2 text-left text-sm text-[#d1d1d1] hover:bg-[#2a2a2e]"
+            >
+              Edit
+            </button>
+            <button
+              onClick={() => { _deleteApp(contextMenuPos.app.id); setContextMenuPos(null); }}
+              className="w-full px-4 py-2 text-left text-sm text-red-400 hover:bg-[#2a2a2e]"
+            >
+              Delete
+            </button>
           </div>
         )}
       </div>
