@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react"
-import { X, ExternalLink, Download } from "lucide-react"
+import { X, ExternalLink, Download, ArrowLeft } from "lucide-react"
 
 interface PreviewPanelProps {
   previewUrl?: string
@@ -9,6 +9,7 @@ interface PreviewPanelProps {
   onConsoleMessage: (msg: string) => void
   stopAutoReload?: boolean
   onClose?: () => void
+  onBack?: () => void
 }
 
 export function PreviewPanel({
@@ -19,6 +20,7 @@ export function PreviewPanel({
   onConsoleMessage,
   stopAutoReload = false,
   onClose,
+  onBack,
 }: PreviewPanelProps) {
   const iframeRef = useRef<HTMLIFrameElement>(null)
   const [isLoaded, setIsLoaded] = useState(false)
@@ -68,6 +70,15 @@ export function PreviewPanel({
       <div className="flex-1 flex flex-col h-full">
         <div className="flex-1 h-full bg-[#121215] relative flex items-center justify-center">
           <div className="absolute top-3 right-3 z-10 flex gap-2">
+            {onBack && (
+              <button
+                onClick={onBack}
+                className="p-2 bg-[#1f1f23] rounded-lg text-[#888888] hover:bg-[#2e2e32] hover:text-[#e5e5e5] transition-all"
+                title="Back to gallery"
+              >
+                <ArrowLeft className="h-4 w-4" />
+              </button>
+            )}
             {onClose && (
               <button
                 onClick={onClose}
@@ -96,14 +107,15 @@ export function PreviewPanel({
     <div className="flex-1 flex flex-col h-full">
       <div className="flex-1 h-full bg-[#121215] relative">
         <div className="absolute top-3 right-3 z-10 flex gap-2">
-          <button
-            onClick={handleOpenInNewTab}
-            className="flex items-center gap-1.5 px-3 py-2 bg-[#1f1f23] rounded-lg text-[#888888] hover:bg-[#2e2e32] hover:text-[#e5e5e5] transition-all text-xs"
-            title="Open in new tab"
-          >
-            <ExternalLink className="h-4 w-4" />
-            <span>Open</span>
-          </button>
+          {onBack && (
+            <button
+              onClick={onBack}
+              className="p-2 bg-[#1f1f23] rounded-lg text-[#888888] hover:bg-[#2e2e32] hover:text-[#e5e5e5] transition-all"
+              title="Back to gallery"
+            >
+              <ArrowLeft className="h-4 w-4" />
+            </button>
+          )}
           {onClose && (
             <button
               onClick={onClose}

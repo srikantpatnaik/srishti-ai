@@ -106,7 +106,7 @@ export function AppDrawer({
       setMediaIndex(idx >= 0 ? idx : 0)
       setViewMode('media')
     } else {
-      _runApp(app)
+      _handleSwitchToSavedApp(app)
     }
   }
 
@@ -164,7 +164,7 @@ export function AppDrawer({
 
   if (viewMode === 'app' && previewApp) {
     return (
-      <div className="w-[50%] h-full bg-[#121215] border-l border-[#2e2e32] flex flex-col">
+      <div className="w-[50%] h-full bg-[#121215] flex flex-col">
         <div className="flex items-center gap-3 px-3 pt-3 pb-2 border-b border-[#2e2e32]">
           <button onClick={handleBack} className="p-1.5 rounded-lg bg-[#2a2a2e] text-[#8b8b8d] hover:text-white">
             <ArrowLeft className="h-4 w-4" />
@@ -215,12 +215,12 @@ export function AppDrawer({
     )
   }
 
-  if (viewMode === 'media' && mediaApps.length > 0) {
+ if (viewMode === 'media' && mediaApps.length > 0) {
     const currentMedia = mediaApps[mediaIndex]
 
     return (
       <div 
-        className="fixed inset-0 md:relative md:inset-y-0 md:right-0 md:left-auto md:w-[50%] h-full bg-black z-[70] flex flex-col touch-pan-y"
+        className="w-[50%] h-full bg-black flex flex-col touch-pan-y"
         onTouchStart={handleTouchStart}
         onTouchMove={handleTouchMove}
         onWheel={handleMediaScroll}
@@ -273,18 +273,6 @@ export function AppDrawer({
         <div className="flex items-center gap-3">
           <h2 className="text-sm font-medium text-white">Gallery</h2>
         </div>
-        
-        <div className="flex items-center gap-1">
-          <button onClick={handlePrev} disabled={selectedIndex <= 0} className="p-1.5 rounded-lg bg-[#2a2a2e] text-[#8b8b8d] hover:text-white disabled:opacity-30">
-            <ChevronLeft className="h-4 w-4" />
-          </button>
-          <span className="text-xs text-[#666666] px-2 min-w-[45px] text-center">
-            {filteredApps.length > 0 ? `${selectedIndex + 1}/${filteredApps.length}` : '0/0'}
-          </span>
-          <button onClick={handleNext} disabled={selectedIndex >= filteredApps.length - 1} className="p-1.5 rounded-lg bg-[#2a2a2e] text-[#8b8b8d] hover:text-white disabled:opacity-30">
-            <ChevronRight className="h-4 w-4" />
-          </button>
-        </div>
 
         <button onClick={handleBack} className="w-7 h-7 flex items-center justify-center rounded-lg bg-[#2a2a2e] text-[#8b8b8d] hover:text-white">
           <X className="h-4 w-4" />
@@ -311,20 +299,20 @@ export function AppDrawer({
         <div className="grid grid-cols-3 gap-3 p-3">
           {filteredApps.map((app) => (
             <div key={app.id}>
-              <div
-                onClick={() => _runApp(app)}
-                onMouseEnter={() => setHoveredApp(app.id)}
-                onMouseLeave={() => setHoveredApp(null)}
-                onContextMenu={(e) => { e.preventDefault(); handleLongPress(app, e); }}
-                onTouchStart={(e) => { 
-                  touchStartY.current = e.touches[0].clientY
-                }}
-                onTouchEnd={(e) => {
-                  const deltaY = Math.abs(touchStartY.current - e.changedTouches[0].clientY)
-                  if (deltaY < 10) handleLongPress(app, e)
-                }}
-                className="aspect-square rounded-xl bg-[#1e1e23] border border-[#2e2e32] hover:border-[#de0f17]/50 hover:scale-105 transition-all cursor-pointer overflow-hidden"
-              >
+<div
+                  onClick={(e) => { e.stopPropagation(); handleAppClick(app); }}
+                  onMouseEnter={() => setHoveredApp(app.id)}
+                  onMouseLeave={() => setHoveredApp(null)}
+                  onContextMenu={(e) => { e.preventDefault(); handleLongPress(app, e); }}
+                  onTouchStart={(e) => { 
+                    touchStartY.current = e.touches[0].clientY
+                  }}
+                  onTouchEnd={(e) => {
+                    const deltaY = Math.abs(touchStartY.current - e.changedTouches[0].clientY)
+                    if (deltaY < 10) handleLongPress(app, e)
+                  }}
+                  className="aspect-square rounded-xl bg-[#1e1e23] border border-[#2e2e32] hover:border-[#de0f17]/50 hover:scale-105 transition-all cursor-pointer overflow-hidden"
+                >
                 <div className="w-full h-full flex items-center justify-center">
                   {app.code.startsWith('data:image/') ? (
                     <img src={app.code} alt={app.name} className="w-full h-full object-cover" />

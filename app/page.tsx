@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect, useRef, useCallback, useMemo } from "react"
 import JSZip from "jszip"
-import { Bot, ChevronLeft, ChevronRight, ChevronDown, Grid, Grid3X3, X, PanelLeftClose, PanelLeftOpen, PanelRightClose, PanelRightOpen, Plus, MessageSquarePlus, Download, FolderHeart } from "lucide-react"
+import { Bot, ChevronLeft, ChevronRight, ChevronDown, Grid, Grid3X3, X, PanelLeftClose, PanelLeftOpen, PanelRightClose, PanelRightOpen, Plus, MessageSquarePlus, Download, FolderHeart, ArrowLeft } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { ScrollArea } from "@/components/ui/scroll-area"
 import { ChatMessage } from "@/components/chat-message"
@@ -1119,9 +1119,14 @@ const [hasSavedToGallery, setHasSavedToGallery] = useState(false)
         <div className="fixed inset-0 z-50 bg-[#121215]">
           <div className="flex items-center justify-between px-4 py-3">
             <span className="text-sm font-medium">{savedApps.find(app => app.code === editedAppCode)?.name || "Current Chat"}</span>
-            <Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => setShowPreview(false)}>
-              <X className="h-4 w-4" />
-            </Button>
+            <div className="flex gap-1">
+              <Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => { setShowAppDrawer(true); setShowPreview(false); }}>
+                <ArrowLeft className="h-4 w-4" />
+              </Button>
+              <Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => setShowPreview(false)}>
+                <X className="h-4 w-4" />
+              </Button>
+            </div>
           </div>
           <div className="h-[calc(100vh-53px)]">
             {blobUrl ? (
@@ -1224,10 +1229,11 @@ const [hasSavedToGallery, setHasSavedToGallery] = useState(false)
                   appName={sessionApps[currentAppIndex]?.name || "Image Preview"} 
                   onConsoleMessage={handleConsoleMessage} 
                   stopAutoReload={status === "ready"} 
+                  onBack={() => { setShowAppDrawer(true); setShowPreview(false); setPreviewImageUrl(null) }}
                   onClose={() => { setShowPreview(false); setPreviewImageUrl(null) }}
                 />
               ) : blobUrl ? (
-                <PreviewPanel previewUrl={blobUrl} appName={sessionApps[currentAppIndex]?.name || "My App"} onConsoleMessage={handleConsoleMessage} stopAutoReload={status === "ready"} onClose={() => setShowPreview(false)} />
+                <PreviewPanel previewUrl={blobUrl} appName={sessionApps[currentAppIndex]?.name || "My App"} onConsoleMessage={handleConsoleMessage} stopAutoReload={status === "ready"} onBack={() => { setShowAppDrawer(true); setShowPreview(false) }} onClose={() => setShowPreview(false)} />
               ) : (
                 <div className="h-full flex items-center justify-center text-muted-foreground"><p className="text-sm">Preview will appear here</p></div>
               )}
