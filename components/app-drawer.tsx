@@ -157,6 +157,23 @@ export function AppDrawer({
     lastScrollY.current = 0
   }, [viewMode])
 
+  useEffect(() => {
+    if (viewMode !== 'media') return
+
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'ArrowUp') {
+        e.preventDefault()
+        handlePrev()
+      } else if (e.key === 'ArrowDown') {
+        e.preventDefault()
+        handleNext()
+      }
+    }
+
+    window.addEventListener('keydown', handleKeyDown)
+    return () => window.removeEventListener('keydown', handleKeyDown)
+  }, [viewMode, mediaIndex, mediaApps.length])
+
   const categories: Category[] = ["All", "Apps", "Games", "Media"]
   const currentItem = viewMode === 'media' ? mediaApps[mediaIndex] : (viewMode === 'app' ? previewApp : filteredApps[selectedIndex])
 
@@ -295,7 +312,7 @@ export function AppDrawer({
         ))}
       </div>
 
-      <div className="flex-1 overflow-y-auto">
+      <div className="flex-1 overflow-y-auto" onClick={() => setContextMenuPos(null)}>
         <div className="grid grid-cols-3 gap-3 p-3">
           {filteredApps.map((app) => (
             <div key={app.id}>
