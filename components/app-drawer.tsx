@@ -181,7 +181,7 @@ export function AppDrawer({
 
   if (viewMode === 'app' && previewApp) {
     return (
-      <div className="w-[50%] h-full bg-[#121215] flex flex-col">
+      <div className="w-full md:w-[50%] h-full bg-[#121215] flex flex-col">
         <div className="flex items-center gap-3 px-3 pt-3 pb-2 border-b border-[#2e2e32]">
           <button onClick={handleBack} className="p-1.5 rounded-lg bg-[#2a2a2e] text-[#8b8b8d] hover:text-white">
             <ArrowLeft className="h-4 w-4" />
@@ -237,7 +237,7 @@ export function AppDrawer({
 
     return (
       <div 
-        className="w-[50%] h-full bg-black flex flex-col touch-pan-y"
+        className="w-full md:w-[50%] h-full bg-black flex flex-col touch-pan-y"
         onTouchStart={handleTouchStart}
         onTouchMove={handleTouchMove}
         onWheel={handleMediaScroll}
@@ -285,7 +285,7 @@ export function AppDrawer({
   }
 
   return (
-    <div className="w-[50%] h-full bg-[#121215] border-l border-[#2e2e32] flex flex-col">
+    <div className="w-full md:w-[50%] h-full bg-[#121215] md:border-l border-l-0 border-[#2e2e32] flex flex-col">
       <div className="flex items-center justify-between px-3 pt-3 pb-2 border-b border-[#2e2e32]">
         <div className="flex items-center gap-3">
           <h2 className="text-sm font-medium text-white">Gallery</h2>

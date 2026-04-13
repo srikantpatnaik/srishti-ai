@@ -1138,7 +1138,7 @@ const [hasSavedToGallery, setHasSavedToGallery] = useState(false)
         </div>
       )}
 
-      <div className="flex-1 flex min-w-0 w-full md:w-[50%]">
+      <div className={`flex-1 flex min-w-0 transition-all duration-300 ${showAppDrawer ? 'w-full md:w-[50%]' : 'w-full md:w-[50%]'}`}>
         <div className="absolute top-4 left-4 z-50">
           {!showSettings && (
             <button 
@@ -1150,7 +1150,7 @@ const [hasSavedToGallery, setHasSavedToGallery] = useState(false)
           )}
         </div>
 
-        <div className="flex-1 flex min-h-0">
+        <div className={`flex-1 flex min-h-0 ${showAppDrawer ? 'hidden md:flex' : ''}`}>
           <div className="flex-1 flex flex-col min-w-0">
             <ScrollArea className="flex-1 bg-[#121215] [&::-webkit-scrollbar]:hidden">
               <div className="px-4 py-2 space-y-4">

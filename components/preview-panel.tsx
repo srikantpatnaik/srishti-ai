@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react"
+import { useEffect, useRef, useState, useCallback } from "react"
 import { X, ExternalLink, Download, ArrowLeft } from "lucide-react"
 
 interface PreviewPanelProps {
@@ -24,6 +24,15 @@ export function PreviewPanel({
 }: PreviewPanelProps) {
   const iframeRef = useRef<HTMLIFrameElement>(null)
   const [isLoaded, setIsLoaded] = useState(false)
+  const [zoom, setZoom] = useState(1)
+  const [pan, setPan] = useState({ x: 0, y: 0 })
+  const [isDragging, setIsDragging] = useState(false)
+  const [dragStart, setDragStart] = useState({ x: 0, y: 0 })
+  const containerRef = useRef<HTMLDivElement>(null)
+  const touchStartDistance = useRef<number | null>(null)
+  const touchStartZoom = useRef<number>(1)
+  const touchStartPan = useRef({ x: 0, y: 0 })
+  const wheelListenerRef = useRef<((e: WheelEvent) => void) | null>(null)
 
   useEffect(() => {
     const handleMessage = (event: MessageEvent) => {
@@ -38,6 +47,103 @@ export function PreviewPanel({
     window.addEventListener("message", handleMessage)
     return () => window.removeEventListener("message", handleMessage)
   }, [onConsoleMessage])
+
+  const handleTouchStart = (e: React.TouchEvent) => {
+    if (e.touches.length === 2) {
+      touchStartDistance.current = Math.hypot(
+        e.touches[0].clientX - e.touches[1].clientX,
+        e.touches[0].clientY - e.touches[1].clientY
+      )
+      touchStartZoom.current = zoom
+      touchStartPan.current = { ...pan }
+    } else if (e.touches.length === 1) {
+      setIsDragging(true)
+      setDragStart({ x: e.touches[0].clientX - pan.x, y: e.touches[0].clientY - pan.y })
+    }
+  }
+
+  const handleTouchMove = (e: React.TouchEvent) => {
+    e.preventDefault()
+    if (e.touches.length === 2 && touchStartDistance.current !== null) {
+      const currentDistance = Math.hypot(
+        e.touches[0].clientX - e.touches[1].clientX,
+        e.touches[0].clientY - e.touches[1].clientY
+      )
+      const delta = currentDistance - touchStartDistance.current
+      const newZoom = Math.max(0.5, Math.min(3, touchStartZoom.current + delta * 0.01))
+      setZoom(newZoom)
+    } else if (e.touches.length === 1 && isDragging) {
+      setPan({
+        x: e.touches[0].clientX - dragStart.x,
+        y: e.touches[0].clientY - dragStart.y
+      })
+    }
+  }
+
+  const handleTouchEnd = () => {
+    setIsDragging(false)
+    touchStartDistance.current = null
+  }
+
+  useEffect(() => {
+    if (!imageUrl) return
+
+    const container = containerRef.current
+    if (!container) return
+
+    const handleWheelZoom = (e: WheelEvent) => {
+      e.stopImmediatePropagation()
+      e.preventDefault()
+      e.stopPropagation()
+      if (e.deltaY === 0) return
+      const zoomStep = 0.1
+      const delta = Math.sign(e.deltaY) * zoomStep
+      setZoom(prev => Math.max(0.5, Math.min(3, prev - delta)))
+    }
+
+    container.style.overflow = 'hidden'
+    container.style.overscrollBehavior = 'none'
+    container.style.touchAction = 'none'
+    container.style.pointerEvents = 'auto'
+
+    const parent = container.parentElement
+    if (parent) {
+      parent.style.overflow = 'hidden'
+      parent.style.overscrollBehavior = 'none'
+      parent.style.touchAction = 'none'
+    }
+
+    const grandparent = parent?.parentElement
+    if (grandparent) {
+      grandparent.style.overflow = 'hidden'
+      grandparent.style.overscrollBehavior = 'none'
+    }
+
+    const windowScrollListener = (e: WheelEvent) => {
+      e.preventDefault()
+      e.stopPropagation()
+      e.stopImmediatePropagation()
+    }
+
+    window.addEventListener('wheel', windowScrollListener, { passive: false, capture: true })
+    document.addEventListener('wheel', windowScrollListener, { passive: false, capture: true })
+    container.addEventListener('wheel', handleWheelZoom, { passive: false, capture: true })
+
+    return () => {
+      container.removeEventListener('wheel', handleWheelZoom, { passive: false, capture: true })
+      document.removeEventListener('wheel', windowScrollListener, { passive: false, capture: true })
+      window.removeEventListener('wheel', windowScrollListener, { passive: false, capture: true })
+      if (parent) {
+        parent.style.overflow = ''
+        parent.style.overscrollBehavior = ''
+        parent.style.touchAction = ''
+      }
+      if (grandparent) {
+        grandparent.style.overflow = ''
+        grandparent.style.overscrollBehavior = ''
+      }
+    }
+  }, [imageUrl])
 
   const handleOpenInNewTab = () => {
     if (!localCode) return
@@ -68,7 +174,19 @@ export function PreviewPanel({
   if (imageUrl) {
     return (
       <div className="flex-1 flex flex-col h-full">
-        <div className="flex-1 h-full bg-[#121215] relative flex items-center justify-center">
+        <div
+          ref={containerRef}
+          className="flex-1 h-full bg-[#121215] relative flex items-center justify-center cursor-grab active:cursor-grabbing"
+          style={{ 
+            overflow: 'hidden', 
+            WebkitOverflowScrolling: 'none',
+            overscrollBehavior: 'none',
+            touchAction: 'none'
+          }}
+          onTouchStart={handleTouchStart}
+          onTouchMove={handleTouchMove}
+          onTouchEnd={handleTouchEnd}
+        >
           <div className="absolute top-3 right-3 z-10 flex gap-2">
             {onBack && (
               <button
@@ -89,11 +207,29 @@ export function PreviewPanel({
               </button>
             )}
           </div>
-          <img
-            src={imageUrl}
-            alt="Preview"
-            className="max-w-full max-h-full object-contain p-4"
-          />
+          <div
+            className="max-w-full max-h-full p-4"
+            style={{
+              transform: `translate(${pan.x}px, ${pan.y}px) scale(${zoom})`,
+              transformOrigin: 'center center',
+              transition: isDragging ? 'none' : 'transform 0.1s ease-out',
+            }}
+          >
+            <img
+              src={imageUrl}
+              alt="Preview"
+              className="object-contain pointer-events-none"
+              style={{ userSelect: 'none', pointerEvents: 'none' }}
+            />
+          </div>
+          {zoom !== 1 && (
+            <button
+              onClick={() => { setZoom(1); setPan({ x: 0, y: 0 }) }}
+              className="absolute bottom-4 right-4 px-3 py-2 bg-[#1f1f23] rounded-lg text-[#888888] hover:bg-[#2e2e32] hover:text-[#e5e5e5] transition-all text-sm"
+            >
+              Reset View
+            </button>
+          )}
         </div>
       </div>
     )
