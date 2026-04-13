@@ -1,5 +1,5 @@
 import React, { useState, useMemo } from "react"
-import { MessageSquare, Trash2, PanelLeftClose, Keyboard } from "lucide-react"
+import { MessageSquare, Trash2, PanelLeftClose, Keyboard, ChevronDown } from "lucide-react"
 
 interface RecentChat {
   id: string
@@ -39,6 +39,7 @@ export function SettingsPanel({
 }: SettingsPanelProps) {
   const [deleteConfirmId, setDeleteConfirmId] = useState<string | null>(null)
   const [hoveredChatId, setHoveredChatId] = useState<string | null>(null)
+  const [showShortcuts, setShowShortcuts] = useState(false)
 
   const groupedChats = useMemo(() => {
     const groups: { [key: string]: RecentChat[] } = {}
@@ -167,16 +168,22 @@ export function SettingsPanel({
         )}
       </div>
 
-      <div className="hidden sm:block p-3 border-t border-[#343541]">
-        <div className="flex items-center gap-3 px-3 py-2.5 rounded-lg bg-[#2a2a2e] text-[#8b8b8d] text-sm">
+      <div className="hidden md:block p-3 border-t border-[#343541]">
+        <button 
+          onClick={() => setShowShortcuts(!showShortcuts)}
+          className="w-full flex items-center gap-3 px-3 py-2.5 rounded-lg bg-[#2a2a2e] text-[#8b8b8d] text-sm hover:bg-[#343541] transition-colors"
+        >
           <Keyboard className="h-4 w-4" />
-          <span className="flex-1">Keyboard Shortcuts</span>
-          <div className="hidden md:flex gap-1.5 text-xs">
+          <span className="flex-1 text-left">Keyboard Shortcuts</span>
+          <ChevronDown className={`h-4 w-4 transition-transform ${showShortcuts ? 'rotate-180' : ''}`} />
+        </button>
+        {showShortcuts && (
+          <div className="flex gap-1.5 text-xs mt-2 px-3">
             <span className="px-1.5 py-0.5 bg-[#404040] rounded text-[#a0a0a0]">Ctrl+B</span>
             <span className="px-1.5 py-0.5 bg-[#404040] rounded text-[#a0a0a0]">Ctrl+X</span>
             <span className="px-1.5 py-0.5 bg-[#404040] rounded text-[#a0a0a0]">Ctrl+M</span>
           </div>
-        </div>
+        )}
       </div>
     </div>
   )
