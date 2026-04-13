@@ -276,10 +276,7 @@ export function AppDrawer({
           )}
         </div>
 
-        <div className="flex-shrink-0 p-3 bg-black/80 border-t border-white/10">
-          <p className="text-sm text-white truncate">{currentMedia?.name}</p>
-          <p className="text-xs text-white/50 mt-1">Swipe up/down or use arrows to navigate</p>
-        </div>
+        
       </div>
     )
   }

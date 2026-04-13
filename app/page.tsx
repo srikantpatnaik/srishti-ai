@@ -1139,7 +1139,7 @@ const [hasSavedToGallery, setHasSavedToGallery] = useState(false)
       )}
 
       <div className={`flex-1 flex min-w-0 transition-all duration-300 ${showAppDrawer ? 'w-full md:w-[50%]' : 'w-full md:w-[50%]'}`}>
-        <div className="absolute top-4 left-4 z-50">
+        <div className={`absolute top-4 left-4 z-50 ${showAppDrawer ? 'hidden md:block' : ''}`}>
           {!showSettings && (
             <button 
               onClick={() => setShowSettings(true)}
