@@ -22,11 +22,13 @@ export default function Home() {
   const [showSettings, setShowSettings] = useState(false)
   const [showPreview, setShowPreview] = useState(false)
   const [showAppDrawer, setShowAppDrawer] = useState(false)
+  const [galleryIndex, setGalleryIndex] = useState(0)
   const [providers, setProviders] = useState<Provider[]>([])
   const [selectedProvider, setSelectedProvider] = useState<string>("")
   const [loadingProviders, setLoadingProviders] = useState(true)
   const [previewWidth, setPreviewWidth] = useState(30)
   const [isResizing, setIsResizing] = useState(false)
+  const activeCategoryRef = useRef("All")
   const abortControllerRef = useRef<AbortController | null>(null)
   const messagesEndRef = useRef<HTMLDivElement>(null)
   const lastAssistantMsgRef = useRef<string>("")
@@ -84,7 +86,8 @@ export default function Home() {
     showSettings, setShowSettings,
     showPreview, setShowPreview,
     showAppDrawer, setShowAppDrawer,
-    setContextMenu, setLongPressedApp
+    setContextMenu, setLongPressedApp,
+    savedApps, galleryIndex, setGalleryIndex
   )
 
   const {
@@ -996,6 +999,19 @@ const [hasSavedToGallery, setHasSavedToGallery] = useState(false)
     }
   }
 
+  const handleRunApp = (app: SavedApp) => {
+    if (!app.code.startsWith('data:')) {
+      setShowPreview(true)
+      setPreviewImageUrl(null)
+      setBlobUrl("")
+      setTimeout(() => {
+        const htmlContent = `<!DOCTYPE html><html lang="en"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no"><title>${app.name}</title><style>*{margin:0;padding:0;box-sizing:border-box;}body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;background:#1a1a2e;color:#eaeaea;min-height:100vh;padding:16px;}.app-container{max-width:100%;margin:0 auto;}</style></head><body><div class="app-container">${app.code}</div><script>window.parent.postMessage({ type: 'loaded' }, '*');</script></body></html>`
+        const blob = new Blob([htmlContent], { type: 'text/html' })
+        setBlobUrl(URL.createObjectURL(blob))
+      }, 0)
+    }
+  }
+
   const handleNewChat = () => {
     newSession()
     setActiveChatTab(null)
@@ -1104,7 +1120,7 @@ const [hasSavedToGallery, setHasSavedToGallery] = useState(false)
         </div>
       )}
 
-      <div className="flex-1 flex flex-col min-w-0 w-full md:max-w-[55%] mx-auto">
+      <div className="flex-1 flex min-w-0 w-full md:w-[50%]">
         <div className="absolute top-4 left-4 z-50">
           {!showSettings && (
             <button 
@@ -1177,11 +1193,11 @@ const [hasSavedToGallery, setHasSavedToGallery] = useState(false)
       <AppDrawer 
         showAppDrawer={showAppDrawer} setShowAppDrawer={setShowAppDrawer}
         savedApps={savedApps} openSavedApp={openSavedApp} removeApp={removeApp}
-        editApp={handleEditApp} shareApp={handleShareApp}
-        handleLongPressStart={handleLongPressStart} handleLongPressEnd={handleLongPressEnd}
-        handleSwitchToSavedApp={handleSwitchToSavedApp} setContextMenu={setContextMenu}
-        setLongPressedApp={setLongPressedApp} setLongPressTimer={setLongPressTimer}
+        editApp={handleEditApp} shareApp={handleShareApp} runApp={handleRunApp}
+        handleSwitchToSavedApp={handleSwitchToSavedApp}
+        setLongPressedApp={setLongPressedApp}
         contextMenu={contextMenu} longPressedApp={longPressedApp}
+        selectedIndex={galleryIndex} setSelectedIndex={setGalleryIndex}
       />
 
       <div className={`transition-all duration-300 overflow-hidden ${showPreview ? "w-full sm:w-[50%]" : "w-0"}`}>

@@ -30,10 +30,29 @@ export function useKeyboardShortcuts(
   showAppDrawer: boolean,
   setShowAppDrawer: (val: boolean) => void,
   setContextMenu: (val: any) => void,
-  setLongPressedApp: (val: any) => void
+  setLongPressedApp: (val: any) => void,
+  savedApps: any[] = [],
+  galleryIndex: number = 0,
+  setGalleryIndex?: (val: number) => void
 ) {
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
+      if (showAppDrawer && setGalleryIndex) {
+        if (e.key === 'ArrowLeft' || e.key === 'ArrowUp') {
+          e.preventDefault()
+          setGalleryIndex(galleryIndex <= 0 ? savedApps.length - 1 : galleryIndex - 1)
+        }
+        if (e.key === 'ArrowRight' || e.key === 'ArrowDown') {
+          e.preventDefault()
+          setGalleryIndex(galleryIndex >= savedApps.length - 1 ? 0 : galleryIndex + 1)
+        }
+        if (e.key === 'Enter') {
+          e.preventDefault()
+          if (savedApps[galleryIndex]) {
+            setShowAppDrawer(false)
+          }
+        }
+      }
       if (e.ctrlKey && e.key === 'b' && !e.altKey) {
         e.preventDefault()
         setShowSettings(!showSettings)
@@ -55,7 +74,7 @@ export function useKeyboardShortcuts(
     }
     window.addEventListener('keydown', handleKeyDown)
     return () => window.removeEventListener('keydown', handleKeyDown)
-  }, [showSettings, showPreview, showAppDrawer, setShowSettings, setShowPreview, setShowAppDrawer, setContextMenu, setLongPressedApp])
+  }, [showSettings, showPreview, showAppDrawer, setShowSettings, setShowPreview, setShowAppDrawer, setContextMenu, setLongPressedApp, galleryIndex, setGalleryIndex, savedApps.length])
 }
 
 export function useResizing(setPreviewWidth: (val: number) => void, setIsResizing: (val: boolean) => void) {

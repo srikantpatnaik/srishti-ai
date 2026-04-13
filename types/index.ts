@@ -16,4 +16,5 @@ export interface SavedApp {
   url: string
   chatMessages?: any[]
   createdAt: number
+  description?: string
 }

@@ -1,24 +1,26 @@
-import React, { useState } from "react"
+import React, { useState, useRef, useEffect } from "react"
 import { SavedApp } from "@/types"
-import { Edit, Share2, ExternalLink, Trash2, X, Download, FolderHeart, Grid3X3, Sparkles, Zap, Palette, Command } from "lucide-react"
-import JSZip from "jszip"
+import { Edit, Share2, X, ChevronLeft, ChevronRight, ArrowLeft, Play, Pause, Maximize2 } from "lucide-react"
 
 interface AppDrawerProps {
   showAppDrawer: boolean
   setShowAppDrawer: (val: boolean) => void
   savedApps: SavedApp[]
-  openSavedApp: (app: SavedApp) => void
-  removeApp: (appId: string) => void
-  editApp: (app: SavedApp) => void
-  shareApp: (app: SavedApp) => void
-  handleLongPressStart: (app: SavedApp, e: any) => void
-  handleLongPressEnd: () => void
-  handleSwitchToSavedApp: (app: SavedApp) => void
-  setContextMenu: (val: any) => void
-  setLongPressedApp: (val: any) => void
-  setLongPressTimer: (val: any) => void
-  contextMenu: { appId: string; x: number; y: number } | null
-  longPressedApp: SavedApp | null
+  openSavedApp?: (app: SavedApp) => void
+  removeApp?: (appId: string) => void
+  editApp?: (app: SavedApp) => void
+  shareApp?: (app: SavedApp) => void
+  runApp?: (app: SavedApp) => void
+  handleLongPressStart?: (app: SavedApp, e: any) => void
+  handleLongPressEnd?: () => void
+  handleSwitchToSavedApp?: (app: SavedApp) => void
+  setContextMenu?: (val: any) => void
+  setLongPressedApp?: (val: any) => void
+  setLongPressTimer?: (val: any) => void
+  contextMenu?: { appId: string; x: number; y: number } | null
+  longPressedApp?: SavedApp | null
+  selectedIndex: number
+  setSelectedIndex: (index: number) => void
 }
 
 type Category = "All" | "Apps" | "Games" | "Media"
@@ -33,11 +35,8 @@ function getCategory(name: string): Category {
   return "Apps"
 }
 
-const categoryIcons: Record<Category, React.ReactNode> = {
-  All: <Sparkles className="h-4 w-4" />,
-  Apps: <Command className="h-4 w-4" />,
-  Games: <Zap className="h-4 w-4" />,
-  Media: <Palette className="h-4 w-4" />,
+function isMediaFile(code: string): boolean {
+  return code.startsWith('data:image/') || code.startsWith('data:video/') || code.startsWith('data:audio/')
 }
 
 export function AppDrawer({
@@ -45,147 +44,285 @@ export function AppDrawer({
   setShowAppDrawer,
   savedApps,
   openSavedApp,
-  removeApp,
   editApp,
   shareApp,
+  runApp,
   handleLongPressStart,
   handleLongPressEnd,
   handleSwitchToSavedApp,
-  setContextMenu,
   setLongPressedApp,
-  setLongPressTimer,
-  contextMenu,
-  longPressedApp,
+  selectedIndex,
+  setSelectedIndex,
 }: AppDrawerProps) {
+  const _editApp = editApp ?? (() => {})
+  const _shareApp = shareApp ?? (() => {})
+  const _runApp = runApp ?? (() => {})
+  const _handleSwitchToSavedApp = handleSwitchToSavedApp ?? (() => {})
+  const _setLongPressedApp = setLongPressedApp ?? (() => {})
+  
   const [activeCategory, setActiveCategory] = useState<Category>("All")
   const [hoveredApp, setHoveredApp] = useState<string | null>(null)
+  const [viewMode, setViewMode] = useState<'grid' | 'app' | 'media'>('grid')
+  const [previewApp, setPreviewApp] = useState<SavedApp | null>(null)
+  const [mediaIndex, setMediaIndex] = useState(0)
+  const mediaScrollRef = useRef<HTMLDivElement>(null)
+  const lastScrollY = useRef(0)
+  const touchStartY = useRef(0)
 
-  if (!showAppDrawer) return null
-
-  const categories: Category[] = ["All", "Apps", "Games", "Media"]
-  
   const filteredApps = savedApps.filter(app => {
     if (activeCategory === "All") return true
     return getCategory(app.name) === activeCategory
   })
 
-  const handleContextMenu = (app: SavedApp, e: React.MouseEvent) => {
-    e.preventDefault()
-    setContextMenu({
-      appId: app.id,
-      x: e.clientX,
-      y: e.clientY,
-    })
-    setLongPressedApp(app)
+  const mediaApps = filteredApps.filter(app => isMediaFile(app.code))
+  const appGames = filteredApps.filter(app => !isMediaFile(app.code))
+
+  const handlePrev = () => {
+    if (viewMode === 'media' && mediaApps.length > 0) {
+      setMediaIndex(mediaIndex <= 0 ? mediaApps.length - 1 : mediaIndex - 1)
+    } else {
+      setSelectedIndex(selectedIndex <= 0 ? filteredApps.length - 1 : selectedIndex - 1)
+    }
+  }
+
+  const handleNext = () => {
+    if (viewMode === 'media' && mediaApps.length > 0) {
+      setMediaIndex(mediaIndex >= mediaApps.length - 1 ? 0 : mediaIndex + 1)
+    } else {
+      setSelectedIndex(selectedIndex >= filteredApps.length - 1 ? 0 : selectedIndex + 1)
+    }
   }
 
   const handleAppClick = (app: SavedApp) => {
-    handleSwitchToSavedApp(app)
-    setShowAppDrawer(false)
+    if (isMediaFile(app.code)) {
+      const idx = mediaApps.findIndex(a => a.id === app.id)
+      setMediaIndex(idx >= 0 ? idx : 0)
+      setViewMode('media')
+    } else {
+      setPreviewApp(app)
+      setViewMode('app')
+    }
   }
 
-  return (
-    <div className="fixed inset-0 z-[60]">
-      {/* Frosted glass background */}
-      <div className="absolute inset-0 bg-[#0a0a0c]/95 backdrop-blur-2xl" />
-      
-      {/* Radial gradient orbs for atmosphere */}
-      <div className="absolute inset-0 overflow-hidden pointer-events-none">
-        <div className="absolute top-[-20%] left-[-10%] w-[60%] h-[60%] bg-[#e94560]/8 rounded-full blur-[120px]" />
-        <div className="absolute bottom-[-20%] right-[-10%] w-[50%] h-[50%] bg-[#3b82f6]/6 rounded-full blur-[100px]" />
-        <div className="absolute top-[30%] right-[20%] w-[30%] h-[30%] bg-[#8b5cf6]/5 rounded-full blur-[80px]" />
-      </div>
+  const handleBack = () => {
+    if (viewMode !== 'grid') {
+      setViewMode('grid')
+      setPreviewApp(null)
+    } else {
+      setShowAppDrawer(false)
+    }
+  }
 
-      {/* Main content */}
-      <div className="relative z-10 h-full flex flex-col">
-        {/* Header */}
-        <div className="flex items-center justify-between px-8 pt-6 pb-4">
-          <div className="flex items-center gap-4">
-            <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-[#e94560] to-[#e94560]/60 flex items-center justify-center shadow-lg shadow-[#e94560]/20">
-              <Sparkles className="h-6 w-6 text-white" />
-            </div>
-            <div>
-              <h2 className="text-2xl font-bold bg-gradient-to-r from-white to-white/70 bg-clip-text text-transparent">
-                Gallery
-              </h2>
-              <p className="text-sm text-white/40">{savedApps.length} apps saved</p>
+  const handleMediaScroll = (e: React.WheelEvent) => {
+    if (e.deltaY > 0) handleNext()
+    else if (e.deltaY < 0) handlePrev()
+  }
+
+  const handleTouchStart = (e: React.TouchEvent) => {
+    touchStartY.current = e.touches[0].clientY
+  }
+
+  const handleTouchMove = (e: React.TouchEvent) => {
+    const deltaY = touchStartY.current - e.touches[0].clientY
+    if (Math.abs(deltaY) > 50) {
+      if (deltaY > 0) handleNext()
+      else handlePrev()
+      touchStartY.current = e.touches[0].clientY
+    }
+  }
+
+  const handleTwoFingerSwipe = (e: React.TouchEvent) => {
+    if (e.touches.length === 2) {
+      const deltaY = lastScrollY.current - e.touches[0].clientY
+      if (Math.abs(deltaY) > 30) {
+        if (deltaY > 0) handleNext()
+        else handlePrev()
+        lastScrollY.current = e.touches[0].clientY
+      }
+    }
+  }
+
+  useEffect(() => {
+    lastScrollY.current = 0
+  }, [viewMode])
+
+  const categories: Category[] = ["All", "Apps", "Games", "Media"]
+  const currentItem = viewMode === 'media' ? mediaApps[mediaIndex] : (viewMode === 'app' ? previewApp : filteredApps[selectedIndex])
+
+  if (!showAppDrawer) return null
+
+  if (viewMode === 'app' && previewApp) {
+    return (
+      <div className="w-[50%] h-full bg-[#121215] border-l border-[#2e2e32] flex flex-col">
+        <div className="flex items-center gap-3 px-3 pt-3 pb-2 border-b border-[#2e2e32]">
+          <button onClick={handleBack} className="p-1.5 rounded-lg bg-[#2a2a2e] text-[#8b8b8d] hover:text-white">
+            <ArrowLeft className="h-4 w-4" />
+          </button>
+          <h2 className="text-sm font-medium text-white flex-1 truncate">{previewApp.name}</h2>
+        </div>
+        
+        <div className="flex-1 flex items-center justify-center p-4 overflow-hidden">
+          <div 
+            onClick={() => { _runApp(previewApp); setShowAppDrawer(false); }}
+            className="w-[180px] h-[360px] rounded-[30px] bg-gradient-to-br from-[#3a3a42] to-[#2a2a2e] border-[6px] border-[#1a1a1a] overflow-hidden flex flex-col cursor-pointer hover:scale-105 transition-transform shadow-2xl"
+          >
+            <div className="h-full w-full flex flex-col">
+              <div className="flex-1 flex items-center justify-center text-7xl">
+                {previewApp.icon || "📱"}
+              </div>
+              <div className="pb-4 text-center">
+                <span className="text-white text-xs font-medium">{previewApp.name}</span>
+              </div>
             </div>
           </div>
-          <button
-            onClick={() => setShowAppDrawer(false)}
-            className="w-10 h-10 flex items-center justify-center rounded-xl bg-white/5 hover:bg-white/10 text-white/60 hover:text-white transition-all border border-white/10 hover:border-white/20"
-          >
-            <X className="h-5 w-5" />
+        </div>
+
+        <div className="flex-shrink-0 p-3 border-t border-[#2e2e32]">
+          <p className="text-sm text-white mb-3">{previewApp.description || 'Tap icon to open, long press for more options'}</p>
+          <div className="flex gap-2">
+            <button
+              onClick={() => { _handleSwitchToSavedApp(previewApp); setShowAppDrawer(false); }}
+              className="flex-1 py-2 bg-[#de0f17] hover:bg-[#b80d12] text-white rounded-lg text-sm font-medium"
+            >
+              Open App
+            </button>
+            <button
+              onClick={() => { _editApp(previewApp); setShowAppDrawer(false); }}
+              className="p-2 bg-[#2a2a2e] hover:bg-[#343541] text-[#8b8b8d] rounded-lg"
+            >
+              <Edit className="h-4 w-4" />
+            </button>
+            <button
+              onClick={() => _shareApp(previewApp)}
+              className="p-2 bg-[#2a2a2e] hover:bg-[#343541] text-[#8b8b8d] rounded-lg"
+            >
+              <Share2 className="h-4 w-4" />
+            </button>
+          </div>
+        </div>
+      </div>
+    )
+  }
+
+  if (viewMode === 'media' && mediaApps.length > 0) {
+    const currentMedia = mediaApps[mediaIndex]
+
+    return (
+      <div 
+        className="fixed inset-0 md:relative md:inset-y-0 md:right-0 md:left-auto md:w-[50%] h-full bg-black z-[70] flex flex-col touch-pan-y"
+        onTouchStart={handleTouchStart}
+        onTouchMove={handleTouchMove}
+        onWheel={handleMediaScroll}
+      >
+        <div className="flex items-center gap-3 px-3 pt-3 pb-2 bg-black/80">
+          <button onClick={handleBack} className="p-1.5 rounded-lg bg-white/10 text-white hover:bg-white/20">
+            <ArrowLeft className="h-4 w-4" />
+          </button>
+          <span className="text-sm text-white/70 flex-1">{mediaIndex + 1} / {mediaApps.length}</span>
+          <button onClick={handleBack} className="p-1.5 rounded-lg bg-white/10 text-white hover:bg-white/20">
+            <X className="h-4 w-4" />
           </button>
         </div>
 
-        {/* Category pills */}
-        <div className="flex items-center gap-3 px-8 py-2">
-          {categories.map((cat) => (
-            <button
-              key={cat}
-              onClick={() => setActiveCategory(cat)}
-              className={`flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-medium transition-all duration-300 ${
-                activeCategory === cat
-                  ? "bg-gradient-to-r from-[#e94560] to-[#e94560]/80 text-white shadow-lg shadow-[#e94560]/25"
-                  : "bg-white/5 text-white/50 hover:bg-white/10 hover:text-white/80 border border-white/5 hover:border-white/15"
-              }`}
-            >
-              {categoryIcons[cat]}
-              {cat}
-            </button>
+        <div className="flex-1 flex items-center justify-center overflow-hidden" ref={mediaScrollRef}>
+          {currentMedia?.code.startsWith('data:video/') || currentMedia?.code.startsWith('data:audio/') ? (
+            <video 
+              src={currentMedia.code} 
+              controls 
+              className="max-w-full max-h-full object-contain"
+              autoPlay 
+              loop 
+            />
+          ) : (
+            <img 
+              src={currentMedia?.code} 
+              alt={currentMedia?.name} 
+              className="max-w-full max-h-full object-contain"
+            />
+          )}
+        </div>
+
+        <div className="flex-shrink-0 p-3 bg-black/80 border-t border-white/10">
+          <p className="text-sm text-white truncate">{currentMedia?.name}</p>
+          <p className="text-xs text-white/50 mt-1">Swipe up/down or use arrows to navigate</p>
+        </div>
+      </div>
+    )
+  }
+
+  return (
+    <div className="w-[50%] h-full bg-[#121215] border-l border-[#2e2e32] flex flex-col">
+      <div className="flex items-center justify-between px-3 pt-3 pb-2 border-b border-[#2e2e32]">
+        <div className="flex items-center gap-3">
+          <h2 className="text-sm font-medium text-white">Gallery</h2>
+        </div>
+        
+        <div className="flex items-center gap-1">
+          <button onClick={handlePrev} disabled={selectedIndex <= 0} className="p-1.5 rounded-lg bg-[#2a2a2e] text-[#8b8b8d] hover:text-white disabled:opacity-30">
+            <ChevronLeft className="h-4 w-4" />
+          </button>
+          <span className="text-xs text-[#666666] px-2 min-w-[45px] text-center">
+            {filteredApps.length > 0 ? `${selectedIndex + 1}/${filteredApps.length}` : '0/0'}
+          </span>
+          <button onClick={handleNext} disabled={selectedIndex >= filteredApps.length - 1} className="p-1.5 rounded-lg bg-[#2a2a2e] text-[#8b8b8d] hover:text-white disabled:opacity-30">
+            <ChevronRight className="h-4 w-4" />
+          </button>
+        </div>
+
+        <button onClick={handleBack} className="w-7 h-7 flex items-center justify-center rounded-lg bg-[#2a2a2e] text-[#8b8b8d] hover:text-white">
+          <X className="h-4 w-4" />
+        </button>
+      </div>
+
+      <div className="flex items-center gap-2 px-3 py-2">
+        {categories.map((cat) => (
+          <button
+            key={cat}
+            onClick={() => { setActiveCategory(cat); setSelectedIndex(0); }}
+            className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-colors ${
+              activeCategory === cat
+                ? "bg-[#de0f17] text-white"
+                : "bg-[#2a2a2e] text-[#8b8b8d] hover:text-white"
+            }`}
+          >
+            {cat}
+          </button>
+        ))}
+      </div>
+
+      <div className="flex-1 overflow-y-auto">
+        <div className="grid grid-cols-3 gap-3 p-3">
+          {filteredApps.map((app) => (
+            <div key={app.id}>
+              <div
+                onClick={() => handleAppClick(app)}
+                onMouseEnter={() => setHoveredApp(app.id)}
+                onMouseLeave={() => setHoveredApp(null)}
+                onContextMenu={(e) => { e.preventDefault(); _setLongPressedApp(app); }}
+                className="aspect-square rounded-xl bg-[#1e1e23] border border-[#2e2e32] hover:border-[#de0f17]/50 hover:scale-105 transition-all cursor-pointer overflow-hidden"
+              >
+                <div className="w-full h-full flex items-center justify-center">
+                  {app.code.startsWith('data:image/') ? (
+                    <img src={app.code} alt={app.name} className="w-full h-full object-cover" />
+                  ) : app.code.startsWith('data:video/') || app.code.startsWith('data:audio/') ? (
+                    <div className="relative w-full h-full flex items-center justify-center bg-[#1a1a2e]">
+                      <Play className="h-8 w-8 text-white/70" />
+                    </div>
+                  ) : (
+                    <span className="text-3xl">{app.icon || "📱"}</span>
+                  )}
+                </div>
+              </div>
+              <p className="mt-1.5 text-xs text-[#888888] text-center truncate">{app.name}</p>
+            </div>
           ))}
         </div>
 
-        {/* Scrollable area */}
-        <div className="flex-1 overflow-y-auto px-6 pb-8 overscroll-contain">
-          <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-6 xl:grid-cols-7 gap-4 p-2">
-            {filteredApps.map((app) => (
-              <div key={app.id}>
-                <div
-                  onClick={() => handleAppClick(app)}
-                  onMouseEnter={() => setHoveredApp(app.id)}
-                  onMouseLeave={() => setHoveredApp(null)}
-                  onContextMenu={(e) => handleContextMenu(app, e)}
-                  className="group relative aspect-square rounded-2xl bg-gradient-to-br from-white/[0.08] to-white/[0.02] border border-white/[0.08] hover:border-[#e94560]/50 hover:shadow-[0_0_30px_-5px_rgba(233,69,96,0.3)] transition-all duration-500 cursor-pointer overflow-hidden"
-                >
-                  {/* Animated gradient on hover */}
-                  <div className="absolute inset-0 bg-gradient-to-br from-[#e94560]/10 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500" />
-                  
-                  {/* App icon */}
-                  <div className="absolute inset-0 flex items-center justify-center">
-                    {app.code.startsWith('data:image/') ? (
-                      <img src={app.code} alt={app.name} className="w-full h-full object-cover" />
-                    ) : (
-                      <span className="text-4xl">{app.icon || "📱"}</span>
-                    )}
-                  </div>
-                  
-                  {/* Glow effect */}
-                  <div className="absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity duration-500"
-                    style={{ background: "radial-gradient(circle at center, rgba(233,69,96,0.15) 0%, transparent 70%)" }}
-                  />
-                </div>
-                
-                {/* App name */}
-                <p className="mt-2 text-xs text-center text-white/50 truncate group-hover:text-white/80 transition-colors">
-                  {app.name}
-                </p>
-              </div>
-            ))}
+        {filteredApps.length === 0 && (
+          <div className="flex flex-col items-center justify-center py-16 text-[#666666]">
+            <p className="text-sm">No apps yet</p>
           </div>
-
-          {/* Empty state */}
-          {filteredApps.length === 0 && (
-            <div className="flex flex-col items-center justify-center py-20">
-              <div className="w-20 h-20 rounded-3xl bg-white/5 flex items-center justify-center mb-4">
-                <Grid3X3 className="h-10 w-10 text-white/20" />
-              </div>
-              <p className="text-lg text-white/40 font-medium">No apps yet</p>
-              <p className="text-sm text-white/20 mt-1">Create your first app to see it here</p>
-            </div>
-          )}
-        </div>
+        )}
       </div>
     </div>
   )
