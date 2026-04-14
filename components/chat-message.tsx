@@ -212,37 +212,11 @@ export const ChatMessage = React.memo(function ChatMessage({
     }
 
     if (message.type === "tool-call") {
-      const toolName = (message as any).toolName
-      const args = (message as any).args
-      
-      if (toolName === "announce") {
-        return (
-    <div className="mt-4 bg-[#1a1a1f] rounded-xl p-4 border border-[#2e2e32]">
-             <h4 className="font-medium text-base mb-3 flex items-center gap-2">
-               <span className="animate-pulse">●</span>
-               {args.phase?.charAt(0).toUpperCase() + args.phase?.slice(1)} Phase
-             </h4>
-             <div className="text-base whitespace-pre-wrap">{args.message || "Processing..."}</div>
-           </div>
-        )
-      }
+      return null
     }
 
     if (message.type === "tool-result") {
-      const toolName = (message as any).toolName
-      const result = (message as any).result
-      
-      if (toolName === "announce") {
-        return (
-   <div className="mt-3 bg-[#1a1a1f] rounded-xl p-4 border border-[#2e2e32]">
-             <h4 className="font-medium text-base mb-3 flex items-center gap-2">
-               <span className="animate-pulse">●</span>
-               {result.phase?.charAt(0).toUpperCase() + result.phase?.slice(1)} Phase
-             </h4>
-             <div className="text-base whitespace-pre-wrap">{result.message}</div>
-           </div>
-        )
-      }
+      return null
     }
 
     return (
@@ -263,6 +237,9 @@ export const ChatMessage = React.memo(function ChatMessage({
               if (match && match[1] === 'html') {
                 return null
               }
+              if (match && match[1] === 'text') {
+                return null
+              }
               return match ? (
                 <pre className="bg-[#1a1a1f] rounded-xl p-4 my-4 overflow-x-auto border border-[#2e2e32]">
                   <code className={className} {...props}>
@@ -281,8 +258,15 @@ export const ChatMessage = React.memo(function ChatMessage({
             li: ({children}) => <li className="text-base">{children}</li>,
             p: ({children}) => <p className="text-base my-3 leading-relaxed">{children}</p>,
             div: ({children, ...props}) => {
-              if (children && typeof children === 'string' && children.includes('```html')) {
-                return null
+              if (children && typeof children === 'string') {
+                if (children.includes('```html')) {
+                  return null
+                }
+                const htmlPatterns = ['<!DOCTYPE', '<html', '<head>', '<body>', '<div', '<script>', '<style>', 'className=', 'backgroundColor', 'paddingLeft', 'marginTop']
+                const hasHtmlPattern = htmlPatterns.some(pattern => children.includes(pattern))
+                if (hasHtmlPattern && children.length > 100) {
+                  return null
+                }
               }
               return <div {...props}>{children}</div>
             }
@@ -314,13 +298,17 @@ export const ChatMessage = React.memo(function ChatMessage({
       
       {/* Status / Loading indicator in chat area */}
       {!isUser && status && status !== "idle" && status !== "ready" && (
-        <div className="flex items-center gap-3 text-sm text-[#9ca3af] px-3 py-2 bg-[#1a1a1f]/50 rounded-lg w-fit">
-          <Loader2 className="h-4 w-4 animate-spin text-[#e94560]" />
-          <span className="font-medium">
-            {status === "planning" && "🤔 Thinking..."}
-            {status === "coding" && "⚡ Building app..."}
-            {status === "testing" && "🔍 Testing app..."}
-            {status === "fixing" && "🔧 Fixing..."}
+        <div className="flex items-center gap-3 px-4 py-3 bg-[#1a1a2e]/80 backdrop-blur-sm rounded-xl w-fit border border-[#2e2e32]">
+          <div className="flex gap-1.5">
+            <span className="w-2 h-2 rounded-full bg-[#de0f17] animate-bounce" style={{ animationDelay: '0ms' }} />
+            <span className="w-2 h-2 rounded-full bg-[#de0f17] animate-bounce" style={{ animationDelay: '150ms' }} />
+            <span className="w-2 h-2 rounded-full bg-[#de0f17] animate-bounce" style={{ animationDelay: '300ms' }} />
+          </div>
+          <span className="text-sm font-medium text-[#e5e5e5]">
+            {status === "planning" && "Planning your app..."}
+            {status === "coding" && "Building your app..."}
+            {status === "testing" && "Testing your app..."}
+            {status === "fixing" && "Fixing issues..."}
           </span>
         </div>
       )}

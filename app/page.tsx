@@ -1151,7 +1151,7 @@ const [hasSavedToGallery, setHasSavedToGallery] = useState(false)
         <div className={`flex-1 flex min-h-0 ${showAppDrawer ? 'hidden md:flex' : ''}`}>
           <div className="flex-1 flex flex-col min-w-0">
             <ScrollArea className="flex-1 bg-[#121215] [&::-webkit-scrollbar]:hidden">
-              <div className="px-4 py-2 space-y-4">
+              <div className="px-4 py-2 space-y-4 max-w-3xl mx-auto">
                 {useMemo(() => {
                   const visibleMessages = messages.slice(visibleRange.start, visibleRange.end)
                   return visibleMessages.map((msg, idx) => {
@@ -1186,7 +1186,7 @@ const [hasSavedToGallery, setHasSavedToGallery] = useState(false)
               </div>
             </ScrollArea>
 
-            <div className="px-4 pb-4">
+            <div className="px-4 pb-4 max-w-3xl mx-auto w-full">
               <Dock
                 onNewChat={newSession}
                 onToggleGallery={() => setShowAppDrawer(!showAppDrawer)}
@@ -1195,7 +1195,7 @@ const [hasSavedToGallery, setHasSavedToGallery] = useState(false)
                   setSelectedLanguage(lang)
                 }}
               />
-              <div className="mt-2">
+              <div className="mt-2 w-full">
                 <ChatInput 
                   input={input} setInput={setInput} isGenerating={isGenerating}
                   handleSubmit={handleSubmit} stopGeneration={stopGeneration}
