@@ -190,7 +190,7 @@ export function AppDrawer({
           <button onClick={() => { _editApp(previewApp); handleBack(); }} className="p-1.5 rounded-lg bg-[#2a2a2e] text-[#8b8b8d] hover:text-white">
             <Edit className="h-4 w-4" />
           </button>
-          <button onClick={() => { _deleteApp(previewApp.id); handleBack(); }} className="p-1.5 rounded-lg bg-[#2a2a2e] text-red-400 hover:text-red-300">
+          <button onClick={() => { _deleteApp(previewApp.id); handleBack(); }} className="p-1.5 rounded-lg bg-[#2a2a2e] text-[#8b8b8d] hover:text-white">
             <Trash2 className="h-4 w-4" />
           </button>
         </div>
@@ -250,7 +250,7 @@ export function AppDrawer({
           <button onClick={() => _downloadApp(currentMedia)} className="p-1.5 rounded-lg bg-white/10 text-white hover:bg-white/20">
             <Download className="h-4 w-4" />
           </button>
-          <button onClick={() => { _deleteApp(currentMedia.id); handleBack(); }} className="p-1.5 rounded-lg bg-white/10 text-red-400 hover:bg-white/20">
+          <button onClick={() => { _deleteApp(currentMedia.id); handleBack(); }} className="p-1.5 rounded-lg bg-white/10 text-white/70 hover:bg-white/20 hover:text-white">
             <Trash2 className="h-4 w-4" />
           </button>
           <button onClick={handleBack} className="p-1.5 rounded-lg bg-white/10 text-white hover:bg-white/20">
@@ -363,7 +363,7 @@ export function AppDrawer({
             </button>
             <button
               onClick={() => { _deleteApp(contextMenuPos.app.id); setContextMenuPos(null); }}
-              className="w-full px-4 py-2 text-left text-sm text-red-400 hover:bg-[#2a2a2e]"
+              className="w-full px-4 py-2 text-left text-sm text-[#d1d1d1] hover:bg-[#2a2a2e]"
             >
               Delete
             </button>

@@ -230,26 +230,25 @@ export const ChatMessage = React.memo(function ChatMessage({
           <Loader2 className="h-4 w-4 animate-spin text-[#e94560]" />
           <span className="font-medium">
             {status === "planning" && "🤔 Thinking..."}
-            {status === "coding" && "⚡ Building..."}
-            {status === "testing" && "🔍 Checking..."}
+            {status === "coding" && "⚡ Building app..."}
+            {status === "testing" && "🔍 Testing app..."}
             {status === "fixing" && "🔧 Fixing..."}
           </span>
         </div>
       )}
       
-      {/* Preview thumbnail in chat - shown when there's a preview URL */}
+      {/* Preview in chat - shown when there's a preview URL */}
       {previewUrl && !isUser && (
-        <div className="mt-4 group relative overflow-hidden rounded-2xl border border-[#2e2e32] hover:border-[#e94560]/60 hover:shadow-lg hover:shadow-[#e94560]/10 transition-all duration-300 w-full bg-[#0a0a0f]">
+        <div className="mt-4 group relative overflow-hidden rounded-2xl border border-[#2e2e32] hover:border-[#e94560]/60 hover:shadow-lg hover:shadow-[#e94560]/10 transition-all duration-300 w-full bg-[#0a0a0f]" style={{ height: 'min(600px, 70vh)' }}>
           <iframe
             src={previewUrl}
-            className="w-full h-48 sm:h-64 border-0 bg-[#0a0a0f]"
+            className="w-full h-full border-0 bg-[#0a0a0f]"
             style={{ 
-              scrollbarWidth: 'none', 
-              msOverflowStyle: 'none', 
-              overflow: 'hidden'
+              overflow: 'hidden',
+              transform: 'scale(1)',
+              transformOrigin: 'top left'
             } as React.CSSProperties}
-            scrolling="no"
-            sandbox="allow-scripts allow-same-origin"
+            sandbox="allow-scripts allow-same-origin allow-forms allow-popups"
           />
           
           {/* Action buttons - visible on hover */}

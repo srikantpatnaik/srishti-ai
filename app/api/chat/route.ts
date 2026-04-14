@@ -261,8 +261,8 @@ export async function POST(req: Request) {
 When user asks to build/create something:
 
 1. Send friendly message with plan
-2. Call announce(phase: "planning")
-3. Call announce(phase: "coding") 
+2. Call announce(phase: "planning") - Tell user what you're planning to build
+3. Call announce(phase: "coding") - Start building the app
 4. Return code:
 \`\`\`html
 <!DOCTYPE html>
@@ -270,7 +270,18 @@ When user asks to build/create something:
 ...app code...
 </html>
 \`\`\`
-5. Call announce(phase: "ready")
+5. Call announce(phase: "testing") - Test the app for errors
+6. If errors found, call announce(phase: "fixing") and fix them
+7. Call announce(phase: "ready") - App is ready to use
+
+## Testing Process
+- After generating code, check for common issues:
+  - Missing closing tags
+  - Invalid CSS properties
+  - JavaScript syntax errors
+  - Responsive design issues
+- If you find errors, fix them immediately
+- Only mark as "ready" when app works without errors
 
 ## Code Requirements (when building)
 

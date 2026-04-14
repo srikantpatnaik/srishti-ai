@@ -156,8 +156,9 @@ export function PreviewPanel({
   <title>${appName}</title>
   <style>
     * { margin: 0; padding: 0; box-sizing: border-box; }
-    body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background: #1a1a2e; color: #eaeaea; min-height: 100vh; padding: 16px; }
-    .app-container { max-width: 100%; margin: 0 auto; }
+    html, body { height: 100%; width: 100%; overflow: hidden; display: flex; justify-content: center; align-items: center; }
+    body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background: #1a1a2e; color: #eaeaea; width: 100vw; height: 100vh; }
+    .app-container { width: 100%; height: 100%; }
   </style>
 </head>
 <body>

@@ -8,8 +8,8 @@ export function StatusIndicator({ status }: StatusIndicatorProps) {
   const statusConfig = {
     idle: { icon: CheckCircle2, color: "text-gray-500", label: "Ready" },
     planning: { icon: Loader2, color: "text-blue-500", label: "Thinking..." },
-    coding: { icon: Loader2, color: "text-purple-500", label: "Creating app..." },
-    testing: { icon: Loader2, color: "text-green-500", label: "Checking..." },
+    coding: { icon: Loader2, color: "text-purple-500", label: "Building app..." },
+    testing: { icon: Loader2, color: "text-green-500", label: "Testing app..." },
     fixing: { icon: Loader2, color: "text-red-500", label: "Fixing..." },
     generating_image: { icon: Loader2, color: "text-pink-500", label: "Generating image..." },
     ready: { icon: CheckCircle2, color: "text-green-600", label: "Done!" },
