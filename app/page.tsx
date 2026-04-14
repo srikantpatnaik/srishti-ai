@@ -774,6 +774,7 @@ useEffect(() => {
     setShowPreview(true)
     setShowAppDrawer(false)
     setBlobUrl("")
+    setInput("")
     setTimeout(() => {
       const htmlContent = `<!DOCTYPE html><html lang="en"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no"><title>${app.name}</title><style>*{margin:0;padding:0;box-sizing:border-box;}html,body{height:100%;width:100%;overflow:hidden;display:flex;justify-content:center;align-items:center;}body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;background:#1a1a2e;color:#eaeaea;width:100vw;height:100vh;}.app-container{width:100%;height:100%;}</style></head><body><div class="app-container">${app.code}</div><script>window.parent.postMessage({ type: 'loaded' }, '*');</script></body></html>`
       const blob = new Blob([htmlContent], { type: 'text/html' })
@@ -783,8 +784,6 @@ useEffect(() => {
 
   const handleEditApp = async (app: SavedApp) => {
     setIsEditing(false)
-    setInitialMessages(app.chatMessages || [])
-    setCurrentChatMessages(app.chatMessages || [])
     setLocalPreviewCode(app.code)
     setEditedAppCode(app.code)
     setShowPreview(true)
@@ -954,13 +953,12 @@ const [hasSavedToGallery, setHasSavedToGallery] = useState(false)
 
   const handleSwitchToSavedApp = (app: SavedApp) => {
     setIsEditing(false)
-    setInitialMessages(app.chatMessages || [])
-    setCurrentChatMessages(app.chatMessages || [])
     setLocalPreviewCode(app.code)
     setEditedAppCode(app.code)
     setShowAppDrawer(false)
     setActiveChatTab(app.id)
     setBlobUrl("")
+    setInput("")
     
     const isBase64Image = app.code.startsWith('data:image/')
     
