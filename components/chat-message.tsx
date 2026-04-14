@@ -1,8 +1,77 @@
-import React from "react"
+import React, { useState, useEffect, useRef, useCallback } from "react"
 import { User, Bot, FileCode, CheckCircle2, AlertCircle, TerminalIcon, Code2, Play, Check, ExternalLink, Loader2, Download, FolderHeart, X } from "lucide-react"
 import { cn } from "@/lib/utils"
 import ReactMarkdown from "react-markdown"
 import remarkGfm from "remark-gfm"
+
+interface PreviewIframeProps {
+  src: string
+  isActive: boolean
+  onFocus: () => void
+  onBlur: () => void
+}
+
+function PreviewIframe({ src, isActive, onFocus, onBlur }: PreviewIframeProps) {
+  const [isVisible, setIsVisible] = useState(true)
+  const [currentSrc, setCurrentSrc] = useState(src)
+  const containerRef = useRef<HTMLDivElement>(null)
+
+  useEffect(() => {
+    const container = containerRef.current
+    if (!container) return
+
+    const observer = new IntersectionObserver(
+      ([entry]) => {
+        setIsVisible(entry.isIntersecting)
+        if (entry.isIntersecting) {
+          setCurrentSrc(src)
+        }
+      },
+      { threshold: 0.1 }
+    )
+
+    observer.observe(container)
+    return () => observer.disconnect()
+  }, [src])
+
+  const handleKeyDown = useCallback((e: KeyboardEvent) => {
+    if (isActive) {
+      if (['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight', ' '].includes(e.key)) {
+        e.preventDefault()
+      }
+    }
+  }, [isActive])
+
+  useEffect(() => {
+    if (isActive) {
+      window.addEventListener('keydown', handleKeyDown, { capture: true })
+      return () => window.removeEventListener('keydown', handleKeyDown, { capture: true })
+    }
+  }, [isActive, handleKeyDown])
+
+  return (
+    <div
+      ref={containerRef}
+      tabIndex={isActive ? 0 : -1}
+      onFocus={onFocus}
+      onBlur={onBlur}
+      className={cn(
+        "w-full h-full bg-[#0a0a0f] transition-all duration-200 relative",
+        isActive && "ring-2 ring-[#de0f17]/50"
+      )}
+    >
+      <iframe
+        src={currentSrc}
+        className="w-full h-full border-0 bg-[#0a0a0f]"
+        style={{
+          overflow: 'hidden',
+        } as React.CSSProperties}
+        sandbox="allow-scripts allow-same-origin allow-forms allow-popups allow-pointer-lock"
+        allow="pointer-lock"
+      />
+    </div>
+  )
+}
 
 interface ChatMessageProps {
   message: {
@@ -31,6 +100,8 @@ interface ChatMessageProps {
   hasImageSavedToGallery?: boolean
 }
 
+let globalActivePreviewId: string | null = null
+
 export const ChatMessage = React.memo(function ChatMessage({ 
   message, 
   previewUrl, 
@@ -45,6 +116,23 @@ export const ChatMessage = React.memo(function ChatMessage({
   hasImageSavedToGallery = false,
 }: ChatMessageProps) {
   const isUser = message.role === "user"
+  const [isActive, setIsActive] = useState(false)
+
+  const handleFocus = useCallback(() => {
+    if (globalActivePreviewId !== message.id) {
+      globalActivePreviewId = message.id
+      setIsActive(true)
+    }
+  }, [message.id])
+
+  const handleBlur = useCallback(() => {
+    setTimeout(() => {
+      if (globalActivePreviewId === message.id) {
+        globalActivePreviewId = null
+        setIsActive(false)
+      }
+    }, 100)
+  }, [message.id])
 
   const renderContent = () => {
     if (message.type === "code" && message.filePath) {
@@ -240,15 +328,11 @@ export const ChatMessage = React.memo(function ChatMessage({
       {/* Preview in chat - shown when there's a preview URL */}
       {previewUrl && !isUser && (
         <div className="mt-4 group relative overflow-hidden rounded-2xl border border-[#2e2e32] hover:border-[#e94560]/60 hover:shadow-lg hover:shadow-[#e94560]/10 transition-all duration-300 w-full bg-[#0a0a0f]" style={{ height: 'min(600px, 70vh)' }}>
-          <iframe
+          <PreviewIframe
             src={previewUrl}
-            className="w-full h-full border-0 bg-[#0a0a0f]"
-            style={{ 
-              overflow: 'hidden',
-              transform: 'scale(1)',
-              transformOrigin: 'top left'
-            } as React.CSSProperties}
-            sandbox="allow-scripts allow-same-origin allow-forms allow-popups"
+            isActive={isActive}
+            onFocus={handleFocus}
+            onBlur={handleBlur}
           />
           
           {/* Action buttons - visible on hover */}

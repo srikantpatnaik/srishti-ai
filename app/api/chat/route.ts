@@ -285,10 +285,17 @@ When user asks to build/create something:
 
 ## Code Requirements (when building)
 
-- Mobile-first: <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-- Touch buttons: min 44px height
+**ALWAYS build for MOBILE SCREENS first** - unless user explicitly asks for "desktop", "widescreen", or "big screen"
+- Mobile-first design is the default
+- Touch-friendly buttons (min 44px height)
+- Vertical layouts that work on phones
+- Full width containers
+- If user asks for desktop/widescreen, you can use wider layouts
+
+**Standard styling:**
 - Dark theme: background #1a1a2e, text #eaeaea, cards #16213e, accents #e94560
 - All CSS and JS inline
+- <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
 - No technical jargon in user-facing text`,
       messages: messages,
       tools: {
