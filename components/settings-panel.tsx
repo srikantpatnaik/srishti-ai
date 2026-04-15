@@ -1,5 +1,5 @@
 import React, { useState, useMemo } from "react"
-import { MessageSquare, Trash2, PanelLeftClose, Keyboard, ChevronDown } from "lucide-react"
+import { MessageSquare, Trash2, ChevronLeft, Keyboard, ChevronDown } from "lucide-react"
 
 interface RecentChat {
   id: string
@@ -96,7 +96,7 @@ export function SettingsPanel({
           className="p-2 rounded-lg hover:bg-[#2a2a2e] text-[#8b8b8d] hover:text-[#ececf1] transition-colors"
           title="Close sidebar"
         >
-          <PanelLeftClose className="h-4 w-4" />
+          <ChevronLeft className="h-4 w-4" />
         </button>
       </div>
 

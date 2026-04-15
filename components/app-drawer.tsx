@@ -70,12 +70,12 @@ function AppPreviewIcon({ code, name }: { code: string, name: string }) {
   if (blobUrl) {
     return (
       <div className="w-full h-full flex items-center justify-center bg-[#1a1a2e]">
-        <span className="text-3xl">{getAppIcon(name)}</span>
+        <span className="text-lg">{getAppIcon(name)}</span>
       </div>
     )
   }
   
-  return <span className="text-3xl">📱</span>
+  return <span className="text-lg">📱</span>
 }
 
 function getAppIcon(name: string): string {
@@ -127,7 +127,7 @@ export function AppDrawer({
   const _renameApp = renameApp ?? (() => {})
   const _onMediaClick = onMediaClick ?? (() => {})
   
-  const [activeCategory, setActiveCategory] = useState<Category>("All")
+  const [activeCategory, setActiveCategory] = useState<Category>("Apps")
   const [hoveredApp, setHoveredApp] = useState<string | null>(null)
   const [viewMode, setViewMode] = useState<'grid' | 'app' | 'media'>('grid')
   const [previewApp, setPreviewApp] = useState<SavedApp | null>(null)
@@ -139,10 +139,7 @@ export function AppDrawer({
   const lastScrollY = useRef(0)
   const touchStartY = useRef(0)
 
-  const filteredApps = savedApps.filter(app => {
-    if (activeCategory === "All") return true
-    return getCategory(app.name) === activeCategory
-  })
+  const filteredApps = savedApps.filter(app => getCategory(app.name) === activeCategory)
 
   const mediaApps = filteredApps.filter(app => isMediaFile(app.code))
 
@@ -226,7 +223,7 @@ export function AppDrawer({
     }
   }, [showAppDrawer])
 
-  const categories: Category[] = ["All", "Apps", "Media"]
+  const categories: Category[] = ["Apps", "Media"]
 
   if (!showAppDrawer) return null
 
@@ -323,7 +320,7 @@ export function AppDrawer({
                   const deltaY = Math.abs(touchStartY.current - e.changedTouches[0].clientY)
                   if (deltaY < 10) handleLongPress(app, e)
                 }}
-                className="aspect-square rounded-xl bg-[#1e1e23] border border-[#2e2e32] hover:border-[#de0f17]/50 hover:scale-105 transition-all cursor-pointer overflow-hidden"
+                className="aspect-square rounded-lg bg-[#1e1e23] border border-[#2e2e32]/50 hover:border-[#de0f17]/50 hover:scale-105 transition-all cursor-pointer overflow-hidden"
               >
                 <AppPreviewIcon code={app.code} name={app.name} />
               </div>

@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect, useRef, useCallback, useMemo } from "react"
 import JSZip from "jszip"
-import { Bot, ChevronLeft, ChevronRight, ChevronDown, Grid, Grid3X3, X, PanelLeftClose, PanelLeftOpen, PanelRightClose, PanelRightOpen, Plus, MessageSquarePlus, Download, FolderHeart, ArrowLeft } from "lucide-react"
+import { Bot, ChevronLeft, ChevronRight, ChevronDown, Grid, Grid3X3, X, ChevronLeft as ChevronLeftIcon, PanelRightClose, PanelRightOpen, Plus, MessageSquarePlus, Download, FolderHeart, ArrowLeft } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { ScrollArea } from "@/components/ui/scroll-area"
 import { ChatMessage } from "@/components/chat-message"
@@ -1170,7 +1170,7 @@ const [hasSavedToGallery, setHasSavedToGallery] = useState(false)
               onClick={() => setShowSettings(true)}
               className="p-2 text-[#666666] hover:text-[#888888] transition-colors"
             >
-              <PanelLeftOpen className="h-5 w-5" />
+              <ChevronRight className="h-4 w-4" />
             </button>
           )}
         </div>
@@ -1217,7 +1217,18 @@ const [hasSavedToGallery, setHasSavedToGallery] = useState(false)
               <Dock
                 onNewChat={newSession}
                 onToggleGallery={() => {
-                  setShowAppDrawer(!showAppDrawer)
+                  if ((previewImageUrl || blobUrl) && showAppDrawer) {
+                    setPreviewImageUrl(null)
+                    setShowPreview(false)
+                    setBlobUrl("")
+                  }
+                  if ((previewImageUrl || blobUrl) && !showAppDrawer) {
+                    setPreviewImageUrl(null)
+                    setShowPreview(false)
+                    setBlobUrl("")
+                  } else {
+                    setShowAppDrawer(!showAppDrawer)
+                  }
                 }}
                 selectedLanguage={selectedLanguage}
                 onLanguageChange={(lang) => {
