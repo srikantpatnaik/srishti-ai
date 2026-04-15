@@ -1122,21 +1122,15 @@ const [hasSavedToGallery, setHasSavedToGallery] = useState(false)
         <div className="fixed inset-0 z-50 bg-[#121215]">
           <div className="flex items-center justify-between px-4 py-3">
             <span className="text-sm font-medium">{savedApps.find(app => app.code === editedAppCode)?.name || "Current Chat"}</span>
-            <div className="flex gap-1">
-              <Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => { setShowAppDrawer(true); setShowPreview(false); }}>
-                <ArrowLeft className="h-4 w-4" />
-              </Button>
-              <Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => setShowPreview(false)}>
-                <X className="h-4 w-4" />
-              </Button>
-            </div>
+            <Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => setShowPreview(false)}>
+              <X className="h-4 w-4" />
+            </Button>
           </div>
           <div className="h-[calc(100vh-53px)]">
             {previewImageUrl ? (
               <PreviewPanel 
                 imageUrl={previewImageUrl} 
                 hideBackButton={true}
-                onClose={() => { setShowPreview(false); setPreviewImageUrl(null) }}
                 onPrev={() => {
                   const newIdx = mediaNavIndex > 0 ? mediaNavIndex - 1 : mediaAppsRef.current.length - 1
                   setMediaNavIndex(newIdx)

@@ -250,9 +250,6 @@ export function AppDrawer({
           <button onClick={() => { _deleteApp(currentMedia.id); handleBack(); }} className="p-1.5 rounded-lg bg-white/10 text-white/70 hover:bg-white/20 hover:text-white">
             <Trash2 className="h-4 w-4" />
           </button>
-          <button onClick={handleBack} className="p-1.5 rounded-lg bg-white/10 text-white hover:bg-white/20">
-            <X className="h-4 w-4" />
-          </button>
         </div>
 
         <div className="flex-1 flex items-center justify-center overflow-hidden" ref={mediaScrollRef}>
