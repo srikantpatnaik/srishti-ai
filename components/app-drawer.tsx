@@ -23,22 +23,79 @@ interface AppDrawerProps {
   longPressedApp?: SavedApp | null
   selectedIndex: number
   setSelectedIndex: (index: number) => void
+  renameApp?: (app: SavedApp) => void
+  onMediaClick?: (app: SavedApp) => void
 }
 
-type Category = "All" | "Apps" | "Games" | "Media"
+type Category = "All" | "Apps" | "Media"
 
-const GAME_KEYWORDS = ["game", "puzzle", "sudoku", "chess", "solitaire", "arcade", "racing", "shooter", "adventure", "strategy", "board", "tic tac toe", "snake"]
 const MEDIA_KEYWORDS = ["music", "video", "photo", "camera", "media", "player", "streaming", "radio", "podcast", "gallery", "editor", "image", "audio"]
+
+function isMediaFile(code: string): boolean {
+  return code.startsWith('data:image/') || code.startsWith('data:video/') || code.startsWith('data:audio/')
+}
 
 function getCategory(name: string): Category {
   const lowerName = name.toLowerCase()
-  if (GAME_KEYWORDS.some(k => lowerName.includes(k))) return "Games"
   if (MEDIA_KEYWORDS.some(k => lowerName.includes(k))) return "Media"
   return "Apps"
 }
 
-function isMediaFile(code: string): boolean {
-  return code.startsWith('data:image/') || code.startsWith('data:video/') || code.startsWith('data:audio/')
+function AppPreviewIcon({ code, name }: { code: string, name: string }) {
+  const [blobUrl, setBlobUrl] = useState<string | null>(null)
+
+  useEffect(() => {
+    if (code.startsWith('data:')) {
+      return
+    }
+    
+    const doc = `<!DOCTYPE html><html lang="en"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no"><style>*{margin:0;padding:0;box-sizing:border-box;}html,body{width:100%;height:100%;overflow:hidden;background:#1a1a2e;}body{font-family:-apple-system,BlinkMacSystemFont,sans-serif;display:flex;justify-content:center;align-items:center;}</style></head><body>${code}</body></html>`
+    const blob = new Blob([doc], { type: 'text/html' })
+    const url = URL.createObjectURL(blob)
+    setBlobUrl(url)
+    
+    return () => {
+      URL.revokeObjectURL(url)
+    }
+  }, [code])
+
+  if (code.startsWith('data:image/')) {
+    return <img src={code} alt={name} className="w-full h-full object-cover" />
+  }
+  
+  if (code.startsWith('data:video/') || code.startsWith('data:audio/')) {
+    return <div className="relative w-full h-full flex items-center justify-center bg-[#1a1a2e]"><Play className="h-8 w-8 text-white/70"/></div>
+  }
+  
+  if (blobUrl) {
+    return (
+      <div className="w-full h-full flex items-center justify-center bg-[#1a1a2e]">
+        <span className="text-3xl">{getAppIcon(name)}</span>
+      </div>
+    )
+  }
+  
+  return <span className="text-3xl">📱</span>
+}
+
+function getAppIcon(name: string): string {
+  const lower = name.toLowerCase()
+  if (lower.includes('calculator')) return '🔢'
+  if (lower.includes('todo') || lower.includes('task')) return '✅'
+  if (lower.includes('game')) return '🎮'
+  if (lower.includes('music') || lower.includes('audio')) return '🎵'
+  if (lower.includes('video')) return '🎬'
+  if (lower.includes('photo') || lower.includes('image') || lower.includes('camera')) return '📷'
+  if (lower.includes('weather')) return '🌤️'
+  if (lower.includes('note') || lower.includes('notes')) return '📝'
+  if (lower.includes('calendar')) return '📅'
+  if (lower.includes('timer') || lower.includes('clock')) return '⏰'
+  if (lower.includes('quiz')) return '❓'
+  if (lower.includes('card')) return '🎴'
+  if (lower.includes('puzzle')) return '🧩'
+  if (lower.includes('chat')) return '💬'
+  if (lower.includes('draw') || lower.includes('paint')) return '🎨'
+  return '📱'
 }
 
 export function AppDrawer({
@@ -57,6 +114,8 @@ export function AppDrawer({
   setLongPressedApp,
   selectedIndex,
   setSelectedIndex,
+  renameApp,
+  onMediaClick,
 }: AppDrawerProps) {
   const _editApp = editApp ?? (() => {})
   const _shareApp = shareApp ?? (() => {})
@@ -65,6 +124,8 @@ export function AppDrawer({
   const _downloadApp = downloadApp ?? (() => {})
   const _handleSwitchToSavedApp = handleSwitchToSavedApp ?? (() => {})
   const _setLongPressedApp = setLongPressedApp ?? (() => {})
+  const _renameApp = renameApp ?? (() => {})
+  const _onMediaClick = onMediaClick ?? (() => {})
   
   const [activeCategory, setActiveCategory] = useState<Category>("All")
   const [hoveredApp, setHoveredApp] = useState<string | null>(null)
@@ -72,6 +133,8 @@ export function AppDrawer({
   const [previewApp, setPreviewApp] = useState<SavedApp | null>(null)
   const [mediaIndex, setMediaIndex] = useState(0)
   const [contextMenuPos, setContextMenuPos] = useState<{x: number, y: number, app: SavedApp} | null>(null)
+  const [renamingApp, setRenamingApp] = useState<SavedApp | null>(null)
+  const [renameInput, setRenameInput] = useState("")
   const mediaScrollRef = useRef<HTMLDivElement>(null)
   const lastScrollY = useRef(0)
   const touchStartY = useRef(0)
@@ -82,7 +145,6 @@ export function AppDrawer({
   })
 
   const mediaApps = filteredApps.filter(app => isMediaFile(app.code))
-  const appGames = filteredApps.filter(app => !isMediaFile(app.code))
 
   const handlePrev = () => {
     if (viewMode === 'media' && mediaApps.length > 0) {
@@ -102,15 +164,14 @@ export function AppDrawer({
 
   const handleAppClick = (app: SavedApp) => {
     if (isMediaFile(app.code)) {
-      const idx = mediaApps.findIndex(a => a.id === app.id)
-      setMediaIndex(idx >= 0 ? idx : 0)
-      setViewMode('media')
+      _onMediaClick(app)
     } else {
       _handleSwitchToSavedApp(app)
     }
   }
 
   const handleBack = () => {
+    setContextMenuPos(null)
     if (viewMode !== 'grid') {
       setViewMode('grid')
       setPreviewApp(null)
@@ -142,102 +203,41 @@ export function AppDrawer({
     }
   }
 
-  const handleTwoFingerSwipe = (e: React.TouchEvent) => {
-    if (e.touches.length === 2) {
-      const deltaY = lastScrollY.current - e.touches[0].clientY
-      if (Math.abs(deltaY) > 30) {
-        if (deltaY > 0) handleNext()
-        else handlePrev()
-        lastScrollY.current = e.touches[0].clientY
-      }
-    }
-  }
-
   useEffect(() => {
     lastScrollY.current = 0
   }, [viewMode])
 
   useEffect(() => {
-    if (viewMode !== 'media') return
-
-    const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.key === 'ArrowUp') {
-        e.preventDefault()
-        handlePrev()
-      } else if (e.key === 'ArrowDown') {
-        e.preventDefault()
-        handleNext()
-      }
+    if (renamingApp) {
+      setRenameInput(renamingApp.name)
     }
+  }, [renamingApp])
 
-    window.addEventListener('keydown', handleKeyDown)
-    return () => window.removeEventListener('keydown', handleKeyDown)
-  }, [viewMode, mediaIndex, mediaApps.length])
+  const handleRename = () => {
+    if (renamingApp && renameInput.trim()) {
+      _renameApp({ ...renamingApp, name: renameInput.trim() })
+      setRenamingApp(null)
+    }
+  }
 
-  const categories: Category[] = ["All", "Apps", "Games", "Media"]
-  const currentItem = viewMode === 'media' ? mediaApps[mediaIndex] : (viewMode === 'app' ? previewApp : filteredApps[selectedIndex])
+  useEffect(() => {
+    if (showAppDrawer) {
+      setContextMenuPos(null)
+    }
+  }, [showAppDrawer])
+
+  const categories: Category[] = ["All", "Apps", "Media"]
 
   if (!showAppDrawer) return null
 
-  if (viewMode === 'app' && previewApp) {
-    return (
-      <div className="w-full md:w-[50%] h-full bg-[#121215] flex flex-col">
-        <div className="flex items-center gap-3 px-3 pt-3 pb-2 border-b border-[#2e2e32]">
-          <button onClick={handleBack} className="p-1.5 rounded-lg bg-[#2a2a2e] text-[#8b8b8d] hover:text-white">
-            <ArrowLeft className="h-4 w-4" />
-          </button>
-          <h2 className="text-sm font-medium text-white flex-1 truncate">{previewApp.name}</h2>
-          <button onClick={() => { _editApp(previewApp); handleBack(); }} className="p-1.5 rounded-lg bg-[#2a2a2e] text-[#8b8b8d] hover:text-white">
-            <Edit className="h-4 w-4" />
-          </button>
-          <button onClick={() => { _deleteApp(previewApp.id); handleBack(); }} className="p-1.5 rounded-lg bg-[#2a2a2e] text-[#8b8b8d] hover:text-white">
-            <Trash2 className="h-4 w-4" />
-          </button>
-        </div>
-        
-        <div className="flex-1 flex items-center justify-center p-4 overflow-hidden">
-          <div 
-            onClick={() => { _runApp(previewApp); setShowAppDrawer(false); }}
-            className="w-[180px] h-[360px] rounded-[30px] bg-gradient-to-br from-[#3a3a42] to-[#2a2a2e] border-[6px] border-[#1a1a1a] overflow-hidden flex flex-col cursor-pointer hover:scale-105 transition-transform shadow-2xl"
-          >
-            <div className="h-full w-full flex flex-col">
-              <div className="flex-1 flex items-center justify-center text-7xl">
-                {previewApp.icon || "📱"}
-              </div>
-              <div className="pb-4 text-center">
-                <span className="text-white text-xs font-medium">{previewApp.name}</span>
-              </div>
-            </div>
-          </div>
-        </div>
-
-        <div className="flex-shrink-0 p-3 border-t border-[#2e2e32]">
-          <p className="text-sm text-white mb-3">{previewApp.description || 'Tap icon to open'}</p>
-          <div className="flex gap-2">
-            <button
-              onClick={() => { _runApp(previewApp); setShowAppDrawer(false); }}
-              className="flex-1 py-2 bg-[#de0f17] hover:bg-[#b80d12] text-white rounded-lg text-sm font-medium"
-            >
-              Run App
-            </button>
-            <button
-              onClick={() => { _handleSwitchToSavedApp(previewApp); setShowAppDrawer(false); }}
-              className="flex-1 py-2 bg-[#2a2a2e] hover:bg-[#343541] text-white rounded-lg text-sm font-medium"
-            >
-              Load
-            </button>
-          </div>
-        </div>
-      </div>
-    )
-  }
-
- if (viewMode === 'media' && mediaApps.length > 0) {
+  // Only use internal media view if onMediaClick is not provided (standalone usage)
+  // If onMediaClick is provided, the parent component handles media via preview panel
+  if (viewMode === 'media' && mediaApps.length > 0 && !onMediaClick) {
     const currentMedia = mediaApps[mediaIndex]
 
     return (
-      <div 
-        className="w-full md:w-[50%] h-full bg-black flex flex-col touch-pan-y"
+      <div
+        className="fixed inset-0 z-50 bg-black flex flex-col touch-pan-y"
         onTouchStart={handleTouchStart}
         onTouchMove={handleTouchMove}
         onWheel={handleMediaScroll}
@@ -275,8 +275,6 @@ export function AppDrawer({
             />
           )}
         </div>
-
-        
       </div>
     )
   }
@@ -313,31 +311,21 @@ export function AppDrawer({
         <div className="grid grid-cols-3 gap-3 p-3">
           {filteredApps.map((app) => (
             <div key={app.id}>
-<div
-                  onClick={(e) => { e.stopPropagation(); handleAppClick(app); }}
-                  onMouseEnter={() => setHoveredApp(app.id)}
-                  onMouseLeave={() => setHoveredApp(null)}
-                  onContextMenu={(e) => { e.preventDefault(); handleLongPress(app, e); }}
-                  onTouchStart={(e) => { 
-                    touchStartY.current = e.touches[0].clientY
-                  }}
-                  onTouchEnd={(e) => {
-                    const deltaY = Math.abs(touchStartY.current - e.changedTouches[0].clientY)
-                    if (deltaY < 10) handleLongPress(app, e)
-                  }}
-                  className="aspect-square rounded-xl bg-[#1e1e23] border border-[#2e2e32] hover:border-[#de0f17]/50 hover:scale-105 transition-all cursor-pointer overflow-hidden"
-                >
-                <div className="w-full h-full flex items-center justify-center">
-                  {app.code.startsWith('data:image/') ? (
-                    <img src={app.code} alt={app.name} className="w-full h-full object-cover" />
-                  ) : app.code.startsWith('data:video/') || app.code.startsWith('data:audio/') ? (
-                    <div className="relative w-full h-full flex items-center justify-center bg-[#1a1a2e]">
-                      <Play className="h-8 w-8 text-white/70" />
-                    </div>
-                  ) : (
-                    <span className="text-3xl">{app.icon || "📱"}</span>
-                  )}
-                </div>
+              <div
+                onClick={(e) => { e.stopPropagation(); handleAppClick(app); }}
+                onMouseEnter={() => setHoveredApp(app.id)}
+                onMouseLeave={() => setHoveredApp(null)}
+                onContextMenu={(e) => { e.preventDefault(); handleLongPress(app, e); }}
+                onTouchStart={(e) => { 
+                  touchStartY.current = e.touches[0].clientY
+                }}
+                onTouchEnd={(e) => {
+                  const deltaY = Math.abs(touchStartY.current - e.changedTouches[0].clientY)
+                  if (deltaY < 10) handleLongPress(app, e)
+                }}
+                className="aspect-square rounded-xl bg-[#1e1e23] border border-[#2e2e32] hover:border-[#de0f17]/50 hover:scale-105 transition-all cursor-pointer overflow-hidden"
+              >
+                <AppPreviewIcon code={app.code} name={app.name} />
               </div>
               <p className="mt-1.5 text-xs text-[#888888] text-center truncate">{app.name}</p>
             </div>
@@ -356,6 +344,12 @@ export function AppDrawer({
             style={{ left: contextMenuPos.x, top: contextMenuPos.y }}
           >
             <button
+              onClick={() => { setRenamingApp(contextMenuPos.app); setContextMenuPos(null); }}
+              className="w-full px-4 py-2 text-left text-sm text-[#d1d1d1] hover:bg-[#2a2a2e]"
+            >
+              Rename
+            </button>
+            <button
               onClick={() => { _editApp(contextMenuPos.app); setContextMenuPos(null); }}
               className="w-full px-4 py-2 text-left text-sm text-[#d1d1d1] hover:bg-[#2a2a2e]"
             >
@@ -367,6 +361,36 @@ export function AppDrawer({
             >
               Delete
             </button>
+          </div>
+        )}
+
+        {renamingApp && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
+            <div className="bg-[#1e1e23] border border-[#2e2e32] rounded-xl p-4 w-[280px]">
+              <h3 className="text-sm font-medium text-white mb-3">Rename App</h3>
+              <input
+                type="text"
+                value={renameInput}
+                onChange={(e) => setRenameInput(e.target.value)}
+                onKeyDown={(e) => e.key === 'Enter' && handleRename()}
+                className="w-full px-3 py-2 bg-[#121215] border border-[#2e2e32] rounded-lg text-sm text-white placeholder:text-[#666666] focus:outline-none focus:border-[#de0f17]"
+                autoFocus
+              />
+              <div className="flex gap-2 mt-3">
+                <button
+                  onClick={() => setRenamingApp(null)}
+                  className="flex-1 py-2 bg-[#2a2a2e] hover:bg-[#343541] text-white rounded-lg text-sm"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={handleRename}
+                  className="flex-1 py-2 bg-[#de0f17] hover:bg-[#b80d12] text-white rounded-lg text-sm"
+                >
+                  Save
+                </button>
+              </div>
+            </div>
           </div>
         )}
       </div>

@@ -961,8 +961,11 @@ const [hasSavedToGallery, setHasSavedToGallery] = useState(false)
     setInput("")
     
     const isBase64Image = app.code.startsWith('data:image/')
+    const isBase64Video = app.code.startsWith('data:video/')
+    const isBase64Audio = app.code.startsWith('data:audio/')
+    const isMediaFile = isBase64Image || isBase64Video || isBase64Audio
     
-    if (isBase64Image) {
+    if (isMediaFile) {
       setPreviewImageUrl(app.code)
       setShowPreview(true)
     } else {
@@ -1127,7 +1130,9 @@ const [hasSavedToGallery, setHasSavedToGallery] = useState(false)
             </div>
           </div>
           <div className="h-[calc(100vh-53px)]">
-            {blobUrl ? (
+            {previewImageUrl ? (
+              <PreviewPanel imageUrl={previewImageUrl} appName={savedApps.find(app => app.code === editedAppCode)?.name || "Image Preview"} onConsoleMessage={handleConsoleMessage} stopAutoReload={status === "ready"} onBack={() => { setShowAppDrawer(true); setShowPreview(false); setPreviewImageUrl(null) }} onClose={() => { setShowPreview(false); setPreviewImageUrl(null) }} />
+            ) : blobUrl ? (
               <PreviewPanel previewUrl={blobUrl} onConsoleMessage={handleConsoleMessage} stopAutoReload={status === "ready"} />
             ) : (
               <div className="h-full flex items-center justify-center text-muted-foreground"><p className="text-sm">Preview will appear here</p></div>
@@ -1138,8 +1143,9 @@ const [hasSavedToGallery, setHasSavedToGallery] = useState(false)
 
       <div className={`flex-1 flex min-w-0 transition-all duration-300 ${showAppDrawer ? 'w-full md:w-[50%]' : 'w-full md:w-[50%]'}`}>
         <div className={`absolute top-4 left-4 z-50 ${showAppDrawer ? 'hidden md:block' : ''}`}>
-          {!showSettings && (
+          {!showSettings && !showPreview && (
             <button 
+              id="settings-toggle"
               onClick={() => setShowSettings(true)}
               className="p-2 text-[#666666] hover:text-[#888888] transition-colors"
             >
@@ -1206,7 +1212,7 @@ const [hasSavedToGallery, setHasSavedToGallery] = useState(false)
         </div>
       </div>
 
-      <AppDrawer 
+      <AppDrawer
         showAppDrawer={showAppDrawer} setShowAppDrawer={setShowAppDrawer}
         savedApps={savedApps} openSavedApp={openSavedApp} removeApp={removeApp}
         editApp={handleEditApp} shareApp={handleShareApp} runApp={handleRunApp}
@@ -1215,6 +1221,11 @@ const [hasSavedToGallery, setHasSavedToGallery] = useState(false)
         setLongPressedApp={setLongPressedApp}
         contextMenu={contextMenu} longPressedApp={longPressedApp}
         selectedIndex={galleryIndex} setSelectedIndex={setGalleryIndex}
+        onMediaClick={(app) => {
+          setPreviewImageUrl(app.code)
+          setShowPreview(true)
+          setShowAppDrawer(false)
+        }}
       />
 
       <div className={`transition-all duration-300 overflow-hidden ${showPreview ? "w-full sm:w-[50%]" : "w-0"}`}>

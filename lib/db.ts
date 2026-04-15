@@ -1,3 +1,5 @@
+import { SavedApp } from "@/types"
+
 const DB_NAME = 'AppBuilderDB'
 const DB_VERSION = 2
 const STORE_NAME = 'savedApps'
@@ -66,6 +68,21 @@ export const deleteAppFromDB = async (appId: string): Promise<void> => {
     })
   } catch (error) {
     console.error('Failed to delete app from IndexedDB:', error)
+  }
+}
+
+export const updateAppInDB = async (app: SavedApp): Promise<void> => {
+  try {
+    const db = await openDB()
+    return new Promise((resolve, reject) => {
+      const transaction = db.transaction([STORE_NAME], 'readwrite')
+      const store = transaction.objectStore(STORE_NAME)
+      const request = store.put(app)
+      request.onsuccess = () => resolve()
+      request.onerror = () => reject(request.error)
+    })
+  } catch (error) {
+    console.error('Failed to update app in IndexedDB:', error)
   }
 }
 

@@ -50,8 +50,8 @@ export function Dock({
   }, [showLangMenu])
 
   return (
-    <div className="flex items-center justify-end gap-1.5 py-3 -mt-12">
-      <div className="flex items-center gap-1.5 p-1.5 bg-[#1f1f23]/40 backdrop-blur-md rounded-full border border-[#2e2e32]/50">
+    <div className="flex items-center justify-end gap-1.5 py-2 -mt-14">
+      <div className="flex items-center gap-1.5 p-1 bg-[#1f1f23]/10 backdrop-blur-md rounded-full border border-[#2e2e32]/20">
         <div className="relative" ref={langMenuRef}>
           <button
             onClick={() => setShowLangMenu(!showLangMenu)}

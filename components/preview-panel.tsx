@@ -10,6 +10,7 @@ interface PreviewPanelProps {
   stopAutoReload?: boolean
   onClose?: () => void
   onBack?: () => void
+  hideBackButton?: boolean
 }
 
 export function PreviewPanel({
@@ -21,6 +22,7 @@ export function PreviewPanel({
   stopAutoReload = false,
   onClose,
   onBack,
+  hideBackButton = false,
 }: PreviewPanelProps) {
   const iframeRef = useRef<HTMLIFrameElement>(null)
   const [isLoaded, setIsLoaded] = useState(false)
@@ -125,14 +127,14 @@ export function PreviewPanel({
       e.stopImmediatePropagation()
     }
 
-    window.addEventListener('wheel', windowScrollListener, { passive: false, capture: true })
-    document.addEventListener('wheel', windowScrollListener, { passive: false, capture: true })
-    container.addEventListener('wheel', handleWheelZoom, { passive: false, capture: true })
+    window.addEventListener('wheel', windowScrollListener, { passive: false, capture: true } as AddEventListenerOptions)
+    document.addEventListener('wheel', windowScrollListener, { passive: false, capture: true } as AddEventListenerOptions)
+    container.addEventListener('wheel', handleWheelZoom, { passive: false, capture: true } as AddEventListenerOptions)
 
     return () => {
-      container.removeEventListener('wheel', handleWheelZoom, { passive: false, capture: true })
-      document.removeEventListener('wheel', windowScrollListener, { passive: false, capture: true })
-      window.removeEventListener('wheel', windowScrollListener, { passive: false, capture: true })
+      container.removeEventListener('wheel', handleWheelZoom, { passive: false, capture: true } as AddEventListenerOptions)
+      document.removeEventListener('wheel', windowScrollListener, { passive: false, capture: true } as AddEventListenerOptions)
+      window.removeEventListener('wheel', windowScrollListener, { passive: false, capture: true } as AddEventListenerOptions)
       if (parent) {
         parent.style.overflow = ''
         parent.style.overscrollBehavior = ''
@@ -178,18 +180,18 @@ export function PreviewPanel({
         <div
           ref={containerRef}
           className="flex-1 h-full bg-[#121215] relative flex items-center justify-center cursor-grab active:cursor-grabbing"
-          style={{ 
-            overflow: 'hidden', 
-            WebkitOverflowScrolling: 'none',
-            overscrollBehavior: 'none',
-            touchAction: 'none'
+          style={{
+            overflow: 'hidden',
+            WebkitOverflowScrolling: 'auto' as any,
+            overscrollBehavior: 'none' as any,
+            touchAction: 'none' as any
           }}
           onTouchStart={handleTouchStart}
           onTouchMove={handleTouchMove}
           onTouchEnd={handleTouchEnd}
         >
           <div className="absolute top-3 right-3 z-10 flex gap-2">
-            {onBack && (
+            {onBack && !hideBackButton && (
               <button
                 onClick={onBack}
                 className="p-2 bg-[#1f1f23] rounded-lg text-[#888888] hover:bg-[#2e2e32] hover:text-[#e5e5e5] transition-all"
@@ -244,7 +246,7 @@ export function PreviewPanel({
     <div className="flex-1 flex flex-col h-full">
       <div className="flex-1 h-full bg-[#121215] relative">
         <div className="absolute top-3 right-3 z-10 flex gap-2">
-          {onBack && (
+          {onBack && !hideBackButton && (
             <button
               onClick={onBack}
               className="p-2 bg-[#1f1f23] rounded-lg text-[#888888] hover:bg-[#2e2e32] hover:text-[#e5e5e5] transition-all"

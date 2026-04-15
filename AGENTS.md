@@ -27,10 +27,12 @@ app/
           └── route.ts        # Session management API
 components/
   ├── ui/                     # shadcn/ui components
-  ├── settings-panel.tsx      # Left sidebar with recent chats and settings
+  ├── settings-panel.tsx      # Left sidebar with recent chats (collapses on outside click)
+  ├── app-drawer.tsx          # Gallery drawer with app/media grid
   ├── chat-message.tsx        # Chat messages with markdown rendering
-  ├── preview-thumbnail.tsx    # Preview thumbnail below latest AI response
-  ├── chat-input.tsx          # Input with + and send button
+  ├── preview-panel.tsx       # Preview panel for apps and images
+  ├── dock.tsx                # Translucent dock above chat input
+  ├── chat-input.tsx          # Chat input with send/stop button
   └── status-indicator.tsx    # Status indicator for agent phases
 lib/
   ├── db.ts                   # IndexedDB utilities for app storage
@@ -104,17 +106,29 @@ hooks/
 
 ### Examples
 ```
-User: "Make a todo app"
-You: "This app helps you list tasks and tick them when done! (यह ऐप आपको काम लिखने और tick करने देगा!)"
+User: “Make a todo app”
+You: “This app helps you list tasks and tick them when done! (यह ऐप आपको काम लिखने और tick करने देगा!)”
 
-User: "कैलकुलेटर बनाओ"
-You: "यह ऐप गणित के सवाल हल करेगा।"
+User: “कैलकुलेटर बनाओ”
+You: “यह ऐप गणित के सवाल हल करेगा।”
 
-User: "Hindi mein batao"
-You: "ज़रूर! मैं हिंदी में बताता हूँ।"
+User: “Hindi mein batao”
+You: “ज़रूर! मैं हिंदी में बताता हूँ।”
 ```
 
 ## Response Format
+
+### Building Apps/Games
+When user asks to build/create something:
+1. Reply with friendly message like “Sure! Let me build that for you!”
+2. Call announce(phase: “planning”) - friendly message about what you're building
+3. Call announce(phase: “coding”) - “Building your [app/game]...”
+4. Generate code internally (no code in response)
+5. Call announce(phase: “testing”) - “Testing your [app/game]...”
+6. Call announce(phase: “ready”) - “Your [app/game] is ready! Scroll down to see it!”
+7. **NEVER show code, HTML, CSS, JavaScript to user**
+8. **NEVER explain technical details**
+9. **Only show code if user explicitly asks: “show code”, “give me the code”**
 
 ### Planning Phase
 ```
@@ -132,12 +146,6 @@ You: "ज़रूर! मैं हिंदी में बताता ह�
 2. Step 2
 3. ...
 ```
-
-### Code Generation
-- Write complete, working code
-- Include all imports
-- Add TypeScript types
-- Handle edge cases
 
 ### Error Fixing
 ```
@@ -177,7 +185,7 @@ You: "ज़रूर! मैं हिंदी में बताता ह�
 
 ## Example Workflow
 
-User: "Create a todo app"
+User: “Create a todo app”
 
 Agent:
 1. **Plan**: Create Next.js todo app with localStorage
@@ -216,39 +224,41 @@ Configure AI providers in `settings.yaml`. See `settings.yaml.example` for templ
 
 Configure in `settings.yaml`
 
-## Modern UI Guidelines
+## UI Guidelines
 
 ### Layout Structure
 
 #### Left Sidebar (Settings Panel)
-- **Width**: 280px on desktop
+- **Width**: 280px on desktop, 70% on mobile
 - **Background**: #202123
 - **Border**: 1px solid #343541
-- **Content**: Srishti AI branding, recent chats grouped by date
-- **Close button**: Inside header
+- **Behavior**: Collapses on outside click, floating toggle button
+- **Toggle button**: Camouflaged (#555555), transparent, sticky to left edge
 
 #### Main Chat Area
-- **Width**: 55% of viewport on desktop
+- **Width**: Full width on mobile, centered with max-width on desktop (sm:max-w-3xl)
 - **Background**: #121215
 - **Padding**: 16px horizontal
 
 #### Dock (Above Input)
-- **Position**: Above chat input, with negative margin for text flow behind
-- **Style**: Translucent pill with blur backdrop
+- **Position**: Above chat input
+- **Style**: Highly translucent (bg-[#1f1f23]/10), blur backdrop
+- **Border**: Subtle (border-[#2e2e32]/20)
 - **Icons**: Language selector, New Chat, Gallery
-- **Each icon**: Individual buttons with subtle borders
 
 #### Chat Input
 - **Background**: #1f1f23
 - **Border**: 1px solid #2e2e32
 - **Border radius**: 16px
 - **Send button**: Blue (#3b82f6)
+- **Margin**: Small gap above input for text flow
 
-#### Full-Screen Gallery
-- **Background**: Frosted glass with #0a0a0c backdrop blur
-- **Atmosphere**: Animated gradient orbs
-- **App cards**: Hover glow effects
-- **Category pills**: Gradient styling
+#### App Drawer (Gallery)
+- **Categories**: All, Apps, Media (no Games)
+- **Grid**: 3 columns on mobile, app icons with smart emoji based on app name
+- **App Preview Icons**: Smart emoji icons (not iframe renders)
+- **Media view**: Full-screen on mobile with swipe navigation
+- **Context menu**: Rename, Edit, Delete on right-click/long-press
 
 ### Color Scheme
 
@@ -256,8 +266,8 @@ Configure in `settings.yaml`
 --bg-primary: #121215        /* Main chat background */
 --bg-secondary: #202123     /* Left sidebar */
 --bg-input: #1f1f23        /* Chat input background */
---bg-dock: #1f1f23/40     /* Dock with transparency */
---bg-gallery: #0a0a0c       /* Full screen gallery */
+--bg-dock: #1f1f23/10     /* Dock with high transparency */
+--bg-gallery: #121215       /* App drawer background */
 
 --text-primary: #e5e5e5      /* Main text */
 --text-secondary: #888888      /* Secondary text */
@@ -276,19 +286,30 @@ Configure in `settings.yaml`
 - **User messages**: Right-aligned, background #3a3a42, border-radius 20px
 - **AI messages**: Left-aligned, background #1e1e23, border-radius 20px
 
+### Status Indicator
+
+Shows friendly animated dots with messages:
+- “Planning your app...” 
+- “Building your app...”
+- “Testing your app...”
+- “Fixing issues...”
+
+No technical jargon, just friendly progress indication.
+
 ### Features
 
-- **Auto-scroll**: Smooth scroll to new messages
-- **Language selector**: In dock with dropdown menu
+- **Auto-scroll**: Smooth scroll to new messages only
+- **Language selector**: In dock with dropdown menu (EN, Hindi, Bengali, Telugu, Tamil, Marathi, Gujarati, Kannada, Malayalam, Punjabi, Urdu, Odia, Assamese, Maithili)
 - **Tool calling**: generateImage tool for image generation
 - **Image preview**: Opens in right panel with Save/Download
-- **Text flow**: Allow text to flow behind translucent dock
+- **Gallery**: App drawer with categories, smart icons, context menu
+- **Click outside to close**: Left panel collapses when clicking outside
+- **Mobile full width**: Chat area uses full width on mobile, max-width on desktop
 
 ## Recent Updates
 
-- **Full-Screen Gallery**: Ultra modern dark theme with blur and gradient orbs
-- **Dock**: Translucent pill above input with 3 icons
-- **Settings Panel**: Srishti AI branding with cherry red accent
-- **Language in Dock**: Language selector with dropdown
-- **Tool Calling**: generateImage tool for robust image generation
-- **Auto-scroll**: Smooth scroll to new messages only
+- **Gallery**: App drawer with smart emoji icons, categories (Apps/Media), context menu for rename/edit/delete
+- **Transparency**: Dock highly translucent, toggle button camouflaged
+- **Mobile**: Full width chat, sm:max-w-3xl on desktop
+- **Collapse on outside click**: Settings panel closes when clicking outside
+- **Status indicator**: Friendly animated dots during building phases
