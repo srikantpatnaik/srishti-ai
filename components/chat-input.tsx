@@ -42,7 +42,7 @@ export function ChatInput({
         }}
         placeholder={isGenerating ? "Queuing next query..." : "Ask anything..."}
         rows={1}
-        className="w-full min-h-[48px] max-h-[200px] resize-none border border-[#2e2e32] bg-[#1f1f23] text-[#e5e5e5] placeholder:text-[#888888] focus-visible:outline-none focus-visible:ring-0 pr-14 py-3 rounded-2xl"
+        className="w-full min-h-[48px] max-h-[120px] resize-none border border-[#2e2e32] bg-[#1f1f23] text-[#e5e5e5] placeholder:text-[#888888] focus-visible:outline-none focus-visible:ring-0 pr-14 py-3 rounded-2xl overflow-y-auto [&::-webkit-scrollbar]:hidden"
       />
 
       <div className="absolute right-2.5 top-1/2 -translate-y-1/2">

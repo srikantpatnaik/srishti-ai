@@ -143,6 +143,8 @@ export function AppDrawer({
   const mediaScrollRef = useRef<HTMLDivElement>(null)
   const lastScrollY = useRef(0)
   const touchStartY = useRef(0)
+  const touchStartX = useRef(0)
+  const swipeThreshold = 50
 
   const filteredApps = savedApps.filter(app => getCategory(app.name) === activeCategory)
 
@@ -194,14 +196,26 @@ export function AppDrawer({
 
   const handleTouchStart = (e: React.TouchEvent) => {
     touchStartY.current = e.touches[0].clientY
+    touchStartX.current = e.touches[0].clientX
   }
 
   const handleTouchMove = (e: React.TouchEvent) => {
     const deltaY = touchStartY.current - e.touches[0].clientY
-    if (Math.abs(deltaY) > 50) {
+    const deltaX = e.touches[0].clientX - touchStartX.current
+    
+    if (Math.abs(deltaY) > 50 && Math.abs(deltaX) < 30) {
       if (deltaY > 0) handleNext()
       else handlePrev()
       touchStartY.current = e.touches[0].clientY
+    } else if (Math.abs(deltaX) > swipeThreshold) {
+      if (deltaX > 0 && activeCategory === "Media") {
+        setActiveCategory("Apps")
+        setSelectedIndex(0)
+      } else if (deltaX < 0 && activeCategory === "Apps") {
+        setActiveCategory("Media")
+        setSelectedIndex(0)
+      }
+      touchStartX.current = e.touches[0].clientX
     }
   }
 
@@ -280,7 +294,7 @@ export function AppDrawer({
 
   return (
     <div className="w-full md:w-[50%] h-full bg-[#121215] md:border-l border-l-0 border-[#2e2e32] flex flex-col" onClick={handleBgClick}>
-      <div className="flex items-center justify-between px-3 pt-3 pb-2 border-b border-[#2e2e32]">
+      <div className="flex items-center justify-between px-3 pt-3 pb-2 border-b border-[#2e2e32] touch-pan-y" onTouchStart={handleTouchStart} onTouchMove={handleTouchMove}>
         <div className="flex items-center gap-3">
           <h2 className="text-sm font-medium text-white">Gallery</h2>
         </div>
@@ -306,7 +320,7 @@ export function AppDrawer({
         ))}
       </div>
 
-      <div className="flex-1 overflow-y-auto" onClick={(e) => { e.stopPropagation(); setContextMenuPos(null); }}>
+      <div className="flex-1 overflow-y-auto" onClick={(e) => { e.stopPropagation(); setContextMenuPos(null); }} onTouchStart={handleTouchStart} onTouchMove={handleTouchMove}>
         <div className="grid grid-cols-4 gap-4 p-3">
           {filteredApps.map((app) => {
             const isMedia = isMediaFile(app.code)

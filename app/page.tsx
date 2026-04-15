@@ -121,15 +121,11 @@ export default function Home() {
     experimental_throttle: 100,
   })
 
-  // Auto scroll to bottom only when new assistant message arrives
+  // Auto scroll to bottom when messages change
   useEffect(() => {
-    const lastMsg = messages[messages.length - 1]
-    if (lastMsg && lastMsg.role === 'assistant' && lastMsg.id !== lastAssistantMsgRef.current) {
-      lastAssistantMsgRef.current = lastMsg.id
-      setTimeout(() => {
-        messagesEndRef.current?.scrollIntoView({ behavior: "smooth" })
-      }, 100)
-    }
+    setTimeout(() => {
+      messagesEndRef.current?.scrollIntoView({ behavior: "smooth", block: "end" })
+    }, 100)
   }, [messages])
 
   // Persistence and loading effects
@@ -554,9 +550,10 @@ useEffect(() => {
     stopChat()
   }
 
-  const handleSubmit = async (e?: React.FormEvent, language?: string) => {
+const handleSubmit = async (e?: React.FormEvent, language?: string) => {
     if (e) e.preventDefault()
     if (!input.trim() || isGenerating) return
+    setInput("")
 
     const userContent = input.toLowerCase()
     const imageKeywords = ["image", "picture", "photo", "draw", "generate image", "create image", "make picture"]
@@ -573,7 +570,6 @@ useEffect(() => {
         content: input,
       }
       setMessages(prev => [...prev, userMsg])
-      setInput("")
       
       try {
         const response = await fetch("/api/image", {
@@ -645,7 +641,6 @@ useEffect(() => {
         console.error("Audio generation error:", error)
       }
       setStatus("idle")
-      setInput("")
       return
     }
 
@@ -662,7 +657,6 @@ useEffect(() => {
     
     const currentLang = language || selectedLanguageRef.current
     await append({ role: "user", content: input })
-    setInput("")
   }
 
   function getAppIcon(appName: string): string {

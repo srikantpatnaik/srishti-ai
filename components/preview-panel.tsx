@@ -43,7 +43,12 @@ export function PreviewPanel({
   const touchStartZoom = useRef<number>(1)
   const touchStartPan = useRef({ x: 0, y: 0 })
   const touchStartY = useRef<number>(0)
+  const touchStartX = useRef<number>(0)
   const wheelListenerRef = useRef<((e: WheelEvent) => void) | null>(null)
+  const lastTapTime = useRef<number>(0)
+  const tapCount = useRef<number>(0)
+  const [showTopBar, setShowTopBar] = useState(true)
+  const hideTimeoutRef = useRef<NodeJS.Timeout | null>(null)
 
   useEffect(() => {
     const handleMessage = (event: MessageEvent) => {
@@ -69,10 +74,7 @@ export function PreviewPanel({
       touchStartPan.current = { ...pan }
     } else if (e.touches.length === 1) {
       touchStartY.current = e.touches[0].clientY
-      if (zoom === 1) {
-        setIsDragging(true)
-        setDragStart({ x: e.touches[0].clientX - pan.x, y: e.touches[0].clientY - pan.y })
-      }
+      touchStartX.current = e.touches[0].clientX
     }
   }
 
@@ -86,11 +88,17 @@ export function PreviewPanel({
       const delta = currentDistance - touchStartDistance.current
       const newZoom = Math.max(0.5, Math.min(3, touchStartZoom.current + delta * 0.01))
       setZoom(newZoom)
-    } else if (e.touches.length === 1 && isDragging && zoom === 1) {
-      setPan({
-        x: e.touches[0].clientX - dragStart.x,
-        y: e.touches[0].clientY - dragStart.y
-      })
+    } else if (e.touches.length === 1 && zoom > 1) {
+      const deltaX = e.touches[0].clientX - touchStartX.current
+      const deltaY = e.touches[0].clientY - touchStartY.current
+      setPan(prev => ({
+        x: prev.x + deltaX,
+        y: prev.y + deltaY
+      }))
+      touchStartX.current = e.touches[0].clientX
+      touchStartY.current = e.touches[0].clientY
+      setShowTopBar(true)
+      if (hideTimeoutRef.current) clearTimeout(hideTimeoutRef.current)
     }
   }
 
@@ -104,6 +112,31 @@ export function PreviewPanel({
     }
     setIsDragging(false)
     touchStartDistance.current = null
+    
+    if (zoom > 1) {
+      hideTimeoutRef.current = setTimeout(() => {
+        setShowTopBar(false)
+      }, 2000)
+    }
+  }
+
+  const handleMouseDown = (e: React.MouseEvent) => {
+    if (zoom > 1) {
+      setShowTopBar(true)
+      if (hideTimeoutRef.current) clearTimeout(hideTimeoutRef.current)
+    }
+  }
+
+  const handleDoubleClick = (e: React.MouseEvent) => {
+    if (zoom === 1) {
+      setZoom(1.5)
+      setPan({ x: 0, y: 0 })
+      setShowTopBar(true)
+    } else {
+      setZoom(1)
+      setPan({ x: 0, y: 0 })
+      setShowTopBar(true)
+    }
   }
 
   useEffect(() => {
@@ -223,8 +256,10 @@ export function PreviewPanel({
           onTouchStart={handleTouchStart}
           onTouchMove={handleTouchMove}
           onTouchEnd={(e) => handleTouchEnd(e)}
+          onMouseDown={handleMouseDown}
+          onDoubleClick={handleDoubleClick}
         >
-          <div className="absolute top-3 right-3 z-10 flex gap-2">
+          <div className={`absolute top-3 right-3 z-10 flex gap-2 transition-opacity duration-300 ${showTopBar ? 'opacity-100' : 'opacity-0 pointer-events-none'}`}>
             {onBack && !hideBackButton && (
               <button
                 onClick={onBack}
@@ -249,14 +284,14 @@ export function PreviewPanel({
             style={{
               transform: `translate(${pan.x}px, ${pan.y}px) scale(${zoom})`,
               transformOrigin: 'center center',
-              transition: isDragging ? 'none' : 'transform 0.1s ease-out',
+              transition: 'transform 0.2s ease-out',
             }}
           >
             <img
               src={imageUrl}
               alt="Preview"
-              className="object-contain pointer-events-none"
-              style={{ userSelect: 'none', pointerEvents: 'none' }}
+              className="object-contain"
+              style={{ userSelect: 'none', pointerEvents: 'auto' }}
             />
           </div>
           {(hasPrev || hasNext) && (

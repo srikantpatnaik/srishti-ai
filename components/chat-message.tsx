@@ -219,6 +219,57 @@ export const ChatMessage = React.memo(function ChatMessage({
       return null
     }
 
+    const hasMarkdownTable = message.content.split('\n').some(line => line.trim().startsWith('|') && line.trim().endsWith('|'))
+    const hasHtmlTable = message.content.includes('<table')
+    
+    if (hasMarkdownTable) {
+      const lines = message.content.split('\n').filter(line => line.trim())
+      const tableLines = lines.filter(line => line.trim().startsWith('|') || line.trim().endsWith('|') || line.trim().includes('|---'))
+      
+      if (tableLines.length > 1) {
+        return (
+          <div className="my-4 overflow-x-auto rounded-xl border border-[#2e2e32]">
+            <table className="min-w-full divide-y divide-[#2e2e32]">
+              <thead>
+                <tr className="bg-[#1a1a1f]">
+                  {tableLines[0].split('|').filter(cell => cell.trim()).map((cell, cellIdx) => (
+                    <th 
+                      key={cellIdx} 
+                      className="px-4 py-3 text-left text-sm font-semibold text-[#e5e5e5]"
+                    >
+                      {cell.trim().replace(/\*\*/g, '')}
+                    </th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-[#2e2e32] bg-[#121215]">
+                {tableLines
+                  .filter(line => line.trim() && !line.trim().startsWith('|---'))
+                  .slice(1)
+                  .map((row, rowIdx) => (
+                    <tr key={rowIdx} className="hover:bg-[#1a1a1f]/50">
+                      {row.split('|').filter(cell => cell.trim()).map((cell, cellIdx) => (
+                        <td key={cellIdx} className="px-4 py-3 text-sm text-[#c5c5c5]">
+                          {cell.trim().replace(/\*\*/g, '')}
+                        </td>
+                      ))}
+                    </tr>
+                  ))}
+              </tbody>
+            </table>
+          </div>
+        )
+      }
+    }
+    
+    if (hasHtmlTable) {
+      return (
+        <div className="my-4 overflow-x-auto rounded-xl border border-[#2e2e32]">
+          <div className="prose prose-base dark:prose-invert max-w-none" dangerouslySetInnerHTML={{ __html: message.content }} />
+        </div>
+      )
+    }
+    
     return (
       <div className="prose prose-base dark:prose-invert max-w-none 
         prose-headings:font-semibold prose-h3:font-semibold 
@@ -280,19 +331,53 @@ export const ChatMessage = React.memo(function ChatMessage({
 
   const hasOnlyImage = message.imageUrl && !message.content && message.role !== "user"
 
+  const renderUserContent = () => {
+    if (isUser) {
+      return (
+        <ReactMarkdown 
+          remarkPlugins={[remarkGfm]}
+          components={{
+            code({className, children, ...props}) {
+              const match = /language-(\w+)/.exec(className || "")
+              return match ? (
+                <pre className="bg-[#1a1a1f] rounded-lg px-2 py-1 my-1 overflow-x-auto border border-[#2e2e32]">
+                  <code className={className} {...props}>
+                    {children}
+                  </code>
+                </pre>
+              ) : (
+                <code className="bg-[#1a1a1f] rounded-lg px-1.5 py-0.5 font-mono" {...props}>
+                  {children}
+                </code>
+              )
+            },
+            p: ({children}) => <p className="my-2 leading-relaxed">{children}</p>,
+            ul: ({children}) => <ul className="list-disc list-inside my-2 space-y-1">{children}</ul>,
+            ol: ({children}) => <ol className="list-decimal list-inside my-2 space-y-1">{children}</ol>,
+            li: ({children}) => <li className="text-base">{children}</li>,
+            strong: ({children}) => <strong className="font-semibold">{children}</strong>,
+            a: ({href, children}) => <a href={href} className="text-[#3b82f6] hover:underline" target="_blank" rel="noopener noreferrer">{children}</a>
+          }}
+        >
+          {message.content}
+        </ReactMarkdown>
+      )
+    }
+    return renderContent()
+  }
+
   return (
-    <div className="space-y-4 py-2">
+    <div className="space-y-4 py-2 w-full">
       {!hasOnlyImage && (
       <div
-        className={cn(
-          "px-5 py-3 text-[15px] leading-relaxed",
+        className={`px-4 py-2.5 text-[15px] leading-relaxed text-[#e5e5e5] ${
           isUser 
-            ? "bg-gradient-to-r from-[#3a3a42] to-[#454550] text-[#e5e5e5] rounded-[20px] rounded-br-md shadow-sm"
-            : "bg-gradient-to-b from-[#1e1e23] to-[#232328] text-[#e5e5e5] rounded-[20px] rounded-bl-md border border-[#2e2e32] shadow-sm"
-        )}
+            ? "bg-[#2a2a2e] rounded-2xl max-w-[85%] self-end" 
+            : "w-full max-w-full"
+        }`}
       >
         <div className="min-w-0">
-          {renderContent()}
+          {renderUserContent()}
         </div>
       </div>)}
       
@@ -315,7 +400,7 @@ export const ChatMessage = React.memo(function ChatMessage({
       
       {/* Preview in chat - shown when there's a preview URL */}
       {previewUrl && !isUser && (
-        <div className="mt-4 group relative overflow-hidden rounded-2xl border border-[#2e2e32] hover:border-[#e94560]/60 hover:shadow-lg hover:shadow-[#e94560]/10 transition-all duration-300 w-full bg-[#0a0a0f]" style={{ height: 'min(600px, 70vh)' }}>
+        <div className="mt-4 group relative overflow-hidden w-full bg-[#000000]" style={{ height: 'min(600px, 70vh)' }}>
           <PreviewIframe
             src={previewUrl}
             isActive={isActive}
@@ -362,7 +447,7 @@ export const ChatMessage = React.memo(function ChatMessage({
 
       {/* Image preview in chat - shown when there's an image URL */}
       {message.imageUrl && !isUser && (
-        <div className="mt-4 group relative overflow-hidden rounded-2xl border border-[#2e2e32] hover:border-[#e94560]/60 hover:shadow-lg hover:shadow-[#e94560]/10 transition-all duration-300 w-full bg-[#0a0a0f] p-1">
+        <div className="mt-4 group relative overflow-hidden w-full bg-[#000000]">
           <img
             src={message.imageUrl}
             alt="Generated image"
@@ -408,7 +493,7 @@ export const ChatMessage = React.memo(function ChatMessage({
 
       {/* Audio preview in chat - shown when there's an audio URL */}
       {message.audioUrl && !isUser && (
-        <div className="mt-4 group relative overflow-hidden rounded-2xl border border-[#2e2e32] hover:border-[#e94560]/60 hover:shadow-lg transition-all duration-300 p-3 bg-[#0a0a0f]">
+        <div className="mt-4 group relative overflow-hidden w-full bg-[#000000]">
           <audio
             controls
             className="w-full h-12 rounded-lg"
