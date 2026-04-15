@@ -50,7 +50,7 @@ export function ChatInput({
           <button
             type="button"
             onClick={onStop}
-            className="p-2 rounded-xl bg-[#ef4444] hover:bg-[#dc2626] text-white transition-all"
+            className="p-2 rounded-xl bg-[#2a2a2e] hover:bg-[#343541] text-[#888888] hover:text-[#e5e5e5] transition-all"
             title="Stop"
           >
             <Square className="h-4 w-4" />
@@ -60,7 +60,7 @@ export function ChatInput({
             type="submit"
             onClick={onSubmit}
             disabled={!canSubmit}
-            className="p-2 rounded-xl bg-[#3b82f6] hover:bg-[#2563eb] text-white transition-all disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:bg-[#3b82f6]"
+            className="p-2 rounded-xl bg-[#2a2a2e] hover:bg-[#343541] text-[#888888] hover:text-[#e5e5e5] transition-all disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:bg-[#2a2a2e]"
             title="Send"
           >
             <ArrowUp className="h-4 w-4" />

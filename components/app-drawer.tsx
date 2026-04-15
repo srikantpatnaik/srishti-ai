@@ -117,6 +117,11 @@ export function AppDrawer({
   renameApp,
   onMediaClick,
 }: AppDrawerProps) {
+  const handleBgClick = (e: React.MouseEvent) => {
+    if (e.target === e.currentTarget) {
+      setShowAppDrawer(false)
+    }
+  }
   const _editApp = editApp ?? (() => {})
   const _shareApp = shareApp ?? (() => {})
   const _runApp = runApp ?? (() => {})
@@ -274,7 +279,7 @@ export function AppDrawer({
   }
 
   return (
-    <div className="w-full md:w-[50%] h-full bg-[#121215] md:border-l border-l-0 border-[#2e2e32] flex flex-col">
+    <div className="w-full md:w-[50%] h-full bg-[#121215] md:border-l border-l-0 border-[#2e2e32] flex flex-col" onClick={handleBgClick}>
       <div className="flex items-center justify-between px-3 pt-3 pb-2 border-b border-[#2e2e32]">
         <div className="flex items-center gap-3">
           <h2 className="text-sm font-medium text-white">Gallery</h2>
@@ -301,7 +306,7 @@ export function AppDrawer({
         ))}
       </div>
 
-      <div className="flex-1 overflow-y-auto" onClick={() => setContextMenuPos(null)}>
+      <div className="flex-1 overflow-y-auto" onClick={(e) => { e.stopPropagation(); setContextMenuPos(null); }}>
         <div className="grid grid-cols-4 gap-4 p-3">
           {filteredApps.map((app) => {
             const isMedia = isMediaFile(app.code)
