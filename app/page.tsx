@@ -1217,17 +1217,18 @@ const [hasSavedToGallery, setHasSavedToGallery] = useState(false)
               <Dock
                 onNewChat={newSession}
                 onToggleGallery={() => {
-                  if ((previewImageUrl || blobUrl) && showAppDrawer) {
-                    setPreviewImageUrl(null)
-                    setShowPreview(false)
-                    setBlobUrl("")
-                  }
-                  if ((previewImageUrl || blobUrl) && !showAppDrawer) {
+                  if (showAppDrawer) {
+                    setShowAppDrawer(false)
                     setPreviewImageUrl(null)
                     setShowPreview(false)
                     setBlobUrl("")
                   } else {
-                    setShowAppDrawer(!showAppDrawer)
+                    if (previewImageUrl || blobUrl) {
+                      setPreviewImageUrl(null)
+                      setShowPreview(false)
+                      setBlobUrl("")
+                    }
+                    setShowAppDrawer(true)
                   }
                 }}
                 selectedLanguage={selectedLanguage}

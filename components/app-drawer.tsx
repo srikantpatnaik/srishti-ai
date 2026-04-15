@@ -41,7 +41,7 @@ function getCategory(name: string): Category {
   return "Apps"
 }
 
-function AppPreviewIcon({ code, name }: { code: string, name: string }) {
+function AppPreviewIcon({ code, name, isMedia }: { code: string, name: string, isMedia: boolean }) {
   const [blobUrl, setBlobUrl] = useState<string | null>(null)
 
   useEffect(() => {
@@ -60,11 +60,11 @@ function AppPreviewIcon({ code, name }: { code: string, name: string }) {
   }, [code])
 
   if (code.startsWith('data:image/')) {
-    return <img src={code} alt={name} className="w-full h-full object-cover" />
+    return <img src={code} alt={name} className="w-full h-full object-cover object-top" />
   }
   
   if (code.startsWith('data:video/') || code.startsWith('data:audio/')) {
-    return <div className="relative w-full h-full flex items-center justify-center bg-[#1a1a2e]"><Play className="h-8 w-8 text-white/70"/></div>
+    return <div className="relative w-full h-full flex items-center justify-center bg-[#1a1a2e]"><Play className="h-10 w-10 text-white/70"/></div>
   }
   
   if (blobUrl) {
@@ -305,28 +305,31 @@ export function AppDrawer({
       </div>
 
       <div className="flex-1 overflow-y-auto" onClick={() => setContextMenuPos(null)}>
-        <div className="grid grid-cols-3 gap-3 p-3">
-          {filteredApps.map((app) => (
-            <div key={app.id}>
-              <div
-                onClick={(e) => { e.stopPropagation(); handleAppClick(app); }}
-                onMouseEnter={() => setHoveredApp(app.id)}
-                onMouseLeave={() => setHoveredApp(null)}
-                onContextMenu={(e) => { e.preventDefault(); handleLongPress(app, e); }}
-                onTouchStart={(e) => { 
-                  touchStartY.current = e.touches[0].clientY
-                }}
-                onTouchEnd={(e) => {
-                  const deltaY = Math.abs(touchStartY.current - e.changedTouches[0].clientY)
-                  if (deltaY < 10) handleLongPress(app, e)
-                }}
-                className="aspect-square rounded-lg bg-[#1e1e23] border border-[#2e2e32]/50 hover:border-[#de0f17]/50 hover:scale-105 transition-all cursor-pointer overflow-hidden"
-              >
-                <AppPreviewIcon code={app.code} name={app.name} />
+        <div className="grid grid-cols-4 gap-4 p-3">
+          {filteredApps.map((app) => {
+            const isMedia = isMediaFile(app.code)
+            return (
+              <div key={app.id} className="flex flex-col items-center">
+                <div
+                  onClick={(e) => { e.stopPropagation(); handleAppClick(app); }}
+                  onMouseEnter={() => setHoveredApp(app.id)}
+                  onMouseLeave={() => setHoveredApp(null)}
+                  onContextMenu={(e) => { e.preventDefault(); handleLongPress(app, e); }}
+                  onTouchStart={(e) => { 
+                    touchStartY.current = e.touches[0].clientY
+                  }}
+                  onTouchEnd={(e) => {
+                    const deltaY = Math.abs(touchStartY.current - e.changedTouches[0].clientY)
+                    if (deltaY < 10) handleLongPress(app, e)
+                  }}
+                  className={isMedia ? "w-28 h-28 rounded-xl bg-[#1e1e23] border border-[#2e2e32]/50 hover:border-[#de0f17]/50 hover:scale-105 transition-all cursor-pointer overflow-hidden" : "w-14 h-14 rounded-xl bg-[#1e1e23] border border-[#2e2e32]/50 hover:border-[#de0f17]/50 hover:scale-105 transition-all cursor-pointer overflow-hidden flex items-center justify-center"}
+                >
+                  <AppPreviewIcon code={app.code} name={app.name} isMedia={isMedia} />
+                </div>
+                <p className={`mt-1.5 text-xs text-[#888888] text-center truncate ${isMedia ? 'w-28' : 'w-14'}`}>{app.name}</p>
               </div>
-              <p className="mt-1.5 text-xs text-[#888888] text-center truncate">{app.name}</p>
-            </div>
-          ))}
+            )
+          })}
         </div>
 
         {filteredApps.length === 0 && (
