@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState, useCallback } from "react"
-import { X, ExternalLink, Download, ArrowLeft } from "lucide-react"
+import { X, ExternalLink, Download, ArrowLeft, ChevronUp, ChevronDown } from "lucide-react"
 
 interface PreviewPanelProps {
   previewUrl?: string
@@ -11,6 +11,10 @@ interface PreviewPanelProps {
   onClose?: () => void
   onBack?: () => void
   hideBackButton?: boolean
+  onPrev?: () => void
+  onNext?: () => void
+  hasPrev?: boolean
+  hasNext?: boolean
 }
 
 export function PreviewPanel({
@@ -23,6 +27,10 @@ export function PreviewPanel({
   onClose,
   onBack,
   hideBackButton = false,
+  onPrev,
+  onNext,
+  hasPrev = false,
+  hasNext = false,
 }: PreviewPanelProps) {
   const iframeRef = useRef<HTMLIFrameElement>(null)
   const [isLoaded, setIsLoaded] = useState(false)
@@ -34,6 +42,7 @@ export function PreviewPanel({
   const touchStartDistance = useRef<number | null>(null)
   const touchStartZoom = useRef<number>(1)
   const touchStartPan = useRef({ x: 0, y: 0 })
+  const touchStartY = useRef<number>(0)
   const wheelListenerRef = useRef<((e: WheelEvent) => void) | null>(null)
 
   useEffect(() => {
@@ -59,8 +68,11 @@ export function PreviewPanel({
       touchStartZoom.current = zoom
       touchStartPan.current = { ...pan }
     } else if (e.touches.length === 1) {
-      setIsDragging(true)
-      setDragStart({ x: e.touches[0].clientX - pan.x, y: e.touches[0].clientY - pan.y })
+      touchStartY.current = e.touches[0].clientY
+      if (zoom === 1) {
+        setIsDragging(true)
+        setDragStart({ x: e.touches[0].clientX - pan.x, y: e.touches[0].clientY - pan.y })
+      }
     }
   }
 
@@ -74,7 +86,7 @@ export function PreviewPanel({
       const delta = currentDistance - touchStartDistance.current
       const newZoom = Math.max(0.5, Math.min(3, touchStartZoom.current + delta * 0.01))
       setZoom(newZoom)
-    } else if (e.touches.length === 1 && isDragging) {
+    } else if (e.touches.length === 1 && isDragging && zoom === 1) {
       setPan({
         x: e.touches[0].clientX - dragStart.x,
         y: e.touches[0].clientY - dragStart.y
@@ -82,7 +94,14 @@ export function PreviewPanel({
     }
   }
 
-  const handleTouchEnd = () => {
+  const handleTouchEnd = (e: React.TouchEvent) => {
+    if (zoom === 1 && e.changedTouches.length === 1) {
+      const deltaY = touchStartY.current - e.changedTouches[0].clientY
+      if (Math.abs(deltaY) > 50) {
+        if (deltaY > 0 && onNext) onNext()
+        else if (deltaY < 0 && onPrev) onPrev()
+      }
+    }
     setIsDragging(false)
     touchStartDistance.current = null
   }
@@ -147,6 +166,21 @@ export function PreviewPanel({
     }
   }, [imageUrl])
 
+  useEffect(() => {
+    if (!imageUrl) return
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'ArrowUp' && onPrev) {
+        e.preventDefault()
+        onPrev()
+      } else if (e.key === 'ArrowDown' && onNext) {
+        e.preventDefault()
+        onNext()
+      }
+    }
+    window.addEventListener('keydown', handleKeyDown)
+    return () => window.removeEventListener('keydown', handleKeyDown)
+  }, [imageUrl, onPrev, onNext])
+
   const handleOpenInNewTab = () => {
     if (!localCode) return
 
@@ -188,7 +222,7 @@ export function PreviewPanel({
           }}
           onTouchStart={handleTouchStart}
           onTouchMove={handleTouchMove}
-          onTouchEnd={handleTouchEnd}
+          onTouchEnd={(e) => handleTouchEnd(e)}
         >
           <div className="absolute top-3 right-3 z-10 flex gap-2">
             {onBack && !hideBackButton && (
@@ -225,6 +259,10 @@ export function PreviewPanel({
               style={{ userSelect: 'none', pointerEvents: 'none' }}
             />
           </div>
+          {(hasPrev || hasNext) && (
+            <div className="absolute bottom-4 left-1/2 -translate-x-1/2 flex gap-2 opacity-0 pointer-events-none">
+            </div>
+          )}
           {zoom !== 1 && (
             <button
               onClick={() => { setZoom(1); setPan({ x: 0, y: 0 }) }}

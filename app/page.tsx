@@ -55,6 +55,8 @@ export default function Home() {
   const [selectedLanguage, setSelectedLanguage] = useState<string>("")
   const selectedLanguageRef = useRef(selectedLanguage)
   const [messageImages, setMessageImages] = useState<Map<number, string>>(new Map())
+  const [mediaNavIndex, setMediaNavIndex] = useState(0)
+  const mediaAppsRef = useRef<SavedApp[]>([])
 
   const languages = [
     { code: "", name: "English", native: "English" },
@@ -1131,7 +1133,26 @@ const [hasSavedToGallery, setHasSavedToGallery] = useState(false)
           </div>
           <div className="h-[calc(100vh-53px)]">
             {previewImageUrl ? (
-              <PreviewPanel imageUrl={previewImageUrl} appName={savedApps.find(app => app.code === editedAppCode)?.name || "Image Preview"} onConsoleMessage={handleConsoleMessage} stopAutoReload={status === "ready"} onBack={() => { setShowAppDrawer(true); setShowPreview(false); setPreviewImageUrl(null) }} onClose={() => { setShowPreview(false); setPreviewImageUrl(null) }} />
+              <PreviewPanel 
+                imageUrl={previewImageUrl} 
+                hideBackButton={true}
+                onClose={() => { setShowPreview(false); setPreviewImageUrl(null) }}
+                onPrev={() => {
+                  const newIdx = mediaNavIndex > 0 ? mediaNavIndex - 1 : mediaAppsRef.current.length - 1
+                  setMediaNavIndex(newIdx)
+                  setPreviewImageUrl(mediaAppsRef.current[newIdx]?.code || null)
+                }}
+                onNext={() => {
+                  const newIdx = mediaNavIndex < mediaAppsRef.current.length - 1 ? mediaNavIndex + 1 : 0
+                  setMediaNavIndex(newIdx)
+                  setPreviewImageUrl(mediaAppsRef.current[newIdx]?.code || null)
+                }}
+                hasPrev={mediaAppsRef.current.length > 1}
+                hasNext={mediaAppsRef.current.length > 1}
+                appName={savedApps.find(app => app.code === editedAppCode)?.name || "Image Preview"} 
+                onConsoleMessage={handleConsoleMessage} 
+                stopAutoReload={status === "ready"}
+              />
             ) : blobUrl ? (
               <PreviewPanel previewUrl={blobUrl} onConsoleMessage={handleConsoleMessage} stopAutoReload={status === "ready"} />
             ) : (
@@ -1195,7 +1216,9 @@ const [hasSavedToGallery, setHasSavedToGallery] = useState(false)
             <div className="px-4 pb-4 max-w-3xl mx-auto w-full">
               <Dock
                 onNewChat={newSession}
-                onToggleGallery={() => setShowAppDrawer(!showAppDrawer)}
+                onToggleGallery={() => {
+                  setShowAppDrawer(!showAppDrawer)
+                }}
                 selectedLanguage={selectedLanguage}
                 onLanguageChange={(lang) => {
                   setSelectedLanguage(lang)
@@ -1222,9 +1245,11 @@ const [hasSavedToGallery, setHasSavedToGallery] = useState(false)
         contextMenu={contextMenu} longPressedApp={longPressedApp}
         selectedIndex={galleryIndex} setSelectedIndex={setGalleryIndex}
         onMediaClick={(app) => {
-          setPreviewImageUrl(app.code)
-          setShowPreview(true)
-          setShowAppDrawer(false)
+          const mediaApps = savedApps.filter(a => a.code.startsWith('data:image/') || a.code.startsWith('data:video/') || a.code.startsWith('data:audio/'))
+          mediaAppsRef.current = mediaApps
+          const idx = mediaApps.findIndex(a => a.id === app.id)
+          setMediaNavIndex(idx >= 0 ? idx : 0)
+          handleSwitchToSavedApp(app)
         }}
       />
 
@@ -1240,6 +1265,18 @@ const [hasSavedToGallery, setHasSavedToGallery] = useState(false)
                   stopAutoReload={status === "ready"} 
                   onBack={() => { setShowAppDrawer(true); setShowPreview(false); setPreviewImageUrl(null) }}
                   onClose={() => { setShowPreview(false); setPreviewImageUrl(null) }}
+                  onPrev={() => {
+                    const newIdx = mediaNavIndex > 0 ? mediaNavIndex - 1 : mediaAppsRef.current.length - 1
+                    setMediaNavIndex(newIdx)
+                    setPreviewImageUrl(mediaAppsRef.current[newIdx]?.code || null)
+                  }}
+                  onNext={() => {
+                    const newIdx = mediaNavIndex < mediaAppsRef.current.length - 1 ? mediaNavIndex + 1 : 0
+                    setMediaNavIndex(newIdx)
+                    setPreviewImageUrl(mediaAppsRef.current[newIdx]?.code || null)
+                  }}
+                  hasPrev={mediaAppsRef.current.length > 1}
+                  hasNext={mediaAppsRef.current.length > 1}
                 />
               ) : blobUrl ? (
                 <PreviewPanel previewUrl={blobUrl} appName={sessionApps[currentAppIndex]?.name || "My App"} onConsoleMessage={handleConsoleMessage} stopAutoReload={status === "ready"} onBack={() => { setShowAppDrawer(true); setShowPreview(false) }} onClose={() => setShowPreview(false)} />
