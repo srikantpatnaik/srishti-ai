@@ -1,0 +1,87 @@
+import { readFileSync } from 'fs'
+import { join } from 'path'
+
+export const outputFormatConfig = {
+  report_style: {
+    sections: true,
+    spacing: 'comfortable',
+    font_weight: 'normal',
+    heading_weight: 'normal',
+    line_height: 'relaxed',
+    primary_color: '#e0e0e0',
+    accent_color: '#ff6b6b',
+    secondary_color: '#b8b8b8',
+    background: '#1a1a2e',
+    retro_theme: {
+      enabled: true,
+      palette: {
+        header_bg: '#16213e',
+        header_border: '#0f3460',
+        table_header: '#e94560',
+        table_row_alt: '#1a1a2e',
+        accent_1: '#ff6b6b',
+        accent_2: '#4ecdc4',
+        accent_3: '#ffe66d',
+        accent_4: '#95e1d3',
+        accent_5: '#f38181',
+        border: '#0f3460',
+        glow: '#e94560',
+      },
+      effects: {
+        glow: true,
+        gradient: true,
+        borders: true,
+        shadows: true,
+      },
+    },
+    tables: {
+      enabled: true,
+      border_color: '#0f3460',
+      header_bg: '#e94560',
+      header_text: '#ffffff',
+      hover_effect: true,
+      column_borders: true,
+      row_borders: true,
+      striped: true,
+    },
+    lists: {
+      bullet_style: 'disc',
+      number_style: 'decimal',
+      indent: '20px',
+      border_left: true,
+      custom_bullets: true,
+    },
+    blockquotes: {
+      enabled: true,
+      border_color: '#4ecdc4',
+      background: '#16213e',
+      padding: '1rem',
+      icon: '💡',
+    },
+    links: {
+      color: '#4ecdc4',
+      underline: 'always',
+      font_weight: 'normal',
+      hover_glow: true,
+    },
+    code: {
+      background: '#0f3460',
+      border: '#e94560',
+      padding: '0.5rem',
+      rounded: true,
+      glow: true,
+    },
+    closing: {
+      enabled: true,
+      friendly: true,
+      emoji: '✨',
+    },
+    table_triggers: [
+      'comparison',
+      'features',
+      'pricing',
+      'specifications',
+      'data',
+    ],
+  },
+}

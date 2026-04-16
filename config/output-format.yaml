@@ -1,0 +1,66 @@
+# Output Format Configuration
+# Customize how AI responses are formatted
+
+report_style:
+  # Overall report structure
+  sections: true              # Use section headers
+  spacing: comfortable        # comfortable, compact, or spacious
+  
+  # Typography
+  font_weight: normal         # normal, medium, or bold
+  heading_weight: bold        # normal, medium, bold, or extra-bold
+  line_height: relaxed        # relaxed, normal, or tight
+  
+  # Colors
+  primary_color: "#e5e5e5"    # Main text color
+  accent_color: "#de0f17"     # Cherry red for highlights
+  secondary_color: "#c5c5c5"  # Secondary text
+  background: "#121215"       # Content background
+  
+  # Tables
+  tables:
+    enabled: true             # Show tables for comparisons
+    border_color: "#2e2e32"   # Table border color
+    header_bg: "#1a1a1f"      # Header background
+    hover_effect: true        # Row hover effect
+    column_borders: true      # Show vertical borders
+    row_borders: true         # Show horizontal borders
+    
+  # Lists
+  lists:
+    bullet_style: disc        # disc, circle, square, or none
+    number_style: decimal     # decimal, lower-alpha, lower-roman
+    indent: 20px              # Indentation for nested lists
+    border_left: true         # Add left border accent
+    
+  # Special elements
+  blockquotes:
+    enabled: true
+    border_color: "#de0f17"   # Left border color
+    background: "#1a1a1f"     # Background color
+    padding: "1rem"
+    
+  links:
+    color: "#de0f17"          # Link color
+    underline: hover          # always, hover, or none
+    font_weight: medium       # normal or medium
+    
+  # Code blocks
+  code:
+    background: "#1a1a1f"
+    border: "#2e2e32"
+    padding: "0.5rem"
+    rounded: true
+    
+  # Closing message
+  closing:
+    enabled: true             # Show "Let me know if you need more help!"
+    friendly: true            # Add emoji and warm tone
+    
+  # When to use tables
+  table_triggers:
+    - "comparison"
+    - "features"
+    - "pricing"
+    - "specifications"
+    - "data"

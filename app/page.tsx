@@ -121,11 +121,14 @@ export default function Home() {
     experimental_throttle: 100,
   })
 
-  // Auto scroll to bottom when messages change
+  // Auto scroll to bottom only when new assistant message arrives
   useEffect(() => {
-    setTimeout(() => {
-      messagesEndRef.current?.scrollIntoView({ behavior: "smooth", block: "end" })
-    }, 100)
+    const lastMsg = messages[messages.length - 1]
+    if (lastMsg && lastMsg.role === 'assistant') {
+      setTimeout(() => {
+        messagesEndRef.current?.scrollIntoView({ behavior: "smooth", block: "end" })
+      }, 100)
+    }
   }, [messages])
 
   // Persistence and loading effects

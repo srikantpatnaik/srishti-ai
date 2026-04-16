@@ -219,42 +219,90 @@ export const ChatMessage = React.memo(function ChatMessage({
       return null
     }
 
-    const hasMarkdownTable = message.content.split('\n').some(line => line.trim().startsWith('|') && line.trim().endsWith('|'))
+    const hasMarkdownTable = message.content.split('\n').some(line => line.trim().startsWith('|'))
     const hasHtmlTable = message.content.includes('<table')
     
     if (hasMarkdownTable) {
       const lines = message.content.split('\n').filter(line => line.trim())
-      const tableLines = lines.filter(line => line.trim().startsWith('|') || line.trim().endsWith('|') || line.trim().includes('|---'))
+      const tableLines = lines.filter(line => line.trim().startsWith('|') || line.trim().includes('|---'))
       
-      if (tableLines.length > 1) {
+      if (tableLines.length > 1 && tableLines.some(line => line.trim().includes('|---'))) {
+        const processCell = (cell: string) => {
+          let text = cell.trim()
+          text = text.replace(/\*\*(.*?)\*\*/g, '<span style={{color: "#ff6b6b"}}>$1</span>')
+          text = text.replace(/\*(.*?)\*/g, '<span style={{color: "#4ecdc4", fontStyle: "italic"}}>$1</span>')
+          text = text.replace(/`([^`]+)`/g, '<code style={{backgroundColor: "#0f3460", color: "#4ecdc4", padding: "2px 8px", borderRadius: "4px", border: "1px solid #4ecdc4", fontFamily: "monospace"}}>$1</code>')
+          return text
+        }
+        
+        const headerCells = tableLines[0].split('|').filter(cell => cell.trim()).map((cell, idx) => {
+          const colors = ["#e94560", "#4ecdc4", "#ffe66d", "#95e1d3", "#f38181", "#aa96da"]
+          return (
+            <th 
+              key={idx} 
+              style={{
+                padding: "16px 24px",
+                textAlign: "left",
+                fontSize: "16px",
+                color: "white",
+                borderRight: "2px solid #0f3460",
+                background: `linear-gradient(135deg, ${colors[idx % colors.length]}, ${colors[(idx + 1) % colors.length]})`,
+                fontWeight: "normal",
+                textTransform: "uppercase",
+                letterSpacing: "1px"
+              }}
+            >
+              <div dangerouslySetInnerHTML={{ __html: processCell(cell) }} />
+            </th>
+          )
+        })
+        
+        const bodyRows = tableLines
+          .filter(line => line.trim() && !line.trim().startsWith('|---'))
+          .slice(1)
+          .map((row, rowIdx) => {
+            const colors = ["#1a1a2e", "#16213e", "#1f1f35", "#1e1e32"]
+            const hoverColors = ["#2a2a4e", "#263154", "#2f2f55", "#2e2e52"]
+            const cells = row.split('|').filter(cell => cell.trim()).map((cell, cellIdx) => (
+              <td 
+                key={cellIdx} 
+                style={{
+                  padding: "16px 24px",
+                  fontSize: "15px",
+                  color: "#e0e0e0",
+                  borderRight: "2px solid #0f3460",
+                  backgroundColor: colors[rowIdx % colors.length],
+                  transition: "all 0.3s"
+                }}
+                onMouseEnter={(e) => e.currentTarget.style.backgroundColor = hoverColors[rowIdx % hoverColors.length]}
+                onMouseLeave={(e) => e.currentTarget.style.backgroundColor = colors[rowIdx % colors.length]}
+              >
+                <div dangerouslySetInnerHTML={{ __html: processCell(cell) }} />
+              </td>
+            ))
+            return (
+              <tr key={rowIdx} style={{borderBottom: "2px solid #0f3460"}}>
+                {cells}
+              </tr>
+            )
+          })
+        
         return (
-          <div className="my-4 overflow-x-auto rounded-xl border border-[#2e2e32]">
-            <table className="min-w-full divide-y divide-[#2e2e32]">
+          <div style={{
+            margin: "24px 0",
+            width: "100%",
+            overflowX: "auto",
+            borderRadius: "16px",
+            border: "3px solid",
+            borderImage: "linear-gradient(135deg, #e94560, #4ecdc4, #ffe66d) 1",
+            boxShadow: "0 0 30px rgba(233, 69, 96, 0.3), 0 0 60px rgba(78, 205, 196, 0.2)"
+          }}>
+            <table style={{width: "100%", borderCollapse: "collapse"}}>
               <thead>
-                <tr className="bg-[#1a1a1f]">
-                  {tableLines[0].split('|').filter(cell => cell.trim()).map((cell, cellIdx) => (
-                    <th 
-                      key={cellIdx} 
-                      className="px-4 py-3 text-left text-sm font-semibold text-[#e5e5e5]"
-                    >
-                      {cell.trim().replace(/\*\*/g, '')}
-                    </th>
-                  ))}
-                </tr>
+                <tr>{headerCells}</tr>
               </thead>
-              <tbody className="divide-y divide-[#2e2e32] bg-[#121215]">
-                {tableLines
-                  .filter(line => line.trim() && !line.trim().startsWith('|---'))
-                  .slice(1)
-                  .map((row, rowIdx) => (
-                    <tr key={rowIdx} className="hover:bg-[#1a1a1f]/50">
-                      {row.split('|').filter(cell => cell.trim()).map((cell, cellIdx) => (
-                        <td key={cellIdx} className="px-4 py-3 text-sm text-[#c5c5c5]">
-                          {cell.trim().replace(/\*\*/g, '')}
-                        </td>
-                      ))}
-                    </tr>
-                  ))}
+              <tbody style={{backgroundColor: "#1a1a2e"}}>
+                {bodyRows}
               </tbody>
             </table>
           </div>
@@ -264,22 +312,30 @@ export const ChatMessage = React.memo(function ChatMessage({
     
     if (hasHtmlTable) {
       return (
-        <div className="my-4 overflow-x-auto rounded-xl border border-[#2e2e32]">
-          <div className="prose prose-base dark:prose-invert max-w-none" dangerouslySetInnerHTML={{ __html: message.content }} />
+        <div style={{
+          margin: "24px 0",
+          overflowX: "auto",
+          borderRadius: "16px",
+          border: "3px solid",
+          borderImage: "linear-gradient(135deg, #e94560, #4ecdc4, #ffe66d) 1",
+          boxShadow: "0 0 30px rgba(233, 69, 96, 0.3), 0 0 60px rgba(78, 205, 196, 0.2)"
+        }}>
+          <div dangerouslySetInnerHTML={{ __html: message.content }} />
         </div>
       )
     }
     
     return (
       <div className="prose prose-base dark:prose-invert max-w-none 
-        prose-headings:font-semibold prose-h3:font-semibold 
-        prose-p:my-4 prose-p:leading-7 prose-p:text-[#d5d5d5]
-        prose-ul:my-4 prose-ul:space-y-2 prose-ul:pl-2
-        prose-ol:my-4 prose-ol:space-y-2 prose-ol:pl-2
-        prose-li:my-1 prose-li:leading-7 prose-li:text-[#c5c5c5]
-        prose-blockquote:border-l-4 prose-blockquote:border-[#e94560] prose-blockquote:pl-4 prose-blockquote:py-1 prose-blockquote:italic prose-blockquote:text-[#a0a0a0]
-        prose-strong:text-[#e5e5e5] prose-strong:font-semibold
-        prose-a:text-[#3b82f6] prose-a:no-underline hover:prose-a:underline">
+        prose-headings:text-[#e0e0e0] prose-headings:font-normal prose-h2:text-2xl prose-h2:mt-8 prose-h2:mb-6 prose-h2:bg-[#16213e] prose-h2:px-4 prose-h2:py-3 prose-h2:border-l-4 prose-h2:border-[#e94560] prose-h3:text-xl prose-h3:mt-6 prose-h3:mb-4 prose-h3:bg-[#16213e] prose-h3:px-3 prose-h3:py-2 prose-h3:border-l-3 prose-h3:border-[#4ecdc4]
+        prose-p:my-4 prose-p:leading-8 prose-p:text-[#e0e0e0] prose-p:text-base
+        prose-ul:my-5 prose-ul:space-y-2 prose-ul:pl-6 prose-ul:list-disc prose-ul:border-l-4 prose-ul:border-[#4ecdc4] prose-ul:bg-gradient-to-r prose-ul.from-[#16213e] prose-ul.to-transparent
+        prose-ol:my-5 prose-ol:space-y-2 prose-ol:pl-6 prose-ol:list-decimal prose-ol:border-l-4 prose-ol:border-[#ffe66d] prose-ol:bg-gradient-to-r prose-ol.from-[#16213e] prose-ol.to-transparent
+        prose-li:my-2 prose-li:leading-8 prose-li:text-[#b8b8b8] prose-li:text-base
+        prose-blockquote:border-l-6 prose-blockquote:border-[#4ecdc4] prose-blockquote:pl-6 prose-blockquote:py-4 prose-blockquote:italic prose-blockquote:text-[#e0e0e0] prose-blockquote:bg-[#16213e] prose-blockquote:rounded-r-xl prose-blockquote:shadow-lg
+        prose-strong:text-[#ff6b6b] prose-strong:font-normal prose-strong:text-lg
+        prose-a:text-[#4ecdc4] prose-a:no-underline hover:prose-a:underline prose-a:text-lg prose-a:transition-all hover:prose-a:text-[#ffe66d]
+        prose-hr:border-[#0f3460] prose-hr:my-8 prose-hr:border-2">
         <ReactMarkdown 
           remarkPlugins={[remarkGfm]}
           components={{
@@ -292,22 +348,150 @@ export const ChatMessage = React.memo(function ChatMessage({
                 return null
               }
               return match ? (
-                <pre className="bg-[#1a1a1f] rounded-xl p-4 my-4 overflow-x-auto border border-[#2e2e32]">
-                  <code className={className} {...props}>
+                <pre style={{
+                  backgroundColor: "#0f3460",
+                  borderRadius: "12px",
+                  padding: "20px",
+                  margin: "16px 0",
+                  overflowX: "auto",
+                  border: "2px solid",
+                  borderImage: "linear-gradient(135deg, #e94560, #4ecdc4) 1",
+                  boxShadow: "0 0 20px rgba(233, 69, 96, 0.2)"
+                }}>
+                  <code style={{...props, color: "#4ecdc4", fontFamily: "monospace", fontSize: "14px"}}>
                     {children}
                   </code>
                 </pre>
               ) : (
-                <code className="bg-[#1a1a1f] rounded-lg px-2 py-1 font-mono text-base" {...props}>
+                <code style={{
+                  backgroundColor: "#0f3460",
+                  color: "#4ecdc4",
+                  padding: "4px 10px",
+                  borderRadius: "6px",
+                  border: "1px solid #4ecdc4",
+                  fontFamily: "monospace",
+                  fontSize: "14px"
+                }} {...props}>
                   {children}
                 </code>
               )
             },
-            h3: ({children}) => <h3 className="text-base font-semibold mt-4 mb-3">{children}</h3>,
-            ul: ({children}) => <ul className="list-disc list-inside my-3 space-y-1.5">{children}</ul>,
-            ol: ({children}) => <ol className="list-decimal list-inside my-3 space-y-1.5">{children}</ol>,
-            li: ({children}) => <li className="text-base">{children}</li>,
-            p: ({children}) => <p className="text-base my-3 leading-relaxed">{children}</p>,
+            h2: ({children}) => (
+              <h2 style={{
+                fontSize: "28px",
+                fontWeight: "normal",
+                marginTop: "32px",
+                marginBottom: "24px",
+                padding: "16px 20px",
+                borderLeft: "6px solid #e94560",
+                backgroundColor: "#16213e",
+                color: "#e0e0e0",
+                borderRadius: "0 12px 12px 0",
+                boxShadow: "0 4px 12px rgba(233, 69, 96, 0.2)"
+              }}>
+                {children}
+              </h2>
+            ),
+            h3: ({children}) => (
+              <h3 style={{
+                fontSize: "22px",
+                fontWeight: "normal",
+                marginTop: "24px",
+                marginBottom: "16px",
+                padding: "12px 16px",
+                borderLeft: "4px solid #4ecdc4",
+                backgroundColor: "#1a1a2e",
+                color: "#e0e0e0",
+                borderRadius: "0 8px 8px 0"
+              }}>
+                {children}
+              </h3>
+            ),
+            ul: ({children}) => (
+              <ul style={{
+                listStyleType: "disc",
+                listStylePosition: "inside",
+                marginTop: "20px",
+                marginBottom: "20px",
+                paddingLeft: "24px",
+                borderLeft: "4px solid #4ecdc4",
+                color: "#b8b8b8"
+              }}>
+                {children}
+              </ul>
+            ),
+            ol: ({children}) => (
+              <ol style={{
+                listStyleType: "decimal",
+                listStylePosition: "inside",
+                marginTop: "20px",
+                marginBottom: "20px",
+                paddingLeft: "24px",
+                borderLeft: "4px solid #ffe66d",
+                color: "#b8b8b8"
+              }}>
+                {children}
+              </ol>
+            ),
+            li: ({children}) => (
+              <li style={{
+                fontSize: "15px",
+                marginTop: "8px",
+                marginBottom: "8px",
+                lineHeight: "1.8",
+                color: "#b8b8b8"
+              }}>
+                {children}
+              </li>
+            ),
+            p: ({children}) => (
+              <p style={{
+                fontSize: "15px",
+                marginTop: "16px",
+                marginBottom: "16px",
+                lineHeight: "1.8",
+                color: "#e0e0e0"
+              }}>
+                {children}
+              </p>
+            ),
+            blockquote: ({children}) => (
+              <blockquote style={{
+                borderLeft: "6px solid #4ecdc4",
+                paddingLeft: "24px",
+                paddingTop: "16px",
+                paddingBottom: "16px",
+                fontStyle: "italic",
+                color: "#e0e0e0",
+                backgroundColor: "#16213e",
+                borderRadius: "0 12px 12px 0",
+                margin: "16px 0",
+                boxShadow: "0 4px 12px rgba(78, 205, 196, 0.2)"
+              }}>
+                {children}
+              </blockquote>
+            ),
+            a: ({href, children}) => (
+              <a href={href} style={{
+                color: "#4ecdc4",
+                textDecoration: "underline",
+                transition: "all 0.3s",
+                fontSize: "16px"
+              }} 
+              onMouseEnter={(e) => e.currentTarget.style.color = "#ffe66d"}
+              onMouseLeave={(e) => e.currentTarget.style.color = "#4ecdc4"}
+              target="_blank" rel="noopener noreferrer">
+                {children}
+              </a>
+            ),
+            hr: () => (
+              <hr style={{
+                border: "none",
+                borderTop: "2px solid #0f3460",
+                marginTop: "32px",
+                marginBottom: "32px"
+              }} />
+            ),
             div: ({children, ...props}) => {
               if (children && typeof children === 'string') {
                 if (children.includes('```html')) {
@@ -351,9 +535,9 @@ export const ChatMessage = React.memo(function ChatMessage({
                 </code>
               )
             },
-            p: ({children}) => <p className="my-2 leading-relaxed">{children}</p>,
-            ul: ({children}) => <ul className="list-disc list-inside my-2 space-y-1">{children}</ul>,
-            ol: ({children}) => <ol className="list-decimal list-inside my-2 space-y-1">{children}</ol>,
+            p: ({children}) => <p className="my-0 leading-relaxed whitespace-pre-wrap">{children}</p>,
+            ul: ({children}) => <ul className="list-disc list-inside my-1 space-y-1">{children}</ul>,
+            ol: ({children}) => <ol className="list-decimal list-inside my-1 space-y-1">{children}</ol>,
             li: ({children}) => <li className="text-base">{children}</li>,
             strong: ({children}) => <strong className="font-semibold">{children}</strong>,
             a: ({href, children}) => <a href={href} className="text-[#3b82f6] hover:underline" target="_blank" rel="noopener noreferrer">{children}</a>
@@ -370,9 +554,9 @@ export const ChatMessage = React.memo(function ChatMessage({
     <div className="space-y-4 py-2 w-full">
       {!hasOnlyImage && (
       <div
-        className={`px-4 py-2.5 text-[15px] leading-relaxed text-[#e5e5e5] ${
+        className={`px-3 py-2 text-[15px] text-[#e5e5e5] break-words ${
           isUser 
-            ? "bg-[#2a2a2e] rounded-2xl max-w-[85%] self-end" 
+            ? "bg-[#2a2a2e] rounded-2xl max-w-full self-end break-words" 
             : "w-full max-w-full"
         }`}
       >
@@ -383,17 +567,19 @@ export const ChatMessage = React.memo(function ChatMessage({
       
       {/* Status / Loading indicator in chat area */}
       {!isUser && status && status !== "idle" && status !== "ready" && (
-        <div className="flex items-center gap-3 px-4 py-3 bg-[#1a1a2e]/80 backdrop-blur-sm rounded-xl w-fit border border-[#2e2e32]">
-          <div className="flex gap-1.5">
-            <span className="w-2 h-2 rounded-full bg-[#de0f17] animate-bounce" style={{ animationDelay: '0ms' }} />
-            <span className="w-2 h-2 rounded-full bg-[#de0f17] animate-bounce" style={{ animationDelay: '150ms' }} />
-            <span className="w-2 h-2 rounded-full bg-[#de0f17] animate-bounce" style={{ animationDelay: '300ms' }} />
+        <div className="flex items-center gap-2 px-3 py-2 bg-[#1a1a2e]/80 backdrop-blur-sm rounded-xl w-fit border border-[#2e2e32]">
+          <div className="flex gap-1">
+            <span className="w-1.5 h-1.5 rounded-full bg-[#de0f17] animate-bounce" style={{ animationDelay: '0ms' }} />
+            <span className="w-1.5 h-1.5 rounded-full bg-[#de0f17] animate-bounce" style={{ animationDelay: '150ms' }} />
+            <span className="w-1.5 h-1.5 rounded-full bg-[#de0f17] animate-bounce" style={{ animationDelay: '300ms' }} />
           </div>
-          <span className="text-sm font-medium text-[#e5e5e5]">
-            {status === "planning" && "Planning your app..."}
-            {status === "coding" && "Building your app..."}
-            {status === "testing" && "Testing your app..."}
-            {status === "fixing" && "Fixing issues..."}
+          <span className="text-xs font-medium text-[#e5e5e5]">
+            {status === "planning" && "Planning..."}
+            {status === "coding" && "Building..."}
+            {status === "testing" && "Testing..."}
+            {status === "fixing" && "Fixing..."}
+            {status === "generating_image" && "Generating..."}
+            {status === "generating" && "Thinking..."}
           </span>
         </div>
       )}
