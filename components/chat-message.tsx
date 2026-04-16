@@ -221,87 +221,121 @@ export const ChatMessage = React.memo(function ChatMessage({
 
     const hasMarkdownTable = message.content.split('\n').some(line => line.trim().startsWith('|'))
     const hasHtmlTable = message.content.includes('<table')
-    
-    if (hasMarkdownTable) {
-      const lines = message.content.split('\n').filter(line => line.trim())
+
+    if (hasMarkdownTable || hasHtmlTable) {
+      let contentToParse = message.content
+
+      if (hasHtmlTable) {
+        const parser = new DOMParser()
+        const doc = parser.parseFromString(contentToParse, 'text/html')
+        const table = doc.querySelector('table')
+        if (table) {
+          const rows = Array.from(table.querySelectorAll('tr'))
+          const markdownRows = rows.map(row => {
+            const cells = Array.from(row.querySelectorAll('td, th')).map(cell => cell.textContent?.trim() || '')
+            return '|' + cells.join('|') + '|'
+          })
+          if (markdownRows.length > 1) {
+            markdownRows.splice(1, 0, '|' + '|---|'.repeat(markdownRows[0].split('|').length - 2) + '|')
+            contentToParse = markdownRows.join('\n')
+          }
+        }
+      }
+
+      const lines = contentToParse.split('\n').filter(line => line.trim())
       const tableLines = lines.filter(line => line.trim().startsWith('|') || line.trim().includes('|---'))
-      
+
       if (tableLines.length > 1 && tableLines.some(line => line.trim().includes('|---'))) {
         const processCell = (cell: string) => {
           let text = cell.trim()
-          text = text.replace(/\*\*(.*?)\*\*/g, '<span style={{color: "#ff6b6b"}}>$1</span>')
-          text = text.replace(/\*(.*?)\*/g, '<span style={{color: "#4ecdc4", fontStyle: "italic"}}>$1</span>')
-          text = text.replace(/`([^`]+)`/g, '<code style={{backgroundColor: "#0f3460", color: "#4ecdc4", padding: "2px 8px", borderRadius: "4px", border: "1px solid #4ecdc4", fontFamily: "monospace"}}>$1</code>')
+          text = text.replace(/\*\*(.*?)\*\*/g, '<strong style="color: #a78bfa; font-weight: 600;">$1</strong>')
+          text = text.replace(/\*(.*?)\*/g, '<em style="color: #2dd4bf;">$1</em>')
+          text = text.replace(/`([^`]+)`/g, '<code style="background: rgba(45, 212, 191, 0.1); color: #2dd4bf; padding: 2px 8px; border-radius: 6px; border: 1px solid rgba(45, 212, 191, 0.2); font-family: monospace; font-size: 0.9em;">$1</code>')
           return text
         }
-        
-        const headerCells = tableLines[0].split('|').filter(cell => cell.trim()).map((cell, idx) => {
-          const colors = ["#e94560", "#4ecdc4", "#ffe66d", "#95e1d3", "#f38181", "#aa96da"]
-          return (
-            <th 
-              key={idx} 
-              style={{
-                padding: "16px 24px",
-                textAlign: "left",
-                fontSize: "16px",
-                color: "white",
-                borderRight: "2px solid #0f3460",
-                background: `linear-gradient(135deg, ${colors[idx % colors.length]}, ${colors[(idx + 1) % colors.length]})`,
-                fontWeight: "normal",
-                textTransform: "uppercase",
-                letterSpacing: "1px"
-              }}
-            >
-              <div dangerouslySetInnerHTML={{ __html: processCell(cell) }} />
-            </th>
-          )
-        })
-        
+
+        const headerCells = tableLines[0].split('|').filter(cell => cell.trim()).map((cell, idx) => (
+          <th
+            key={idx}
+            style={{
+              padding: "16px 24px",
+              textAlign: "left",
+              fontSize: "14px",
+              fontWeight: "600",
+              textTransform: "uppercase",
+              letterSpacing: "0.05em",
+              color: "#a0a0a0",
+              borderBottom: "2px solid rgba(46, 46, 50, 0.8)",
+              borderRight: "1px solid rgba(46, 46, 50, 0.5)",
+              background: "#161618",
+              position: "relative",
+              overflow: "hidden"
+            }}
+          >
+            <div dangerouslySetInnerHTML={{ __html: processCell(cell) }} />
+          </th>
+        ))
+
         const bodyRows = tableLines
           .filter(line => line.trim() && !line.trim().startsWith('|---'))
           .slice(1)
           .map((row, rowIdx) => {
-            const colors = ["#1a1a2e", "#16213e", "#1f1f35", "#1e1e32"]
-            const hoverColors = ["#2a2a4e", "#263154", "#2f2f55", "#2e2e52"]
             const cells = row.split('|').filter(cell => cell.trim()).map((cell, cellIdx) => (
-              <td 
-                key={cellIdx} 
+              <td
+                key={cellIdx}
                 style={{
                   padding: "16px 24px",
                   fontSize: "15px",
-                  color: "#e0e0e0",
-                  borderRight: "2px solid #0f3460",
-                  backgroundColor: colors[rowIdx % colors.length],
-                  transition: "all 0.3s"
+                  color: "#d4d4d4",
+                  borderBottom: "1px solid rgba(46, 46, 50, 0.5)",
+                  borderRight: "1px solid rgba(46, 46, 50, 0.3)",
+                  backgroundColor: rowIdx % 2 === 1 ? '#0d0d10' : '#121215',
+                  transition: "all 0.2s ease",
+                  position: "relative"
                 }}
-                onMouseEnter={(e) => e.currentTarget.style.backgroundColor = hoverColors[rowIdx % hoverColors.length]}
-                onMouseLeave={(e) => e.currentTarget.style.backgroundColor = colors[rowIdx % colors.length]}
+                onMouseEnter={(e) => {
+                  e.currentTarget.style.background = "#1a1a1f"
+                  e.currentTarget.style.boxShadow = "0 0 20px rgba(46, 46, 50, 0.3)"
+                  e.currentTarget.style.transform = "scale(1.002)"
+                }}
+                onMouseLeave={(e) => {
+                  e.currentTarget.style.background = ""
+                  e.currentTarget.style.boxShadow = ""
+                  e.currentTarget.style.transform = ""
+                  e.currentTarget.style.backgroundColor = rowIdx % 2 === 1 ? '#0d0d10' : '#121215'
+                }}
               >
                 <div dangerouslySetInnerHTML={{ __html: processCell(cell) }} />
               </td>
             ))
             return (
-              <tr key={rowIdx} style={{borderBottom: "2px solid #0f3460"}}>
+              <tr
+                key={rowIdx}
+                style={{
+                  borderBottom: rowIdx === tableLines.filter(l => l.trim() && !l.trim().startsWith('|---')).length - 1 ? 'none' : '1px solid rgba(167, 139, 250, 0.15)'
+                }}
+              >
                 {cells}
               </tr>
             )
           })
-        
+
         return (
           <div style={{
             margin: "24px 0",
             width: "100%",
             overflowX: "auto",
             borderRadius: "16px",
-            border: "3px solid",
-            borderImage: "linear-gradient(135deg, #e94560, #4ecdc4, #ffe66d) 1",
-            boxShadow: "0 0 30px rgba(233, 69, 96, 0.3), 0 0 60px rgba(78, 205, 196, 0.2)"
+            background: "#0d0d10",
+            boxShadow: "0 8px 32px rgba(0, 0, 0, 0.4), 0 0 0 1px rgba(46, 46, 50, 0.5) inset"
           }}>
-            <table style={{width: "100%", borderCollapse: "collapse"}}>
+            <table style={{ width: "100%", borderCollapse: "separate", borderSpacing: "0", minWidth: "400px" }}>
               <thead>
-                <tr>{headerCells}</tr>
+                <tr>
+                  {headerCells}
+                </tr>
               </thead>
-              <tbody style={{backgroundColor: "#1a1a2e"}}>
+              <tbody>
                 {bodyRows}
               </tbody>
             </table>
@@ -310,21 +344,7 @@ export const ChatMessage = React.memo(function ChatMessage({
       }
     }
     
-    if (hasHtmlTable) {
-      return (
-        <div style={{
-          margin: "24px 0",
-          overflowX: "auto",
-          borderRadius: "16px",
-          border: "3px solid",
-          borderImage: "linear-gradient(135deg, #e94560, #4ecdc4, #ffe66d) 1",
-          boxShadow: "0 0 30px rgba(233, 69, 96, 0.3), 0 0 60px rgba(78, 205, 196, 0.2)"
-        }}>
-          <div dangerouslySetInnerHTML={{ __html: message.content }} />
-        </div>
-      )
-    }
-    
+        
     return (
       <div className="prose prose-base dark:prose-invert max-w-none 
         prose-headings:text-[#e0e0e0] prose-headings:font-normal prose-h2:text-2xl prose-h2:mt-8 prose-h2:mb-6 prose-h2:bg-[#16213e] prose-h2:px-4 prose-h2:py-3 prose-h2:border-l-4 prose-h2:border-[#e94560] prose-h3:text-xl prose-h3:mt-6 prose-h3:mb-4 prose-h3:bg-[#16213e] prose-h3:px-3 prose-h3:py-2 prose-h3:border-l-3 prose-h3:border-[#4ecdc4]
