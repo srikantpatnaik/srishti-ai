@@ -1,0 +1,65 @@
+version: v0.3.0
+
+# Use existing qwen3.5-4B as the routing model
+overrides:
+  llm_routing_model: ollama/qwen3.5-4B
+
+# LLM Providers with routing preferences
+llm_providers:
+  # Router model (your existing llama.cpp instance)
+  - model: ollama/qwen3.5-4B
+    base_url: http://192.168.1.8:11434/v1
+    default: true
+    routing_preferences:
+      - name: local_inference
+        description: lightweight tasks, quick responses when local model preferred
+      
+  # Primary model for app building (requires real API key)
+  # Uncomment when you have OPENAI_API_KEY
+  # - model: openai/gpt-4o
+  #   access_key: YOUR_OPENAI_KEY
+  #   default: true
+  #   routing_preferences:
+  #     - name: code_generation
+  #       description: writing new code, functions, apps, games, HTML, CSS, JavaScript
+  #     - name: complex_reasoning
+  #       description: deep analysis, mathematical problem solving, logical reasoning
+  #     - name: app_building
+  #       description: creating web applications, mobile apps, interactive tools
+  
+  # Fast model for simple queries (requires real API key)
+  # Uncomment when you have OPENAI_API_KEY
+  # - model: openai/gpt-4o-mini
+  #   access_key: YOUR_OPENAI_KEY
+  #   routing_preferences:
+  #     - name: simple_qa
+  #       description: basic questions, factual queries, simple tasks
+  #     - name: casual_conversation
+  #       description: everyday chat, greetings, small talk
+
+# Model aliases for semantic routing
+model_aliases:
+  fast-model:
+    target: qwen3.5-4B
+  reasoning-model:
+    target: qwen3.5-4B
+  code-model:
+    target: qwen3.5-4B
+  local-model:
+    target: qwen3.5-4B
+
+# Listener configuration
+listeners:
+  - type: model
+    name: srishti_gateway
+    address: 0.0.0.0
+    port: 12000
+
+# Routing configuration with in-memory session affinity (dev mode)
+routing:
+  session_ttl_seconds: 3600
+  session_max_entries: 10000
+
+# Observability and tracing (100% for dev)
+tracing:
+  random_sampling: 100

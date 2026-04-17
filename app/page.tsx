@@ -57,6 +57,7 @@ export default function Home() {
   const [messageImages, setMessageImages] = useState<Map<number, string>>(new Map())
   const [mediaNavIndex, setMediaNavIndex] = useState(0)
   const mediaAppsRef = useRef<SavedApp[]>([])
+  const [sessionId, setSessionId] = useState<string>("")
 
   const languages = [
     { code: "", name: "English", native: "English" },
@@ -80,6 +81,18 @@ export default function Home() {
     selectedLanguageRef.current = selectedLanguage
   }, [selectedLanguage])
 
+  // Initialize session ID for Plano model affinity
+  useEffect(() => {
+    const storedSession = localStorage.getItem("plano_session_id")
+    if (storedSession) {
+      setSessionId(storedSession)
+    } else {
+      const newSessionId = crypto.randomUUID()
+      setSessionId(newSessionId)
+      localStorage.setItem("plano_session_id", newSessionId)
+    }
+  }, [])
+
   const { darkMode, setDarkMode } = useDarkMode()
 
   const { handleMouseDown: handleResizeMouseDown } = useResizing(setPreviewWidth, setIsResizing)
@@ -102,9 +115,9 @@ export default function Home() {
     stop: stopChat,
   } = useChat({
     key: chatKey,
-    api: "/api/router",
+    api: "/api/chat",
     initialMessages: initialMessages,
-    body: { selectedProvider, selectedLanguage },
+    body: { selectedProvider, selectedLanguage, sessionId },
     onError: (error) => {
       console.error("Chat error:", error)
       setStatus("error")
