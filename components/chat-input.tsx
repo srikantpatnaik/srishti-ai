@@ -78,7 +78,7 @@ export function ChatInput({
         <div className="relative" ref={menuRef}>
           <button
             onClick={() => setShowMenu(!showMenu)}
-            className={`flex items-center justify-center h-10 w-10 rounded-full bg-[#0a0a0a] text-[#666666] hover:text-[#e5e5e5] hover:bg-[#111111] transition-all ${showMenu ? 'rounded-r-none bg-[#111111]' : ''}`}
+            className={`flex items-center justify-center h-10 w-10 rounded-full bg-[#0a0a0a] border border-[#1a1a1a] text-[#666666] hover:text-[#e5e5e5] hover:bg-[#111111] hover:border-[#333333] transition-all ${showMenu ? 'rounded-r-none bg-[#111111] border-l-0' : ''}`}
             title="Menu"
           >
             <Plus className="h-5 w-5" />
@@ -138,11 +138,31 @@ export function ChatInput({
             value={input}
             onChange={(e) => setInput(e.target.value)}
             onKeyDown={(e) => {
-              if (e.key === "Enter" && !e.shiftKey && !isGenerating) {
-                e.preventDefault()
-                onSubmit()
-              }
-            }}
+               if (e.key === "ArrowUp" && !isGenerating) {
+                 e.preventDefault()
+                 const textarea = e.target as HTMLTextAreaElement
+                 const selectionStart = textarea.selectionStart
+                 const value = textarea.value
+                 const lastNewlineIndex = value.lastIndexOf('\n', selectionStart - 1)
+                 if (lastNewlineIndex !== -1) {
+                   textarea.setSelectionRange(lastNewlineIndex + 1, selectionStart)
+                   textarea.focus()
+                 }
+               } else if (e.key === "ArrowDown" && !isGenerating) {
+                 e.preventDefault()
+                 const textarea = e.target as HTMLTextAreaElement
+                 const selectionStart = textarea.selectionStart
+                 const value = textarea.value
+                 const nextNewlineIndex = value.indexOf('\n', selectionStart)
+                 if (nextNewlineIndex !== -1) {
+                   textarea.setSelectionRange(nextNewlineIndex + 1, selectionStart + (nextNewlineIndex - selectionStart + 1))
+                   textarea.focus()
+                 }
+               } else if (e.key === "Enter" && !e.shiftKey && !isGenerating) {
+                 e.preventDefault()
+                 onSubmit()
+               }
+             }}
             placeholder={isGenerating ? "Queuing next query..." : currentLang.placeholder}
             rows={1}
             className="w-full min-h-[44px] max-h-[120px] resize-none bg-[#0a0a0a] text-[#e5e5e5] placeholder:text-[#333333] focus-visible:outline-none focus-visible:ring-0 pr-14 py-2.5 rounded-2xl overflow-y-auto [&::-webkit-scrollbar]:hidden text-sm"

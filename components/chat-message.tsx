@@ -651,13 +651,14 @@ export const ChatMessage = React.memo(function ChatMessage({
         </div>
       )}
 
-      {/* Image preview in chat - shown when there's an image URL */}
+     {/* Image preview in chat - shown when there's an image URL */}
       {message.imageUrl && !isUser && (
         <div className="mt-4 group relative overflow-hidden w-full bg-[#000000]">
           <img
             src={message.imageUrl}
             alt="Generated image"
-            className="w-full h-auto max-h-[500px] object-contain bg-[#0a0a0f]"
+            className="w-full h-auto max-h-[500px] object-contain bg-[#0a0a0f] cursor-pointer"
+            onClick={() => onImageOpen?.()}
           />
           
           {/* Action buttons - visible on hover */}
@@ -682,15 +683,6 @@ export const ChatMessage = React.memo(function ChatMessage({
                 title="Download"
               >
                 <Download className="h-4 w-4" />
-              </button>
-            )}
-            {onImageOpen && (
-              <button
-                onClick={(e) => { e.stopPropagation(); onImageOpen(); }}
-                className="p-2 bg-[#1f1f23]/90 backdrop-blur-sm rounded-lg text-[#e5e5e5] hover:bg-[#3b82f6] transition-colors"
-                title="Open in Preview"
-              >
-                <ExternalLink className="h-4 w-4" />
               </button>
             )}
           </div>
