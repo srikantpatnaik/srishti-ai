@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect, useRef, useCallback, useMemo } from "react"
 import JSZip from "jszip"
-import { Bot, ChevronLeft, ChevronRight, ChevronDown, Grid, Grid3X3, X, ChevronLeft as ChevronLeftIcon, PanelRightClose, PanelRightOpen, Plus, MessageSquarePlus, Download, FolderHeart, ArrowLeft } from "lucide-react"
+import { Bot, ChevronLeft, ChevronRight, ChevronDown, Grid, Grid3X3, X, ChevronLeft as ChevronLeftIcon, PanelRightClose, PanelRightOpen, Plus, Download, FolderHeart, ArrowLeft } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { ScrollArea } from "@/components/ui/scroll-area"
 import { ChatMessage } from "@/components/chat-message"
@@ -13,7 +13,6 @@ import { useDarkMode, useKeyboardShortcuts, useResizing } from "@/hooks/use-ui-u
 import { SettingsPanel } from "@/components/settings-panel"
 import { AppDrawer } from "@/components/app-drawer"
 import { ChatInput } from "@/components/chat-input"
-import { Dock } from "@/components/dock"
 import { AgentStatus, Provider, SavedApp } from "@/types"
 import { saveAppToDB, getAllAppsFromDB, deleteAppFromDB, saveChatHistoryToDB, getChatHistoryFromDB, deleteChatHistoryFromDB } from "@/lib/db"
 
@@ -59,24 +58,7 @@ export default function Home() {
   const mediaAppsRef = useRef<SavedApp[]>([])
   const [sessionId, setSessionId] = useState<string>("")
 
-  const languages = [
-    { code: "", name: "English", native: "English" },
-    { code: "hi", name: "Hindi", native: "हिंदी" },
-    { code: "bn", name: "Bengali", native: "বাংলা" },
-    { code: "te", name: "Telugu", native: "తెలుగు" },
-    { code: "mr", name: "Marathi", native: "मराठी" },
-    { code: "ta", name: "Tamil", native: "தமிழ்" },
-    { code: "gu", name: "Gujarati", native: "ગુજરાતી" },
-    { code: "kn", name: "Kannada", native: "ಕನ್ನಡ" },
-    { code: "ml", name: "Malayalam", native: "മലയാളം" },
-    { code: "pa", name: "Punjabi", native: "ਪੰਜਾਬੀ" },
-    { code: "ur", name: "Urdu", native: "اردو" },
-    { code: "or", name: "Odia", native: "ଓଡ଼ିଆ" },
-    { code: "as", name: "Assamese", native: "অসমীয়া" },
-    { code: "mai", name: "Maithili", native: "मैथिली" },
-  ]
-  const currentLang = languages.find(l => l.code === selectedLanguage) || languages[0]
-  
+
   useEffect(() => {
     selectedLanguageRef.current = selectedLanguage
   }, [selectedLanguage])
@@ -1218,32 +1200,28 @@ const [hasSavedToGallery, setHasSavedToGallery] = useState(false)
             </ScrollArea>
 
             <div className="px-4 pb-4 max-w-3xl mx-auto w-full">
-              <Dock
-                onNewChat={newSession}
-                onToggleGallery={() => {
-                  if (showAppDrawer) {
-                    setShowAppDrawer(false)
-                    setPreviewImageUrl(null)
-                    setShowPreview(false)
-                    setBlobUrl("")
-                  } else {
-                    if (previewImageUrl || blobUrl) {
-                      setPreviewImageUrl(null)
-                      setShowPreview(false)
-                      setBlobUrl("")
-                    }
-                    setShowAppDrawer(true)
-                  }
-                }}
-                selectedLanguage={selectedLanguage}
-                onLanguageChange={(lang) => {
-                  setSelectedLanguage(lang)
-                }}
-              />
               <div className="mt-2 w-full">
                 <ChatInput 
                   input={input} setInput={setInput} isGenerating={isGenerating}
                   handleSubmit={handleSubmit} stopGeneration={stopGeneration}
+                  selectedLanguage={selectedLanguage}
+                  onLanguageChange={(lang) => setSelectedLanguage(lang)}
+                  onNewChat={newSession}
+                  onToggleGallery={() => {
+                    if (showAppDrawer) {
+                      setShowAppDrawer(false)
+                      setPreviewImageUrl(null)
+                      setShowPreview(false)
+                      setBlobUrl("")
+                    } else {
+                      if (previewImageUrl || blobUrl) {
+                        setPreviewImageUrl(null)
+                        setShowPreview(false)
+                        setBlobUrl("")
+                      }
+                      setShowAppDrawer(true)
+                    }
+                  }}
                 />
               </div>
             </div>
