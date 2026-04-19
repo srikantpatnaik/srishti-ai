@@ -1095,7 +1095,7 @@ const [hasSavedToGallery, setHasSavedToGallery] = useState(false)
   }
 
   return (
-    <div className="flex h-screen bg-[#121215]">
+    <div className="flex h-screen bg-[#0a0a0a]">
       {shareMessage && (
         <div className="fixed top-4 left-1/2 transform -translate-x-1/2 bg-muted text-foreground px-4 py-2 rounded-lg shadow-md z-50">
           {shareMessage}
@@ -1111,7 +1111,7 @@ const [hasSavedToGallery, setHasSavedToGallery] = useState(false)
       />
 
       {showPreview && window.innerWidth < 768 && (
-        <div className="fixed inset-0 z-50 bg-[#121215]">
+        <div className="fixed inset-0 z-50 bg-[#0a0a0a]">
           <div className="flex items-center justify-between px-4 py-3">
             <span className="text-sm font-medium">{savedApps.find(app => app.code === editedAppCode)?.name || "Current Chat"}</span>
             <Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => setShowPreview(false)}>
@@ -1161,10 +1161,10 @@ const [hasSavedToGallery, setHasSavedToGallery] = useState(false)
           )}
         </div>
 
-        <div className={`flex-1 flex min-h-0 ${showAppDrawer ? 'hidden md:flex' : ''}`}>
+       <div className={`flex-1 flex min-h-0 ${showAppDrawer ? 'hidden md:flex' : ''}`}>
           <div className="flex-1 flex flex-col min-w-0">
-            <ScrollArea className="flex-1 bg-[#121215] [&::-webkit-scrollbar]:hidden">
-              <div className="px-4 py-2 space-y-4 max-w-3xl mx-auto">
+            <ScrollArea className="flex-1 bg-[#0a0a0a] [&::-webkit-scrollbar]:hidden">
+              <div className="px-4 py-4 space-y-4 max-w-3xl mx-auto">
                 {useMemo(() => {
                   const visibleMessages = messages.slice(visibleRange.start, visibleRange.end)
                   return visibleMessages.map((msg, idx) => {
@@ -1199,8 +1199,8 @@ const [hasSavedToGallery, setHasSavedToGallery] = useState(false)
               </div>
             </ScrollArea>
 
-            <div className="px-4 pb-4 max-w-3xl mx-auto w-full">
-              <div className="mt-2 w-full">
+            <div className="px-4 pb-6 pt-2 max-w-3xl mx-auto w-full">
+              <div className="w-full">
                 <ChatInput 
                   input={input} setInput={setInput} isGenerating={isGenerating}
                   handleSubmit={handleSubmit} stopGeneration={stopGeneration}

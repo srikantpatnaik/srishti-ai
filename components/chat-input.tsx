@@ -74,19 +74,19 @@ export function ChatInput({
 
   return (
     <div className="relative">
-      <div className="relative flex items-end gap-2">
+      <div className="relative flex items-end gap-1.5">
         <div className="relative" ref={menuRef}>
           <button
             onClick={() => setShowMenu(!showMenu)}
-            className={`flex items-center justify-center h-[48px] w-10 rounded-2xl border border-[#2e2e32] bg-[#1f1f23] text-[#888888] hover:text-[#e5e5e5] hover:bg-[#2a2a2e] transition-all ${showMenu ? 'rounded-r-none border-r-0' : ''}`}
+            className={`flex items-center justify-center h-10 w-10 rounded-full bg-[#0a0a0a] text-[#666666] hover:text-[#e5e5e5] hover:bg-[#111111] transition-all ${showMenu ? 'rounded-r-none bg-[#111111]' : ''}`}
             title="Menu"
           >
             <Plus className="h-5 w-5" />
           </button>
           {showMenu && (
-            <div className="absolute bottom-full mb-2 left-0 p-2 bg-[#1f1f23]/95 backdrop-blur-md border border-[#3e3e42] rounded-xl shadow-xl w-[240px]">
-              <div className="mb-2 pb-2 border-b border-[#2e2e32]">
-                <p className="text-xs text-[#666666] mb-1.5 px-1">Language</p>
+            <div      className="absolute bottom-full mb-2 left-0 p-2 bg-[#050505]/98 backdrop-blur-md border border-[#0f0f0f] rounded-xl shadow-2xl w-[240px]">
+              <div className="mb-1 pb-2 border-b border-[#0f0f0f]">
+                <p className="text-[10px] text-[#333333] mb-1.5 px-2 uppercase tracking-wider">Language</p>
                 <div className="max-h-[160px] overflow-y-auto [&::-webkit-scrollbar]:hidden">
                   {languages.map((lang) => (
                     <button
@@ -95,13 +95,13 @@ export function ChatInput({
                         onLanguageChange(lang.code)
                         setShowMenu(false)
                       }}
-                      className={`w-full text-left px-2 py-1.5 text-sm rounded-lg transition-colors flex items-center gap-2 ${
+                      className={`w-full text-left px-2 py-2 text-sm rounded-lg transition-colors flex items-center gap-2 ${
                         selectedLanguage === lang.code 
-                          ? 'bg-[#3e3e42] text-[#e5e5e5]' 
-                          : 'text-[#e5e5e5] hover:bg-[#2e2e32]'
+                          ? 'bg-[#0f0f0f] text-[#e5e5e5]' 
+                          : 'text-[#444444] hover:bg-[#0a0a0a]'
                       }`}
                     >
-                      <span className="text-[#888888] text-xs w-8">{lang.native}</span>
+                      <span className="text-[#666666] text-xs w-8">{lang.native}</span>
                       <span className="text-[#888888] text-xs">{lang.name}</span>
                     </button>
                   ))}
@@ -112,20 +112,20 @@ export function ChatInput({
                   onNewChat()
                   setShowMenu(false)
                 }}
-                className="w-full flex items-center gap-2 px-2 py-1.5 text-sm text-[#e5e5e5] hover:bg-[#2e2e32] rounded-lg transition-colors"
+                className="w-full flex items-center gap-2 px-2 py-2 text-sm text-[#444444] hover:bg-[#0a0a0a] rounded-lg transition-colors"
               >
-                <MessageSquarePlus className="h-4 w-4 text-[#888888]" />
+                <MessageSquarePlus className="h-4 w-4 text-[#333333]" />
                 <span>New Chat</span>
               </button>
-              <div className="mt-1 pt-2 border-t border-[#2e2e32]">
+              <div className="mt-1 pt-2 border-t border-[#0f0f0f]">
                 <button
                   onClick={() => {
                     onToggleGallery()
                     setShowMenu(false)
                   }}
-                  className="w-full flex items-center gap-2 px-2 py-1.5 text-sm text-[#e5e5e5] hover:bg-[#2e2e32] rounded-lg transition-colors"
+                  className="w-full flex items-center gap-2 px-2 py-2 text-sm text-[#444444] hover:bg-[#0a0a0a] rounded-lg transition-colors"
                 >
-                  <Grid3X3 className="h-4 w-4 text-[#888888]" />
+                  <Grid3X3 className="h-4 w-4 text-[#666666]" />
                   <span>Menu</span>
                 </button>
               </div>
@@ -133,41 +133,43 @@ export function ChatInput({
           )}
         </div>
 
-        <Textarea
-          value={input}
-          onChange={(e) => setInput(e.target.value)}
-          onKeyDown={(e) => {
-            if (e.key === "Enter" && !e.shiftKey && !isGenerating) {
-              e.preventDefault()
-              onSubmit()
-            }
-          }}
-          placeholder={isGenerating ? "Queuing next query..." : currentLang.placeholder}
-          rows={1}
-          className="flex-1 min-h-[48px] max-h-[120px] resize-none border border-[#2e2e32] bg-[#1f1f23] text-[#e5e5e5] placeholder:text-[#888888] focus-visible:outline-none focus-visible:ring-0 pr-14 py-3 rounded-2xl overflow-y-auto [&::-webkit-scrollbar]:hidden"
-        />
+        <div className="flex-1 relative">
+          <Textarea
+            value={input}
+            onChange={(e) => setInput(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === "Enter" && !e.shiftKey && !isGenerating) {
+                e.preventDefault()
+                onSubmit()
+              }
+            }}
+            placeholder={isGenerating ? "Queuing next query..." : currentLang.placeholder}
+            rows={1}
+            className="w-full min-h-[44px] max-h-[120px] resize-none bg-[#0a0a0a] text-[#e5e5e5] placeholder:text-[#333333] focus-visible:outline-none focus-visible:ring-0 pr-14 py-2.5 rounded-2xl overflow-y-auto [&::-webkit-scrollbar]:hidden text-sm"
+          />
 
-        <div className="absolute right-2.5 top-1/2 -translate-y-1/2">
-          {isGenerating ? (
-            <button
-              type="button"
-              onClick={onStop}
-              className="p-2 rounded-xl bg-[#2a2a2e] hover:bg-[#343541] text-[#888888] hover:text-[#e5e5e5] transition-all"
-              title="Stop"
-            >
-              <Square className="h-4 w-4" />
-            </button>
-          ) : (
-            <button
-              type="submit"
-              onClick={onSubmit}
-              disabled={!canSubmit}
-              className="p-2 rounded-xl bg-[#2a2a2e] hover:bg-[#343541] text-[#888888] hover:text-[#e5e5e5] transition-all disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:bg-[#2a2a2e]"
-              title="Send"
-            >
-              <ArrowUp className="h-4 w-4" />
-            </button>
-          )}
+          <div className="absolute right-2 top-1/2 -translate-y-1/2">
+            {isGenerating ? (
+              <button
+                type="button"
+                onClick={onStop}
+                className="p-1.5 rounded-full bg-[#0f0f0f] hover:bg-[#1a1a1a] text-[#555555] hover:text-[#e5e5e5] transition-all"
+                title="Stop"
+              >
+                <Square className="h-3.5 w-3.5" />
+              </button>
+            ) : (
+              <button
+                type="submit"
+                onClick={onSubmit}
+                disabled={!canSubmit}
+                className="p-1.5 rounded-full bg-[#0f0f0f] hover:bg-[#1a1a1a] text-[#555555] hover:text-[#e5e5e5] transition-all disabled:opacity-30 disabled:cursor-not-allowed disabled:hover:bg-[#0f0f0f]"
+                title="Send"
+              >
+                <ArrowUp className="h-3.5 w-3.5" />
+              </button>
+            )}
+          </div>
         </div>
       </div>
     </div>
