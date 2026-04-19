@@ -1,4 +1,4 @@
-import React, { useState, useRef, useEffect } from "react"
+import React, { useState, useRef, useEffect, useCallback } from "react"
 import { ArrowUp, Square, Plus, MessageSquarePlus, Grid3X3 } from "lucide-react"
 import { Textarea } from "@/components/ui/textarea"
 
@@ -31,6 +31,24 @@ interface ChatInputProps {
   onToggleGallery: () => void
 }
 
+function getPromptHistory(): string[] {
+  try {
+    const stored = localStorage.getItem("promptHistory")
+    return stored ? JSON.parse(stored) : []
+  } catch {
+    return []
+  }
+}
+
+function savePromptToHistory(prompt: string) {
+  const history = getPromptHistory()
+  if (!prompt.trim()) return
+  const filtered = history.filter(h => h !== prompt)
+  filtered.push(prompt)
+  if (filtered.length > 50) filtered.shift()
+  localStorage.setItem("promptHistory", JSON.stringify(filtered))
+}
+
 export function ChatInput({
   input,
   setInput,
@@ -44,7 +62,13 @@ export function ChatInput({
 }: ChatInputProps) {
   const [showMenu, setShowMenu] = useState(false)
   const menuRef = useRef<HTMLDivElement>(null)
+  const textareaRef = useRef<HTMLTextAreaElement>(null)
   const currentLang = languages.find(l => l.code === selectedLanguage) || languages[0]
+
+  // Bash-style history state
+  const [historyIndex, setHistoryIndex] = useState(-1)
+  const [savedInput, setSavedInput] = useState("")
+  const promptHistory = getPromptHistory()
 
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
@@ -64,6 +88,11 @@ export function ChatInput({
 
   const onSubmit = (e?: React.FormEvent) => {
     if (isGenerating) return
+    if (input.trim()) {
+      savePromptToHistory(input)
+    }
+    setHistoryIndex(-1)
+    setSavedInput("")
     handleSubmit(e)
   }
 
@@ -72,22 +101,59 @@ export function ChatInput({
     if (stopGeneration) stopGeneration()
   }
 
+  const handleArrowUp = useCallback(() => {
+    if (isGenerating) return
+    const textarea = textareaRef.current
+    if (!textarea) return
+
+    if (historyIndex === -1) {
+      setSavedInput(input)
+      setHistoryIndex(promptHistory.length)
+    }
+
+    if (historyIndex > 0) {
+      const newIndex = historyIndex - 1
+      setHistoryIndex(newIndex)
+      setInput(promptHistory[newIndex])
+    }
+  }, [historyIndex, input, isGenerating, promptHistory, setInput])
+
+  const handleArrowDown = useCallback(() => {
+    if (isGenerating) return
+    const textarea = textareaRef.current
+    if (!textarea) return
+
+    if (historyIndex > 0) {
+      const newIndex = historyIndex - 1
+      setHistoryIndex(newIndex)
+      if (newIndex > 0) {
+        setInput(promptHistory[newIndex])
+      } else {
+        setInput(savedInput)
+        setHistoryIndex(-1)
+      }
+    } else {
+      setInput(savedInput)
+      setHistoryIndex(-1)
+    }
+  }, [historyIndex, isGenerating, promptHistory, savedInput, setInput])
+
   return (
     <div className="relative">
       <div className="relative flex items-end gap-1.5">
         <div className="relative" ref={menuRef}>
           <button
             onClick={() => setShowMenu(!showMenu)}
-            className={`flex items-center justify-center h-10 w-10 rounded-full bg-[#0a0a0a] border border-[#1a1a1a] text-[#666666] hover:text-[#e5e5e5] hover:bg-[#111111] hover:border-[#333333] transition-all ${showMenu ? 'rounded-r-none bg-[#111111] border-l-0' : ''}`}
+            className={`flex items-center justify-center h-10 w-10 rounded-xl bg-[#0f0f0f] border border-[#1a1a1a] text-[#666666] hover:text-[#e5e5e5] hover:bg-[#1a1a1a] hover:border-[#2e2e32] transition-all ${showMenu ? 'rounded-br-none border-r-0 border-b-0' : ''}`}
             title="Menu"
           >
             <Plus className="h-5 w-5" />
           </button>
           {showMenu && (
-            <div      className="absolute bottom-full mb-2 left-0 p-2 bg-[#050505]/98 backdrop-blur-md border border-[#0f0f0f] rounded-xl shadow-2xl w-[240px]">
-              <div className="mb-1 pb-2 border-b border-[#0f0f0f]">
-                <p className="text-[10px] text-[#333333] mb-1.5 px-2 uppercase tracking-wider">Language</p>
-                <div className="max-h-[160px] overflow-y-auto [&::-webkit-scrollbar]:hidden">
+            <div className="absolute bottom-full mb-2 left-0 p-3 bg-[#0a0a0a] border border-[#1a1a1a] rounded-xl shadow-2xl w-[260px]">
+              <div className="mb-2 pb-2.5 border-b border-[#1a1a1a]">
+                <p className="text-[10px] text-[#444444] mb-2 px-1 uppercase tracking-widest font-medium">Language</p>
+                <div className="max-h-[200px] overflow-y-auto [&::-webkit-scrollbar]:hidden space-y-0.5">
                   {languages.map((lang) => (
                     <button
                       key={lang.code}
@@ -95,14 +161,17 @@ export function ChatInput({
                         onLanguageChange(lang.code)
                         setShowMenu(false)
                       }}
-                      className={`w-full text-left px-2 py-2 text-sm rounded-lg transition-colors flex items-center gap-2 ${
+                      className={`w-full text-left px-2.5 py-2 text-sm rounded-lg transition-all flex items-center gap-3 ${
                         selectedLanguage === lang.code 
-                          ? 'bg-[#0f0f0f] text-[#e5e5e5]' 
-                          : 'text-[#444444] hover:bg-[#0a0a0a]'
+                          ? 'bg-[#1a1a1a] text-[#e5e5e5] border border-[#2e2e32]' 
+                          : 'text-[#555555] hover:bg-[#141414] hover:text-[#888888]'
                       }`}
                     >
-                      <span className="text-[#666666] text-xs w-8">{lang.native}</span>
-                      <span className="text-[#888888] text-xs">{lang.name}</span>
+                      <span className="text-[#444444] text-xs w-8 font-mono">{lang.native}</span>
+                      <span className="text-[#666666] text-xs">{lang.name}</span>
+                      {selectedLanguage === lang.code && (
+                        <span className="ml-auto text-[#de0f17] text-xs">●</span>
+                      )}
                     </button>
                   ))}
                 </div>
@@ -112,21 +181,21 @@ export function ChatInput({
                   onNewChat()
                   setShowMenu(false)
                 }}
-                className="w-full flex items-center gap-2 px-2 py-2 text-sm text-[#444444] hover:bg-[#0a0a0a] rounded-lg transition-colors"
+                className="w-full flex items-center gap-2.5 px-2.5 py-2.5 text-sm text-[#555555] hover:bg-[#141414] hover:text-[#e5e5e5] rounded-lg transition-all"
               >
-                <MessageSquarePlus className="h-4 w-4 text-[#333333]" />
+                <MessageSquarePlus className="h-4 w-4 text-[#444444]" />
                 <span>New Chat</span>
               </button>
-              <div className="mt-1 pt-2 border-t border-[#0f0f0f]">
+              <div className="mt-1 pt-2 border-t border-[#1a1a1a]">
                 <button
                   onClick={() => {
                     onToggleGallery()
                     setShowMenu(false)
                   }}
-                  className="w-full flex items-center gap-2 px-2 py-2 text-sm text-[#444444] hover:bg-[#0a0a0a] rounded-lg transition-colors"
+                  className="w-full flex items-center gap-2.5 px-2.5 py-2.5 text-sm text-[#555555] hover:bg-[#141414] hover:text-[#e5e5e5] rounded-lg transition-all"
                 >
-                  <Grid3X3 className="h-4 w-4 text-[#666666]" />
-                  <span>Menu</span>
+                  <Grid3X3 className="h-4 w-4 text-[#444444]" />
+                  <span>Gallery</span>
                 </button>
               </div>
             </div>
@@ -135,37 +204,24 @@ export function ChatInput({
 
         <div className="flex-1 relative">
           <Textarea
+            ref={textareaRef}
             value={input}
             onChange={(e) => setInput(e.target.value)}
             onKeyDown={(e) => {
-               if (e.key === "ArrowUp" && !isGenerating) {
-                 e.preventDefault()
-                 const textarea = e.target as HTMLTextAreaElement
-                 const selectionStart = textarea.selectionStart
-                 const value = textarea.value
-                 const lastNewlineIndex = value.lastIndexOf('\n', selectionStart - 1)
-                 if (lastNewlineIndex !== -1) {
-                   textarea.setSelectionRange(lastNewlineIndex + 1, selectionStart)
-                   textarea.focus()
-                 }
-               } else if (e.key === "ArrowDown" && !isGenerating) {
-                 e.preventDefault()
-                 const textarea = e.target as HTMLTextAreaElement
-                 const selectionStart = textarea.selectionStart
-                 const value = textarea.value
-                 const nextNewlineIndex = value.indexOf('\n', selectionStart)
-                 if (nextNewlineIndex !== -1) {
-                   textarea.setSelectionRange(nextNewlineIndex + 1, selectionStart + (nextNewlineIndex - selectionStart + 1))
-                   textarea.focus()
-                 }
-               } else if (e.key === "Enter" && !e.shiftKey && !isGenerating) {
-                 e.preventDefault()
-                 onSubmit()
-               }
-             }}
+              if (e.key === "ArrowUp" && !isGenerating) {
+                e.preventDefault()
+                handleArrowUp()
+              } else if (e.key === "ArrowDown" && !isGenerating) {
+                e.preventDefault()
+                handleArrowDown()
+              } else if (e.key === "Enter" && !e.shiftKey && !isGenerating) {
+                e.preventDefault()
+                onSubmit()
+              }
+            }}
             placeholder={isGenerating ? "Queuing next query..." : currentLang.placeholder}
             rows={1}
-            className="w-full min-h-[44px] max-h-[120px] resize-none bg-[#0a0a0a] text-[#e5e5e5] placeholder:text-[#333333] focus-visible:outline-none focus-visible:ring-0 pr-14 py-2.5 rounded-2xl overflow-y-auto [&::-webkit-scrollbar]:hidden text-sm"
+            className="w-full min-h-[44px] max-h-[120px] resize-none bg-[#0a0a0a] text-[#e5e5e5] placeholder:text-[#2a2a2a] focus-visible:outline-none focus-visible:ring-0 pr-14 py-2.5 rounded-2xl overflow-y-auto [&::-webkit-scrollbar]:hidden text-sm border border-[#1a1a1a] focus:border-[#2e2e32]"
           />
 
           <div className="absolute right-2 top-1/2 -translate-y-1/2">
@@ -173,7 +229,7 @@ export function ChatInput({
               <button
                 type="button"
                 onClick={onStop}
-                className="p-1.5 rounded-full bg-[#0f0f0f] hover:bg-[#1a1a1a] text-[#555555] hover:text-[#e5e5e5] transition-all"
+                className="p-1.5 rounded-full bg-[#141414] hover:bg-[#1f1f1f] text-[#555555] hover:text-[#e5e5e5] transition-all"
                 title="Stop"
               >
                 <Square className="h-3.5 w-3.5" />
@@ -183,7 +239,7 @@ export function ChatInput({
                 type="submit"
                 onClick={onSubmit}
                 disabled={!canSubmit}
-                className="p-1.5 rounded-full bg-[#0f0f0f] hover:bg-[#1a1a1a] text-[#555555] hover:text-[#e5e5e5] transition-all disabled:opacity-30 disabled:cursor-not-allowed disabled:hover:bg-[#0f0f0f]"
+                className="p-1.5 rounded-full bg-[#141414] hover:bg-[#1f1f1f] text-[#555555] hover:text-[#e5e5e5] transition-all disabled:opacity-20 disabled:cursor-not-allowed disabled:hover:bg-[#141414]"
                 title="Send"
               >
                 <ArrowUp className="h-3.5 w-3.5" />
