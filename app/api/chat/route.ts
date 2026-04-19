@@ -125,7 +125,14 @@ export async function POST(req: Request) {
 - Touch-friendly buttons (min 44px height)
 - Vertical layouts for phones
 
-When you finish building, DO NOT output the code in your response. Just say something like "Your app is ready! Scroll down to see it" or "Here's your game! Play it below". The code will be captured automatically and shown as a preview.`
+When you finish building, DO NOT output the code in your response. Just say something like "Your app is ready! Scroll down to see it" or "Here's your game! Play it below". The code will be captured automatically and shown as a preview.
+
+## Response Format
+- Use clear headings with ### for main sections
+- Keep responses well-structured and easy to read
+- At the end of every response, add a "### SUGGESTIONS" section with 3-4 follow-up questions the user might want to ask
+- Format suggestions as bullet points (one per line)
+- Make suggestions relevant to the current conversation context`
 
     try {
       // Primary: Ollama (llama.cpp) direct connection

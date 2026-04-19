@@ -98,6 +98,7 @@ interface ChatMessageProps {
   onImageDownload?: () => void
   onImageOpen?: () => void
   hasImageSavedToGallery?: boolean
+  onSuggestionClick?: (suggestion: string) => void
 }
 
 let globalActivePreviewId: string | null = null
@@ -112,8 +113,9 @@ export const ChatMessage = React.memo(function ChatMessage({
   status,
   onImageSave,
   onImageDownload,
-  onImageOpen,
+ onImageOpen,
   hasImageSavedToGallery = false,
+  onSuggestionClick,
 }: ChatMessageProps) {
   const isUser = message.role === "user"
   const [isActive, setIsActive] = useState(false)
@@ -345,17 +347,19 @@ export const ChatMessage = React.memo(function ChatMessage({
     }
     
         
+    const cleanContent = getContentWithoutSuggestions(message.content)
+    
     return (
       <div className="prose prose-base dark:prose-invert max-w-none 
-        prose-headings:text-[#e0e0e0] prose-headings:font-normal prose-h2:text-2xl prose-h2:mt-8 prose-h2:mb-6 prose-h2:bg-[#16213e] prose-h2:px-4 prose-h2:py-3 prose-h2:border-l-4 prose-h2:border-[#e94560] prose-h3:text-xl prose-h3:mt-6 prose-h3:mb-4 prose-h3:bg-[#16213e] prose-h3:px-3 prose-h3:py-2 prose-h3:border-l-3 prose-h3:border-[#4ecdc4]
-        prose-p:my-4 prose-p:leading-8 prose-p:text-[#e0e0e0] prose-p:text-base
-        prose-ul:my-5 prose-ul:space-y-2 prose-ul:pl-6 prose-ul:list-disc prose-ul:border-l-4 prose-ul:border-[#4ecdc4] prose-ul:bg-gradient-to-r prose-ul.from-[#16213e] prose-ul.to-transparent
-        prose-ol:my-5 prose-ol:space-y-2 prose-ol:pl-6 prose-ol:list-decimal prose-ol:border-l-4 prose-ol:border-[#ffe66d] prose-ol:bg-gradient-to-r prose-ol.from-[#16213e] prose-ol.to-transparent
-        prose-li:my-2 prose-li:leading-8 prose-li:text-[#b8b8b8] prose-li:text-base
-        prose-blockquote:border-l-6 prose-blockquote:border-[#4ecdc4] prose-blockquote:pl-6 prose-blockquote:py-4 prose-blockquote:italic prose-blockquote:text-[#e0e0e0] prose-blockquote:bg-[#16213e] prose-blockquote:rounded-r-xl prose-blockquote:shadow-lg
-        prose-strong:text-[#ff6b6b] prose-strong:font-normal prose-strong:text-lg
-        prose-a:text-[#4ecdc4] prose-a:no-underline hover:prose-a:underline prose-a:text-lg prose-a:transition-all hover:prose-a:text-[#ffe66d]
-        prose-hr:border-[#0f3460] prose-hr:my-8 prose-hr:border-2">
+        prose-headings:text-[#e5e5e5] prose-headings:font-semibold prose-h3:text-lg prose-h3:mt-6 prose-h3:mb-3 prose-h3:text-[#e94560] prose-h3:border-b prose-h3:border-[#1a1a1a] prose-h3:pb-2
+        prose-p:my-3 prose-p:leading-7 prose-p:text-[#d4d4d4] prose-p:text-[15px]
+        prose-ul:my-4 prose-ul:space-y-2 prose-ul:pl-5 prose-ul:list-disc
+        prose-ol:my-4 prose-ol:space-y-2 prose-ol:pl-5 prose-ol:list-decimal
+        prose-li:my-1.5 prose-li:leading-7 prose-li:text-[#b8b8b8] prose-li:text-[15px]
+        prose-strong:text-[#e5e5e5] prose-strong:font-semibold
+        prose-a:text-[#3b82f6] prose-a:no-underline hover:prose-a:text-[#60a5fa] prose-a:transition-colors
+        prose-code:text-[#4ecdc4] prose-code:bg-[#0f0f0f] prose-code:px-1.5 prose-code:py-0.5 prose-code:rounded-md prose-code:text-sm prose-code:border prose-code:border-[#1a1a1a]
+        prose-hr:border-[#1a1a1a] prose-hr:my-6">
         <ReactMarkdown 
           remarkPlugins={[remarkGfm]}
           components={{
@@ -517,9 +521,9 @@ export const ChatMessage = React.memo(function ChatMessage({
                 if (children.includes('```html')) {
                   return null
                 }
-                const htmlPatterns = ['<!DOCTYPE', '<html', '<head>', '<body>', '<div', '<script>', '<style>', 'className=', 'backgroundColor', 'paddingLeft', 'marginTop']
-                const hasHtmlPattern = htmlPatterns.some(pattern => children.includes(pattern))
-                if (hasHtmlPattern && children.length > 100) {
+                const dangerousPatterns = ['<!DOCTYPE html>', '<html ', '<head>', '<body>', '<script>', '<style>']
+                const hasDangerousPattern = dangerousPatterns.some(pattern => children.includes(pattern))
+                if (hasDangerousPattern) {
                   return null
                 }
               }
@@ -527,13 +531,34 @@ export const ChatMessage = React.memo(function ChatMessage({
             }
           }}
         >
-          {message.content}
+          {cleanContent}
         </ReactMarkdown>
       </div>
     )
   }
 
   const hasOnlyImage = message.imageUrl && !message.content && message.role !== "user"
+
+  // Parse suggestions from response content
+  const parseSuggestions = (content: string): string[] => {
+    const suggestionMatch = content.match(/### SUGGESTIONS\s*\n([\s\S]*?)(?:\n\n|\n###|\n\`\`\`|$)/)
+    if (!suggestionMatch) return []
+    
+    const suggestionsText = suggestionMatch[1]
+    const suggestions = suggestionsText
+      .split('\n')
+      .map(line => line.replace(/^[-*•]?\s*/, '').trim())
+      .filter(line => line.length > 0 && !line.startsWith('###'))
+    
+    return suggestions.slice(0, 4)
+  }
+
+  // Get content without suggestions section
+  const getContentWithoutSuggestions = (content: string): string => {
+    const suggestionMatch = content.match(/### SUGGESTIONS\s*\n[\s\S]*$/)
+    if (!suggestionMatch) return content
+    return content.substring(0, suggestionMatch.index)
+  }
 
   const renderUserContent = () => {
     if (isUser) {
@@ -570,18 +595,40 @@ export const ChatMessage = React.memo(function ChatMessage({
     return renderContent()
   }
 
+  const renderSuggestions = (content: string) => {
+    const suggestions = parseSuggestions(content)
+    if (suggestions.length === 0) return null
+    
+    return (
+      <div className="mt-6 animate-in fade-in slide-in-from-bottom-2 duration-300">
+        <div className="flex flex-wrap gap-2">
+          {suggestions.map((suggestion, idx) => (
+            <button
+              key={idx}
+              className="px-3 py-2 bg-[#0f0f0f] border border-[#1a1a1a] rounded-full text-xs text-[#666666] hover:bg-[#141414] hover:text-[#e5e5e5] hover:border-[#2e2e32] transition-all duration-200"
+              onClick={() => onSuggestionClick?.(suggestion)}
+            >
+              {suggestion}
+            </button>
+          ))}
+        </div>
+      </div>
+    )
+  }
+
   return (
     <div className="space-y-4 py-2 w-full">
       {!hasOnlyImage && (
       <div
         className={`px-3 py-2 text-[15px] text-[#e5e5e5] break-words ${
           isUser 
-            ? "bg-[#2a2a2e] rounded-2xl max-w-full self-end break-words" 
-            : "w-full max-w-full"
+            ? "bg-[#2a2a2e] rounded-2xl self-end break-words inline-block text-right" 
+            : "w-full"
         }`}
       >
         <div className="min-w-0">
           {renderUserContent()}
+          {!isUser && renderSuggestions(message.content)}
         </div>
       </div>)}
       

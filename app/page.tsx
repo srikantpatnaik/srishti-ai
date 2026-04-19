@@ -57,6 +57,7 @@ export default function Home() {
   const [mediaNavIndex, setMediaNavIndex] = useState(0)
   const mediaAppsRef = useRef<SavedApp[]>([])
   const [sessionId, setSessionId] = useState<string>("")
+  const [hasSavedToGallery, setHasSavedToGallery] = useState(false)
 
 
   useEffect(() => {
@@ -855,7 +856,6 @@ useEffect(() => {
     localStorage.removeItem("chatMessages")
   }
 
-const [hasSavedToGallery, setHasSavedToGallery] = useState(false)
   const [sessionApps, setSessionApps] = useState<SavedApp[]>([])
   const [currentAppIndex, setCurrentAppIndex] = useState(-1)
   const [activeChatTab, setActiveChatTab] = useState<string | null>(null)
@@ -1168,6 +1168,8 @@ const [hasSavedToGallery, setHasSavedToGallery] = useState(false)
                 {useMemo(() => {
                   const visibleMessages = messages.slice(visibleRange.start, visibleRange.end)
                   return visibleMessages.map((msg, idx) => {
+                    const m = msg as any
+                    if (m.type === 'tool-call' || m.type === 'tool-result') return null
                     const actualIdx = visibleRange.start + idx
                     const msgPreviewUrl = messagePreviews.get(actualIdx)
                     const msgImageUrl = messageImages.get(actualIdx) || (msg as any).imageUrl
@@ -1176,7 +1178,7 @@ const [hasSavedToGallery, setHasSavedToGallery] = useState(false)
                     const msgWithImage = { ...msg, imageUrl: msgImageUrl }
                     return (
                       <div key={msg.id} className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'} gap-2`}>
-                        <div className={`max-w-[90%] ${msg.role === 'user' ? 'items-end' : 'items-start'}`}>
+                        <div className={`${msg.role === 'user' ? 'self-end' : 'self-start'} max-w-[90%]`}>
                           <ChatMessage 
                             message={msgWithImage} 
                             previewUrl={msgPreviewUrl} 
@@ -1189,6 +1191,9 @@ const [hasSavedToGallery, setHasSavedToGallery] = useState(false)
                             onImageDownload={msgImageUrl ? () => handleImageDownloadFromChat(actualIdx) : undefined}
                             onImageOpen={msgImageUrl ? () => handleImageOpenFromChat(actualIdx) : undefined}
                             hasImageSavedToGallery={msgImageUrl && isImageSavedInChat(actualIdx)}
+                            onSuggestionClick={(suggestion) => {
+                              setInput(suggestion)
+                            }}
                           />
                         </div>
                       </div>
