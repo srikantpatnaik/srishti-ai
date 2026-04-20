@@ -345,11 +345,8 @@ export const ChatMessage = React.memo(function ChatMessage({
         )
       }
     }
-    
-        
-    const cleanContent = getContentWithoutSuggestions(message.content)
-    
-    return (
+     
+     return (
       <div className="prose prose-base dark:prose-invert max-w-none 
         prose-headings:text-[#e5e5e5] prose-headings:font-semibold prose-h3:text-lg prose-h3:mt-6 prose-h3:mb-3 prose-h3:text-[#e94560] prose-h3:border-b prose-h3:border-[#1a1a1a] prose-h3:pb-2
         prose-p:my-3 prose-p:leading-7 prose-p:text-[#d4d4d4] prose-p:text-[15px]
@@ -531,34 +528,13 @@ export const ChatMessage = React.memo(function ChatMessage({
             }
           }}
         >
-          {cleanContent}
+          {message.content}
         </ReactMarkdown>
       </div>
     )
   }
 
   const hasOnlyImage = message.imageUrl && !message.content && message.role !== "user"
-
-  // Parse suggestions from response content
-  const parseSuggestions = (content: string): string[] => {
-    const suggestionMatch = content.match(/### SUGGESTIONS\s*\n([\s\S]*?)(?:\n\n|\n###|\n\`\`\`|$)/)
-    if (!suggestionMatch) return []
-    
-    const suggestionsText = suggestionMatch[1]
-    const suggestions = suggestionsText
-      .split('\n')
-      .map(line => line.replace(/^[-*•]?\s*/, '').trim())
-      .filter(line => line.length > 0 && !line.startsWith('###'))
-    
-    return suggestions.slice(0, 4)
-  }
-
-  // Get content without suggestions section
-  const getContentWithoutSuggestions = (content: string): string => {
-    const suggestionMatch = content.match(/### SUGGESTIONS\s*\n[\s\S]*$/)
-    if (!suggestionMatch) return content
-    return content.substring(0, suggestionMatch.index)
-  }
 
   const renderUserContent = () => {
     if (isUser) {
@@ -592,31 +568,10 @@ export const ChatMessage = React.memo(function ChatMessage({
         </ReactMarkdown>
       )
     }
-    return renderContent()
-  }
+     return renderContent()
+   }
 
-  const renderSuggestions = (content: string) => {
-    const suggestions = parseSuggestions(content)
-    if (suggestions.length === 0) return null
-    
-    return (
-      <div className="mt-6 animate-in fade-in slide-in-from-bottom-2 duration-300">
-        <div className="flex flex-wrap gap-2">
-          {suggestions.map((suggestion, idx) => (
-            <button
-              key={idx}
-              className="px-3 py-2 bg-[#0f0f0f] border border-[#1a1a1a] rounded-full text-xs text-[#666666] hover:bg-[#141414] hover:text-[#e5e5e5] hover:border-[#2e2e32] transition-all duration-200"
-              onClick={() => onSuggestionClick?.(suggestion)}
-            >
-              {suggestion}
-            </button>
-          ))}
-        </div>
-      </div>
-    )
-  }
-
-  return (
+   return (
     <div className="space-y-4 py-2 w-full">
       {!hasOnlyImage && (
       <div
@@ -626,10 +581,9 @@ export const ChatMessage = React.memo(function ChatMessage({
             : "w-full"
         }`}
       >
-        <div className="min-w-0">
-          {renderUserContent()}
-          {!isUser && renderSuggestions(message.content)}
-        </div>
+       <div className="min-w-0">
+           {renderUserContent()}
+         </div>
       </div>)}
       
       {/* Status / Loading indicator in chat area */}

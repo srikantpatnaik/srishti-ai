@@ -29,6 +29,7 @@ interface ChatInputProps {
   onLanguageChange: (lang: string) => void
   onNewChat: () => void
   onToggleGallery: () => void
+  status?: string
 }
 
 function getPromptHistory(): string[] {
@@ -59,6 +60,7 @@ export function ChatInput({
   onLanguageChange,
   onNewChat,
   onToggleGallery,
+  status = "idle",
 }: ChatInputProps) {
   const [showMenu, setShowMenu] = useState(false)
   const menuRef = useRef<HTMLDivElement>(null)
@@ -224,30 +226,37 @@ export function ChatInput({
             )}
 
             <div className="absolute right-2 top-1/2 -translate-y-1/2">
-              {isGenerating ? (
-                <button
-                  type="button"
-                  onClick={onStop}
-                  className="p-1.5 rounded-full bg-[#141414] hover:bg-[#1f1f1f] text-[#555555] hover:text-[#e5e5e5] transition-all"
-                  title="Stop"
-                >
-                  <Square className="h-3.5 w-3.5" />
-                </button>
-              ) : (
-                <button
-                  type="submit"
-                  onClick={onSubmit}
-                  disabled={!canSubmit}
-                  className="p-1.5 rounded-full bg-[#141414] hover:bg-[#1f1f1f] text-[#555555] hover:text-[#e5e5e5] transition-all disabled:opacity-20 disabled:cursor-not-allowed disabled:hover:bg-[#141414]"
-                  title="Send"
-                >
-                  <ArrowUp className="h-3.5 w-3.5" />
-                </button>
-              )}
-            </div>
-          </div>
-        </div>
-      </div>
-    </div>
-  )
+               {isGenerating ? (
+                 <button
+                   type="button"
+                   onClick={onStop}
+                   className="p-1.5 rounded-full bg-[#141414] hover:bg-[#1f1f1f] text-[#555555] hover:text-[#e5e5e5] transition-all"
+                   title="Stop"
+                 >
+                   <Square className="h-3.5 w-3.5" />
+                 </button>
+               ) : (
+                 <button
+                   type="submit"
+                   onClick={onSubmit}
+                   disabled={!canSubmit}
+                   className="p-1.5 rounded-full bg-[#141414] hover:bg-[#1f1f1f] text-[#555555] hover:text-[#e5e5e5] transition-all disabled:opacity-20 disabled:cursor-not-allowed disabled:hover:bg-[#141414]"
+                   title="Send"
+                 >
+                   <ArrowUp className="h-3.5 w-3.5" />
+                 </button>
+               )}
+             </div>
+             
+             {/* Status indicator - tiny, bottom right */}
+             {isGenerating && (
+               <div className="absolute bottom-1 right-2 flex items-center gap-1">
+                 <span className="text-[9px] text-[#555555]">{status}</span>
+               </div>
+             )}
+           </div>
+         </div>
+       </div>
+     </div>
+   )
 }

@@ -70,7 +70,9 @@ export default function Home() {
     if (storedSession) {
       setSessionId(storedSession)
     } else {
-      const newSessionId = crypto.randomUUID()
+      const array = new Uint32Array(4)
+      crypto.getRandomValues(array)
+      const newSessionId = Array.from(array).map(n => n.toString(16).padStart(8, '0')).join('')
       setSessionId(newSessionId)
       localStorage.setItem("plano_session_id", newSessionId)
     }
@@ -109,13 +111,12 @@ export default function Home() {
       if (isBuilding) setStatus("ready")
     },
     onToolCall: (params) => {
-      if (params.toolCall.toolName === "announce") {
-        const { phase } = params.toolCall.args as any
-        setStatus(phase as AgentStatus)
-      }
-    },
-    experimental_throttle: 100,
-  })
+       if (params.toolCall.toolName === "announce") {
+         const { phase } = params.toolCall.args as any
+         setStatus(phase as AgentStatus)
+       }
+     },
+   })
 
   // Auto scroll to bottom only when new assistant message arrives
   useEffect(() => {
