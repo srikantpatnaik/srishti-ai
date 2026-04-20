@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef, useCallback } from "react"
-import { User, Bot, FileCode, CheckCircle2, AlertCircle, TerminalIcon, Code2, Play, Check, ExternalLink, Loader2, Download, FolderHeart, X } from "lucide-react"
+import { User, Bot, Code2, ExternalLink, Download, FolderHeart, X } from "lucide-react"
 import { cn } from "@/lib/utils"
 import ReactMarkdown from "react-markdown"
 import remarkGfm from "remark-gfm"
@@ -137,7 +137,7 @@ export const ChatMessage = React.memo(function ChatMessage({
   }, [message.id])
 
   const renderContent = () => {
-    if (message.type === "code" && message.filePath) {
+    if ((message as any).type === "code" && (message as any).filePath) {
       return (
         <div className="mt-4 bg-[#0d0d10] rounded-xl overflow-hidden border border-[#2e2e32] shadow-lg">
           <div className="flex items-center justify-between px-4 py-3 bg-[#161618] border-b border-[#2e2e32]">
@@ -154,72 +154,13 @@ export const ChatMessage = React.memo(function ChatMessage({
       )
     }
 
-    if (message.type === "plan") {
-      return (
-        <div className="mt-4 bg-gradient-to-br from-[#1a1a1f] to-[#1f1f25] rounded-xl p-5 border border-[#3b82f6]/30 shadow-lg shadow-[#3b82f6]/5">
-           <h4 className="font-semibold text-base mb-4 flex items-center gap-3 text-[#3b82f6]">
-             <span className="p-1.5 bg-[#3b82f6]/20 rounded-lg">📋</span>
-             Development Plan
-           </h4>
-           <div className="text-base whitespace-pre-wrap text-[#e5e5e5] leading-relaxed">{message.content}</div>
-        </div>
-      )
-    }
 
-    if (message.type === "phase") {
-      const phaseName = message.phase ? message.phase.charAt(0).toUpperCase() + message.phase.slice(1) : "Phase"
-      const phaseColors: Record<string, string> = {
-        planning: "#f59e0b",
-        coding: "#3b82f6",
-        testing: "#10b981",
-        fixing: "#ef4444"
-      }
-      const color = phaseColors[message.phase || ""] || "#888888"
-      return (
-         <div className="mt-4 bg-[#1a1a1f] rounded-xl p-5 border border-[#2e2e32]">
-           <h4 className="font-semibold text-base mb-3 flex items-center gap-3">
-             <span className="animate-pulse text-lg" style={{ color }}>●</span>
-             <span style={{ color }}>{phaseName}</span>
-             <span className="text-xs text-[#666666] font-normal ml-auto">PHASE</span>
-           </h4>
-           <div className="text-base whitespace-pre-wrap text-[#b0b0b0]">{message.content}</div>
-         </div>
-      )
-    }
 
-    if (message.type === "error") {
-      return (
-        <div className="mt-4 bg-gradient-to-br from-red-950/30 to-red-900/20 rounded-xl p-5 border border-red-500/30 shadow-lg shadow-red-500/10">
-           <div className="flex items-center gap-3 mb-4">
-             <AlertCircle className="h-5 w-5 text-red-500" />
-             <span className="font-semibold text-base text-red-400">Error Detected</span>
-             <span className="text-xs bg-red-500/20 text-red-400 px-2 py-0.5 rounded ml-auto">FIXING</span>
-           </div>
-           <pre className="text-sm whitespace-pre-wrap text-red-300 leading-relaxed">{message.content}</pre>
-        </div>
-      )
-    }
 
-    if (message.type === "file") {
-      return (
-       <div className="mt-4 bg-gradient-to-br from-emerald-950/30 to-emerald-900/20 rounded-xl p-5 border border-emerald-500/30 shadow-lg shadow-emerald-500/10">
-           <div className="flex items-center gap-3 mb-2">
-             <Check className="h-5 w-5 text-emerald-500" />
-             <span className="font-semibold text-base text-emerald-400">File Created</span>
-             <span className="text-xs bg-emerald-500/20 text-emerald-400 px-2 py-0.5 rounded ml-auto">SUCCESS</span>
-           </div>
-           <p className="text-base mt-3 text-[#b0b0b0]">{message.content}</p>
-         </div>
-      )
-    }
 
-    if (message.type === "tool-call") {
-      return null
-    }
 
-    if (message.type === "tool-result") {
-      return null
-    }
+
+
 
     const hasMarkdownTable = message.content.split('\n').some(line => line.trim().startsWith('|'))
     const hasHtmlTable = message.content.includes('<table')
@@ -564,48 +505,40 @@ export const ChatMessage = React.memo(function ChatMessage({
             a: ({href, children}) => <a href={href} className="text-[#3b82f6] hover:underline" target="_blank" rel="noopener noreferrer">{children}</a>
           }}
         >
-          {message.content}
+       {message.content}
         </ReactMarkdown>
-      )
+       )
+    } else {
+      return null
     }
-     return renderContent()
-   }
+  }
 
-   return (
-    <div className="space-y-4 py-2 w-full">
-      {!hasOnlyImage && (
-      <div
-        className={`px-3 py-2 text-[15px] text-[#e5e5e5] break-words ${
-          isUser 
-            ? "bg-[#2a2a2e] rounded-2xl self-end break-words inline-block text-right" 
-            : "w-full"
-        }`}
-      >
-       <div className="min-w-0">
-           {renderUserContent()}
-         </div>
-      </div>)}
-      
-      {/* Status / Loading indicator in chat area */}
-      {!isUser && status && status !== "idle" && status !== "ready" && (
-        <div className="flex items-center gap-2 px-3 py-2 bg-[#1a1a2e]/80 backdrop-blur-sm rounded-xl w-fit border border-[#2e2e32]">
-          <div className="flex gap-1">
-            <span className="w-1.5 h-1.5 rounded-full bg-[#de0f17] animate-bounce" style={{ animationDelay: '0ms' }} />
-            <span className="w-1.5 h-1.5 rounded-full bg-[#de0f17] animate-bounce" style={{ animationDelay: '150ms' }} />
-            <span className="w-1.5 h-1.5 rounded-full bg-[#de0f17] animate-bounce" style={{ animationDelay: '300ms' }} />
+  return (
+     <div className="space-y-4 py-2 w-full">
+       {!hasOnlyImage && (
+         <div
+         className={`px-3 py-2 text-[15px] text-[#e5e5e5] break-words ${
+           isUser 
+             ? "bg-[#2a2a2e] rounded-2xl self-end break-words inline-block text-right relative" 
+             : "w-full"
+         }`}
+       >
+        <div className="min-w-0">
+            {renderUserContent()}
           </div>
-          <span className="text-xs font-medium text-[#e5e5e5]">
-            {status === "planning" && "Planning..."}
-            {status === "coding" && "Building..."}
-            {status === "testing" && "Testing..."}
-            {status === "fixing" && "Fixing..."}
-            {status === "generating_image" && "Generating..."}
-            {status === "generating" && "Thinking..."}
-          </span>
+          {isUser && status && status !== "idle" && status !== "ready" && (
+            <div className="absolute -bottom-1 right-2 flex items-center gap-1.5 px-1.5 py-0.5 bg-[#1a1a2e]/50 backdrop-blur-sm rounded-lg border border-[#2e2e32]">
+              <div className="flex gap-0.5">
+                <span className="w-0.5 h-0.5 rounded-full bg-[#de0f17] animate-pulse" style={{ animationDelay: '0ms' }} />
+                <span className="w-0.5 h-0.5 rounded-full bg-[#de0f17] animate-pulse" style={{ animationDelay: '100ms' }} />
+                <span className="w-0.5 h-0.5 rounded-full bg-[#de0f17] animate-pulse" style={{ animationDelay: '200ms' }} />
+              </div>
+            </div>
+          )}
         </div>
       )}
-      
-      {/* Preview in chat - shown when there's a preview URL */}
+       
+       {/* Preview in chat - shown when there's a preview URL */}
       {previewUrl && !isUser && (
         <div className="mt-4 group relative overflow-hidden w-full bg-[#000000]" style={{ height: 'min(600px, 70vh)' }}>
           <PreviewIframe

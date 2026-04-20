@@ -88,11 +88,12 @@ export async function POST(req: Request) {
 ## CRITICAL: How to build apps/games
 
 **When user wants to build/create something (app, game, website):**
-1. Call announce(phase: "planning") ONCE with a friendly message like "Planning your snake game..."
+1. Call announce(phase: "planning") tool ONCE (hidden from user)
 2. IMMEDIATELY generate the COMPLETE HTML code in a single code block with triple backticks and html
 3. After the code block, write a friendly message like "Your game is ready! Play it below"
 4. DO NOT call announce multiple times - just call it once at the start
 5. DO NOT output any text before or after the code block except the friendly message
+6. DO NOT write tool call text like "announce(phase: "planning")" in your response
 
 **Code Requirements (internal only - NEVER show user):**
 - Complete HTML file with all CSS and JS inline
