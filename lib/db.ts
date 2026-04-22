@@ -1,7 +1,7 @@
 import { SavedApp } from "@/types"
 
 const DB_NAME = 'AppBuilderDB'
-const DB_VERSION = 2
+const DB_VERSION = 3
 const STORE_NAME = 'savedApps'
 const CHAT_STORE_NAME = 'chatHistory'
 
