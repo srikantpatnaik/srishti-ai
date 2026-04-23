@@ -30,18 +30,10 @@ test.describe('Chat Message Component', () => {
 
   test('should send message and receive response', async ({ page }) => {
     const chatInput = page.locator('textarea');
-    const sendButton = page.locator('button[title="Send"]');
 
     await chatInput.fill('Hello');
+    await chatInput.press('Enter');
 
-    const isButtonEnabled = await sendButton.evaluate(el => !(el as HTMLButtonElement).disabled);
-    if (isButtonEnabled) {
-      await sendButton.click();
-    } else {
-      await chatInput.press('Enter');
-    }
-
-    // Wait for user message to appear using waitForSelector instead of hard waits
     const userMessage = page.locator('[data-testid="user-message"]').first()
       .or(page.locator('div.justify-end div.self-end').first());
     await expect(userMessage).toBeVisible({ timeout: 10000 });
@@ -49,12 +41,10 @@ test.describe('Chat Message Component', () => {
 
   test('should render assistant response content', async ({ page }) => {
     const chatInput = page.locator('textarea');
-    const sendButton = page.locator('button[title="Send"]');
 
     await chatInput.fill('Build a todo list app');
-    await sendButton.click();
+    await chatInput.press('Enter');
 
-    // Wait for code block or markdown to appear instead of hard waiting
     await expect(page.locator('pre').first().or(page.locator('p').first()))
       .toBeVisible({ timeout: 30000 });
   });
@@ -85,10 +75,11 @@ test.describe('Chat Message Component', () => {
       body: JSON.stringify({ message: 'show me a picture of elephant' }),
     });
 
-    const routing = await response.json();
-    expect(routing.routing?.route).toBe('image_generation');
-    expect(routing.routing?.mode).toBe('image');
-    expect(routing.routing?.prompt).toContain('elephant');
+    const data = await response.json();
+    // Provider may be unavailable (503), but routing should still be correct
+    expect(data.routing?.route).toBe('image_generation');
+    expect(data.routing?.mode).toBe('image');
+    expect(data.routing?.prompt).toContain('elephant');
   });
 
   test('should route image requests correctly via API', async () => {
@@ -104,11 +95,11 @@ test.describe('Chat Message Component', () => {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ message: 'show me a picture of elephant' }),
     });
-    const routing = await response.json();
+    const data = await response.json();
 
-    expect(routing.routing?.route).toBe('image_generation');
-    expect(routing.routing?.mode).toBe('image');
-    expect(routing.routing?.prompt).toContain('elephant');
+    expect(data.routing?.route).toBe('image_generation');
+    expect(data.routing?.mode).toBe('image');
+    expect(data.routing?.prompt).toContain('elephant');
   });
 
   test('should detect image intent with various phrasings', async () => {
@@ -129,10 +120,10 @@ test.describe('Chat Message Component', () => {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ message: phrase }),
       });
-      const routing = await response.json();
+      const data = await response.json();
 
-      expect(routing.routing?.route).toBe('image_generation');
-      expect(routing.routing?.mode).toBe('image');
+      expect(data.routing?.route).toBe('image_generation');
+      expect(data.routing?.mode).toBe('image');
     }
   });
 

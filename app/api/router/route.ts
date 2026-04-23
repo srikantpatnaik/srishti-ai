@@ -441,13 +441,21 @@ export async function POST(req: NextRequest) {
     const routing = await routeTask(userMessage)
 
     if (routing.route === "image_generation") {
-      const imageUrl = await generateImage(routing.prompt)
-      return NextResponse.json({ imageUrl, routing })
+      try {
+        const imageUrl = await generateImage(routing.prompt)
+        return NextResponse.json({ imageUrl, routing })
+      } catch (err: any) {
+        return NextResponse.json({ error: err.message, routing }, { status: 503 })
+      }
     }
 
     if (routing.route === "audio_generation") {
-      const audioUrl = await generateAudio(routing.prompt)
-      return NextResponse.json({ audioUrl, routing })
+      try {
+        const audioUrl = await generateAudio(routing.prompt)
+        return NextResponse.json({ audioUrl, routing })
+      } catch (err: any) {
+        return NextResponse.json({ error: err.message, routing }, { status: 503 })
+      }
     }
 
     try {
