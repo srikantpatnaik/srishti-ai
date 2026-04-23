@@ -1,6 +1,6 @@
 "use client"
 
-import React, { useState, useEffect, useRef, useCallback, useMemo } from "react"
+import React, { useState, useEffect, useRef, useCallback, useMemo, RefObject } from "react"
 import JSZip from "jszip"
 import { Bot, ChevronLeft, ChevronRight, ChevronDown, Grid, Grid3X3, X, ChevronLeft as ChevronLeftIcon, PanelRightClose, PanelRightOpen, Plus, Download, FolderHeart, ArrowLeft } from "lucide-react"
 import { Button } from "@/components/ui/button"
@@ -15,6 +15,7 @@ import { AppDrawer } from "@/components/app-drawer"
 import { ChatInput } from "@/components/chat-input"
 import { AgentStatus, Provider, SavedApp } from "@/types"
 import { saveAppToDB, getAllAppsFromDB, deleteAppFromDB, saveChatHistoryToDB, getChatHistoryFromDB, deleteChatHistoryFromDB } from "@/lib/db"
+import { wrapHtml, createBlobUrl, generateAppName, generateFileName, extractHtmlCode, findLatestHtmlCode } from "@/lib/html-wrapper"
 
 export default function Home() {
   const [status, setStatus] = useState<AgentStatus>("idle")
@@ -58,6 +59,7 @@ export default function Home() {
   const mediaAppsRef = useRef<SavedApp[]>([])
   const [sessionId, setSessionId] = useState<string>("")
   const [hasSavedToGallery, setHasSavedToGallery] = useState(false)
+  const savedAppsRef = useRef<SavedApp[]>([])
 
 
   useEffect(() => {
@@ -187,55 +189,23 @@ export default function Home() {
     const newPreviews = new Map<number, string>()
     msgs.forEach((message, i) => {
       if (message.role === 'assistant' && message.content) {
-        const match = message.content.match(/```html([\s\S]*?)```/)
-        if (match) {
-          const htmlCode = match[1].trim()
-          const htmlContent = `<!DOCTYPE html><html lang="en"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no"><title>My App</title><style>*{margin:0;padding:0;box-sizing:border-box;}body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;background:#1a1a2e;color:#eaeaea;min-height:100vh;padding:16px;}.app-container{max-width:100%;margin:0 auto;}</style></head><body><div class="app-container">${htmlCode}</div><script>window.parent.postMessage({ type: 'loaded' }, '*');</script></body></html>`
-          const blob = new Blob([htmlContent], { type: 'text/html' })
-          const url = URL.createObjectURL(blob)
-          newPreviews.set(i, url)
+        const code = extractHtmlCode(message)
+        if (code) {
+          newPreviews.set(i, createBlobUrl(code))
         }
       }
     })
     setMessagePreviews(newPreviews)
   }
 
-  const extractCodeFromMessage = (msg: any): string | null => {
-    if (msg.role === 'assistant' && msg.content) {
-      const match = msg.content.match(/```html([\s\S]*?)```/)
-      if (match) {
-        return match[1].trim()
-      }
-    }
-    return null
-  }
+  const extractCodeFromMessage = extractHtmlCode
 
   const handleSaveFromChat = async (msgIndex: number) => {
     const msg = messages[msgIndex]
     const code = extractCodeFromMessage(msg)
     if (!code) return
 
-    const msgContent = msg.content || ''
-    const fillerWords = ['a', 'an', 'the', 'make', 'make a', 'build', 'build a', 'create', 'create a', 'can you', 'please', 'i want', 'build me', 'create me', 'app', 'application', 'in', 'telugu', 'hindi', 'tamil', 'kannada', 'malayalam', 'bengali', 'marathi', 'gujarati']
-    let rawName = msgContent.replace(/```html[\s\S]*?```/g, '').trim() || 'My App'
-    fillerWords.forEach(word => {
-      rawName = rawName.replace(new RegExp('\\b' + word + '\\b', 'gi'), ' ')
-    })
-    rawName = rawName.replace(/[^\p{L}\p{N}\s]/gu, ' ').replace(/\s+/g, ' ').trim()
-    const words = rawName.split(' ').filter(w => w.trim().length > 0)
-    let appName = words.slice(0, 3).join(' ').trim() || 'My App'
-    appName = appName.split(' ').map((w, i) => {
-      const cleaned = w.trim()
-      if (!cleaned) return ''
-      return i === 0 ? cleaned.charAt(0).toUpperCase() + cleaned.slice(1).toLowerCase() : cleaned.toLowerCase()
-    }).join(' ').trim()
-    if (appName.length > 20) {
-      appName = words.slice(0, 2).join(' ').trim()
-      appName = appName.charAt(0).toUpperCase() + appName.slice(1).toLowerCase()
-    }
-    if (!appName || appName.length < 2) {
-      appName = 'My App'
-    }
+    const appName = generateAppName(msg.content || '')
 
     const existingApp = savedApps.find(app => app.code === code)
     if (existingApp) return
@@ -262,25 +232,7 @@ export default function Home() {
     if (!code) return
 
     const zip = new JSZip()
-    const htmlContent = `<!DOCTYPE html>
-<html lang="en">
-<head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-  <title>My App</title>
-  <style>
-    * { margin: 0; padding: 0; box-sizing: border-box; }
-    body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background: #1a1a2e; color: #eaeaea; min-height: 100vh; padding: 16px; }
-    .app-container { max-width: 100%; margin: 0 auto; }
-  </style>
-</head>
-<body>
-  <div class="app-container">
-    ${code}
-  </div>
-</body>
-</html>`
-    zip.file("index.html", htmlContent)
+    zip.file("index.html", wrapHtml(code))
     zip.generateAsync({ type: "blob" }).then((content) => {
       const url = URL.createObjectURL(content)
       const link = document.createElement('a')
@@ -301,26 +253,7 @@ export default function Home() {
     const msgContent = msg.content || ''
     const promptMatch = msgContent.match(/IMAGE_REQUEST:\s*(.+)/i)
     const rawPrompt = promptMatch ? promptMatch[1].trim() : 'Image'
-    const fillerWords = ['a', 'an', 'the', 'generate', 'show', 'me', 'picture', 'photo', 'image', 'of', 'create', 'make']
-    let rawName = rawPrompt
-    fillerWords.forEach(word => {
-      rawName = rawName.replace(new RegExp('\\b' + word + '\\b', 'gi'), ' ')
-    })
-    rawName = rawName.replace(/[^\p{L}\p{N}\s]/gu, ' ').replace(/\s+/g, ' ').trim()
-    const words = rawName.split(' ').filter(w => w.trim().length > 0)
-    let appName = words.slice(0, 3).join(' ').trim() || 'Image'
-    appName = appName.split(' ').map((w, i) => {
-      const cleaned = w.trim()
-      if (!cleaned) return ''
-      return i === 0 ? cleaned.charAt(0).toUpperCase() + cleaned.slice(1).toLowerCase() : cleaned.toLowerCase()
-    }).join(' ').trim()
-    if (appName.length > 20) {
-      appName = words.slice(0, 2).join(' ').trim()
-      appName = appName.charAt(0).toUpperCase() + appName.slice(1).toLowerCase()
-    }
-    if (!appName || appName.length < 2) {
-      appName = 'Image'
-    }
+    const appName = generateAppName(rawPrompt, "Image")
 
     const existingApp = savedApps.find(app => app.url === imageUrl)
     if (existingApp) return
@@ -356,16 +289,7 @@ export default function Home() {
     const msgContent = msg.content || ''
     const promptMatch = msgContent.match(/IMAGE_REQUEST:\s*(.+)/i)
     const rawPrompt = promptMatch ? promptMatch[1].trim() : 'image'
-    const fillerWords = ['a', 'an', 'the', 'generate', 'show', 'me', 'picture', 'photo', 'image', 'of', 'create', 'make']
-    let rawName = rawPrompt
-    fillerWords.forEach(word => {
-      rawName = rawName.replace(new RegExp('\\b' + word + '\\b', 'gi'), ' ')
-    })
-    rawName = rawName.replace(/[^\p{L}\p{N}\s]/gu, ' ').replace(/\s+/g, ' ').trim()
-    const words = rawName.split(' ').filter(w => w.trim().length > 0)
-    let fileName = words.slice(0, 4).join('-').trim() || 'image'
-    fileName = fileName.replace(/[^a-zA-Z0-9-]/g, '-').toLowerCase()
-    if (!fileName) fileName = 'image'
+    const fileName = generateFileName(rawPrompt)
 
     const extension = imageUrl.includes('image/png') ? 'png' : 'jpg'
     const link = document.createElement('a')
@@ -383,11 +307,10 @@ export default function Home() {
     setShowPreview(true)
   }
 
+  const savedCodeSet = useMemo(() => new Set(savedApps.map(a => a.code)), [savedApps])
   const isAppSavedInChat = (msgIndex: number): boolean => {
-    const msg = messages[msgIndex]
-    const code = extractCodeFromMessage(msg)
-    if (!code) return false
-    return savedApps.some(app => app.code === code)
+    const code = extractCodeFromMessage(messages[msgIndex])
+    return !!code && savedCodeSet.has(code)
   }
 
   const isImageSavedInChat = (msgIndex: number): boolean => {
@@ -417,10 +340,17 @@ export default function Home() {
   }, [currentChatMessages])
 
   useEffect(() => {
-    savedApps.forEach(app => {
-      const appWithoutUrl = { ...app, url: "" }
-      saveAppToDB(appWithoutUrl)
-    })
+    const prev = savedAppsRef.current
+    savedAppsRef.current = savedApps
+    if (prev.length === 0) return
+    const newApps = savedApps.filter(a => !prev.some(p => p.id === a.id))
+    const changedIds = new Set(savedApps.filter(a => {
+      const p = prev.find(pp => pp.id === a.id)
+      return !!p && p.code !== a.code
+    }).map(a => a.id))
+    // Save only new or changed apps
+    const toSave = [...newApps, ...savedApps.filter(a => changedIds.has(a.id))]
+    toSave.forEach(app => saveAppToDB({ ...app, url: "" }))
   }, [savedApps])
 
 useEffect(() => {
@@ -483,9 +413,7 @@ useEffect(() => {
         setShowAppDrawer(false)
         setBlobUrl("")
         setTimeout(() => {
-          const htmlContent = `<!DOCTYPE html><html lang="en"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no"><title>${sharedApp.name}</title><style>*{margin:0;padding:0;box-sizing:border-box;}html,body{height:100%;width:100%;overflow:hidden;display:flex;justify-content:center;align-items:center;}body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;background:#1a1a2e;color:#eaeaea;width:100vw;height:100vh;}.app-container{width:100%;height:100%;}</style></head><body><div class="app-container">${decoded.code}</div><script>window.parent.postMessage({ type: 'loaded' }, '*');</script></body></html>`
-          const blob = new Blob([htmlContent], { type: 'text/html' })
-          setBlobUrl(URL.createObjectURL(blob))
+          setBlobUrl(createBlobUrl(decoded.code, sharedApp.name))
         }, 0)
         window.history.replaceState({}, '', window.location.pathname)
       } catch (error) {
@@ -604,18 +532,8 @@ const handleSubmit = async (e?: React.FormEvent, language?: string) => {
   }
 
   useEffect(() => {
-    let htmlCode = ""
-    for (let i = messages.length - 1; i >= 0; i--) {
-      const message = messages[i]
-      if (message.role === 'assistant' && message.content) {
-        const match = message.content.match(/```html([\s\S]*?)```/)
-        if (match) {
-          htmlCode = match[1].trim()
-          break
-        }
-      }
-    }
-    if (htmlCode) setLocalPreviewCode(htmlCode)
+    const code = findLatestHtmlCode(messages)
+    if (code) setLocalPreviewCode(code)
   }, [messages])
 
 useEffect(() => {
@@ -638,21 +556,11 @@ useEffect(() => {
   }, [status, localPreviewCode, messages])
 
   useEffect(() => {
-    let htmlCode = ""
-    for (let i = messages.length - 1; i >= 0; i--) {
-      const message = messages[i]
-      if (message.role === 'assistant' && message.content) {
-        const match = message.content.match(/```html([\s\S]*?)```/)
-        if (match) {
-          htmlCode = match[1].trim()
-          break
-        }
-      }
-    }
-    if (htmlCode && !autoGenerated) {
-      const isSessionApp = sessionApps.some(app => app.code === htmlCode)
+    const code = findLatestHtmlCode(messages)
+    if (code && !autoGenerated) {
+      const isSessionApp = sessionApps.some(app => app.code === code)
       if (!isSessionApp) {
-        setLocalPreviewCode(htmlCode)
+        setLocalPreviewCode(code)
         setAutoGenerated(true)
       }
     }
@@ -661,20 +569,15 @@ useEffect(() => {
   useEffect(() => {
     if (localPreviewCode) {
       if (blobUrl) URL.revokeObjectURL(blobUrl)
-      const htmlContent = `<!DOCTYPE html><html lang="en"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no"><title>My App</title><style>*{margin:0;padding:0;box-sizing:border-box;}html,body{height:100%;width:100%;overflow:hidden;display:flex;justify-content:center;align-items:center;}body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;background:#1a1a2e;color:#eaeaea;width:100vw;height:100vh;}.app-container{width:100%;height:100%;}</style></head><body><div class="app-container">${localPreviewCode}</div><script>window.parent.postMessage({ type: 'loaded' }, '*');</script></body></html>`
-      const blob = new Blob([htmlContent], { type: 'text/html' })
-      const url = URL.createObjectURL(blob)
+      const url = createBlobUrl(localPreviewCode)
       setBlobUrl(url)
       
-      // Find the assistant message that contains this code and store preview with it
+      // Find the assistant message that contains this code and store preview
       for (let i = messages.length - 1; i >= 0; i--) {
-        const message = messages[i]
-        if (message.role === 'assistant' && message.content) {
-          const match = message.content.match(/```html([\s\S]*?)```/)
-          if (match && match[1].trim() === localPreviewCode) {
-            setMessagePreviews(prev => new Map(prev).set(i, url))
-            break
-          }
+        const code = extractHtmlCode(messages[i])
+        if (code === localPreviewCode) {
+          setMessagePreviews(prev => new Map(prev).set(i, url))
+          break
         }
       }
       
@@ -690,9 +593,7 @@ useEffect(() => {
     setBlobUrl("")
     setInput("")
     setTimeout(() => {
-      const htmlContent = `<!DOCTYPE html><html lang="en"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no"><title>${app.name}</title><style>*{margin:0;padding:0;box-sizing:border-box;}html,body{height:100%;width:100%;overflow:hidden;display:flex;justify-content:center;align-items:center;}body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;background:#1a1a2e;color:#eaeaea;width:100vw;height:100vh;}.app-container{width:100%;height:100%;}</style></head><body><div class="app-container">${app.code}</div><script>window.parent.postMessage({ type: 'loaded' }, '*');</script></body></html>`
-      const blob = new Blob([htmlContent], { type: 'text/html' })
-      setBlobUrl(URL.createObjectURL(blob))
+      setBlobUrl(createBlobUrl(app.code, app.name))
     }, 0)
   }
 
@@ -705,9 +606,7 @@ useEffect(() => {
     setBlobUrl("")
     setHasSavedToGallery(false)
     setTimeout(() => {
-      const htmlContent = `<!DOCTYPE html><html lang="en"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no"><title>Edit: ${app.name}</title><style>*{margin:0;padding:0;box-sizing:border-box;}html,body{height:100%;width:100%;overflow:hidden;display:flex;justify-content:center;align-items:center;}body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;background:#1a1a2e;color:#eaeaea;width:100vw;height:100vh;}.app-container{width:100%;height:100%;}</style></head><body><div class="app-container">${app.code}</div><script>window.parent.postMessage({ type: 'loaded' }, '*');</script></body></html>`
-      const blob = new Blob([htmlContent], { type: 'text/html' })
-      setBlobUrl(URL.createObjectURL(blob))
+      setBlobUrl(createBlobUrl(app.code, `Edit: ${app.name}`))
     }, 0)
   }
 
@@ -799,26 +698,7 @@ useEffect(() => {
         return
       }
       const lastUserMsg = messages.filter(m => m.role === 'user').pop()
-      const fillerWords = ['a', 'an', 'the', 'make', 'make a', 'build', 'build a', 'create', 'create a', 'can you', 'please', 'i want', 'build me', 'create me', 'app', 'application', 'in', 'telugu', 'hindi', 'tamil', 'kannada', 'malayalam', 'bengali', 'marathi', 'gujarati']
-      let rawName = lastUserMsg?.content || 'My App'
-      fillerWords.forEach(word => {
-        rawName = rawName.replace(new RegExp('\\b' + word + '\\b', 'gi'), ' ')
-      })
-      rawName = rawName.replace(/[^\p{L}\p{N}\s]/gu, ' ').replace(/\s+/g, ' ').trim()
-      const words = rawName.split(' ').filter(w => w.trim().length > 0)
-      let appName = words.slice(0, 3).join(' ').trim() || 'My App'
-      appName = appName.split(' ').map((w, i) => {
-        const cleaned = w.trim()
-        if (!cleaned) return ''
-        return i === 0 ? cleaned.charAt(0).toUpperCase() + cleaned.slice(1).toLowerCase() : cleaned.toLowerCase()
-      }).join(' ').trim()
-      if (appName.length > 20) {
-        appName = words.slice(0, 2).join(' ').trim()
-        appName = appName.charAt(0).toUpperCase() + appName.slice(1).toLowerCase()
-      }
-      if (!appName || appName.length < 2) {
-        appName = 'My App'
-      }
+      const appName = generateAppName(lastUserMsg?.content || '')
       const existingApp = savedApps.find(app => app.code === codeToSave)
       if (existingApp) {
         return
@@ -842,18 +722,6 @@ useEffect(() => {
       console.error('Failed to save to gallery:', error)
     }
   }
-
-  useEffect(() => {
-    if (sessionApps.length > 0) {
-      setHasSavedToGallery(false)
-    }
-  }, [sessionApps, currentAppIndex])
-
-  useEffect(() => {
-    if (!showPreview) {
-      setHasSavedToGallery(false)
-    }
-  }, [showPreview])
 
   useEffect(() => {
     const totalMessages = messages.length
@@ -885,9 +753,7 @@ useEffect(() => {
       setPreviewImageUrl(null)
       setShowPreview(true)
       setTimeout(() => {
-        const htmlContent = `<!DOCTYPE html><html lang="en"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no"><title>${app.name}</title><style>*{margin:0;padding:0;box-sizing:border-box;}html,body{height:100%;width:100%;overflow:hidden;display:flex;justify-content:center;align-items:center;}body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;background:#1a1a2e;color:#eaeaea;width:100vw;height:100vh;}.app-container{width:100%;height:100%;}</style></head><body><div class="app-container">${app.code}</div><script>window.parent.postMessage({ type: 'loaded' }, '*');</script></body></html>`
-        const blob = new Blob([htmlContent], { type: 'text/html' })
-        setBlobUrl(URL.createObjectURL(blob))
+        setBlobUrl(createBlobUrl(app.code, app.name))
       }, 0)
     }
   }
@@ -932,9 +798,7 @@ useEffect(() => {
       setPreviewImageUrl(null)
       setBlobUrl("")
       setTimeout(() => {
-        const htmlContent = `<!DOCTYPE html><html lang="en"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no"><title>${app.name}</title><style>*{margin:0;padding:0;box-sizing:border-box;}html,body{height:100%;width:100%;overflow:hidden;display:flex;justify-content:center;align-items:center;}body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;background:#1a1a2e;color:#eaeaea;width:100vw;height:100vh;}.app-container{width:100%;height:100%;}</style></head><body><div class="app-container">${app.code}</div><script>window.parent.postMessage({ type: 'loaded' }, '*');</script></body></html>`
-        const blob = new Blob([htmlContent], { type: 'text/html' })
-        setBlobUrl(URL.createObjectURL(blob))
+        setBlobUrl(createBlobUrl(app.code, app.name))
       }, 0)
     }
   }
@@ -973,15 +837,7 @@ useEffect(() => {
     }
   }
 
-  useEffect(() => {
-    console.log('Session apps updated:', sessionApps.length, 'Current index:', currentAppIndex)
-    if (sessionApps.length > 0) {
-      setHasSavedToGallery(false)
-    }
-  }, [sessionApps, currentAppIndex])
-
   const navigateToNextApp = () => {
-
     if (currentAppIndex < sessionApps.length - 1) {
       const nextApp = sessionApps[currentAppIndex + 1]
       if (nextApp) {
@@ -989,9 +845,7 @@ useEffect(() => {
         setCurrentAppIndex(prev => prev + 1)
         setBlobUrl("")
         setTimeout(() => {
-          const htmlContent = `<!DOCTYPE html><html lang="en"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no"><title>${nextApp.name}</title><style>*{margin:0;padding:0;box-sizing:border-box;}html,body{height:100%;width:100%;overflow:hidden;display:flex;justify-content:center;align-items:center;}body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;background:#1a1a2e;color:#eaeaea;width:100vw;height:100vh;}.app-container{width:100%;height:100%;}</style></head><body><div class="app-container">${nextApp.code}</div><script>window.parent.postMessage({ type: 'loaded' }, '*');</script></body></html>`
-          const blob = new Blob([htmlContent], { type: 'text/html' })
-          setBlobUrl(URL.createObjectURL(blob))
+          setBlobUrl(createBlobUrl(nextApp.code, nextApp.name))
         }, 0)
       }
     }
@@ -1005,9 +859,7 @@ useEffect(() => {
         setCurrentAppIndex(prev => prev - 1)
         setBlobUrl("")
         setTimeout(() => {
-          const htmlContent = `<!DOCTYPE html><html lang="en"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no"><title>${prevApp.name}</title><style>*{margin:0;padding:0;box-sizing:border-box;}html,body{height:100%;width:100%;overflow:hidden;display:flex;justify-content:center;align-items:center;}body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;background:#1a1a2e;color:#eaeaea;width:100vw;height:100vh;}.app-container{width:100%;height:100%;}</style></head><body><div class="app-container">${prevApp.code}</div><script>window.parent.postMessage({ type: 'loaded' }, '*');</script></body></html>`
-          const blob = new Blob([htmlContent], { type: 'text/html' })
-          setBlobUrl(URL.createObjectURL(blob))
+          setBlobUrl(createBlobUrl(prevApp.code, prevApp.name))
         }, 0)
       }
     }
@@ -1097,7 +949,7 @@ useEffect(() => {
                     const msgWithImage = { ...msg, imageUrl: msgImageUrl }
                     return (
                       <div key={msg.id} className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'} gap-2`}>
-                        <div className={`${msg.role === 'user' ? 'self-end' : 'self-start'} max-w-[90%]`}>
+                        <div className={`${msg.role === 'user' ? 'self-end' : 'self-start'} max-w-[90%]`} data-testid={msg.role === 'user' ? 'user-message' : 'assistant-message'}>
                           <ChatMessage 
                             message={msgWithImage} 
                             previewUrl={msgPreviewUrl} 
