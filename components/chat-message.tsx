@@ -137,6 +137,7 @@ export const ChatMessage = React.memo(function ChatMessage({
   }, [message.id])
 
   const renderContent = () => {
+    if (!message.content) return null
     if ((message as any).type === "code" && (message as any).filePath) {
       return (
         <div className="mt-4 bg-[#0d0d10] rounded-xl overflow-hidden border border-[#2e2e32] shadow-lg">
@@ -469,13 +470,13 @@ export const ChatMessage = React.memo(function ChatMessage({
             }
           }}
         >
-          {message.content}
+          {message.content || " "}
         </ReactMarkdown>
       </div>
     )
   }
 
-  const hasOnlyImage = message.imageUrl && !message.content && message.role !== "user"
+  const hasOnlyImage = message.imageUrl && !message.content && message.role === "assistant"
 
   const renderUserContent = () => {
     if (isUser) {
@@ -524,7 +525,7 @@ export const ChatMessage = React.memo(function ChatMessage({
          }`}
        >
         <div className="min-w-0">
-            {renderUserContent()}
+            {isUser ? renderUserContent() : renderContent()}
           </div>
           {isUser && status && status !== "idle" && status !== "ready" && (
             <div className="absolute -bottom-1 right-2 flex items-center gap-1.5 px-1.5 py-0.5 bg-[#1a1a2e]/50 backdrop-blur-sm rounded-lg border border-[#2e2e32]">

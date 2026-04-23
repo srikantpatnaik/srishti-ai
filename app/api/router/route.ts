@@ -3,6 +3,14 @@ import { streamText } from "ai"
 import * as fs from "fs"
 import * as path from "path"
 import yaml from "js-yaml"
+import { createOpenAI } from "@ai-sdk/openai"
+
+// Ollama (llama.cpp) - Primary LLM endpoint
+const OLLAMA_URL = process.env.LLAMA_CPP_URL || "http://192.168.1.8:11434/v1"
+const ollamaClient = createOpenAI({
+  baseURL: OLLAMA_URL,
+  apiKey: process.env.LLAMA_CPP_API_KEY || "sk-123",
+})
 
 interface Provider {
   type: string
@@ -158,7 +166,7 @@ async function generateImage(prompt: string): Promise<string> {
 
   if (!response.ok) {
     const errorText = await response.text()
-    throw new Error(`Image generation failed: ${response.statusText} - ${errorText}`)
+    throw new Error(`Image generation failed: ${response.status} ${response.statusText} - ${errorText}`)
   }
 
   const data = await response.json()
@@ -211,51 +219,219 @@ async function generateAudio(prompt: string): Promise<string> {
   return `data:audio/wav;base64,${base64}`
 }
 
-function routeTask(userMessage: string): { route: string; mode: string; prompt: string; reasoning: string } {
-  const lowerMessage = userMessage.toLowerCase()
+// Image generation intent patterns - NLP-based detection
+const imageIntentPatterns = [
+  /show\s+me\s+(?:a\s+)?picture/i,
+  /show\s+me\s+(?:a\s+)?photo/i,
+  /show\s+me\s+(?:an\s+)?image/i,
+  /generate\s+(?:an\s+)?image/i,
+  /create\s+(?:an\s+)?picture/i,
+  /create\s+(?:an\s+)?image/i,
+  /draw\s+(?:an\s+)?picture/i,
+  /draw\s+(?:an\s+)?image/i,
+  /make\s+(?:an\s+)?picture/i,
+  /make\s+(?:an\s+)?image/i,
+  /generate\s+(?:an\s+)?picture/i,
+  /make\s+(?:a\s+)?photo/i,
+  /create\s+(?:a\s+)?photo/i,
+  /draw\s+(?:a\s+)?photo/i,
+  /generate\s+(?:a\s+)?photo/i,
+  /want\s+image/i,
+  /need\s+image/i,
+  /want\s+picture/i,
+  /need\s+picture/i,
+  /want\s+photo/i,
+  /need\s+photo/i,
+  /show\s+me\s+an\s+image/i,
+  /show\s+me\s+a\s+photo/i,
+  /show\s+me\s+an\s+photo/i,
+  /create\s+(?:a|an)\s+picture/i,
+  /create\s+(?:a|an)\s+image/i,
+  /draw\s+(?:a|an)\s+picture/i,
+  /draw\s+(?:a|an)\s+image/i,
+  /make\s+(?:a|an)\s+picture/i,
+  /make\s+(?:a|an)\s+image/i,
+  /generate\s+(?:a|an)\s+picture/i,
+  /generate\s+(?:a|an)\s+image/i,
+]
 
-  const imageKeywords = ["image", "picture", "photo", "generate image", "create image", "draw", "make picture", "show me a", "show me an", "generate a", "create a", "make a", "make me a"]
-  const audioKeywords = ["audio", "sound", "speech", "voice", "tts", "text to speech", "music", "song", "synthesize", "generate audio", "create audio"]
-  const appKeywords = ["app", "build", "create app", "make app", "write code", "develop", "game", "web app", "mobile app"]
+// Audio generation intent patterns
+const audioIntentPatterns = [
+  /generate\s+(?:an\s+)?audio/i,
+  /create\s+(?:an\s+)?audio/i,
+  /text\s+to\s+speech/i,
+  /text\s+to\s+voice/i,
+  /tts/i,
+  /voice\s+synthesis/i,
+  /synthesize\s+voice/i,
+  /generate\s+(?:an\s+)?music/i,
+  /generate\s+(?:an\s+)?song/i,
+  /create\s+(?:an\s+)?sound/i,
+  /make\s+(?:an\s+)?sound/i,
+]
 
-  const isImageRequest = imageKeywords.some(kw => lowerMessage.includes(kw)) && !appKeywords.some(kw => lowerMessage.includes(kw))
-  const isAudioRequest = audioKeywords.some(kw => lowerMessage.includes(kw))
-  const isAppRequest = appKeywords.some(kw => lowerMessage.includes(kw))
+// App building intent patterns
+const appIntentPatterns = [
+  /build\s+an\s+app/i,
+  /build\s+(?:a\s+)?web\s+app/i,
+  /build\s+(?:a\s+)?mobile\s+app/i,
+  /create\s+an\s+app/i,
+  /create\s+(?:a\s+)?web\s+app/i,
+  /make\s+an\s+app/i,
+  /make\s+(?:a\s+)?web\s+app/i,
+  /develop\s+an\s+app/i,
+  /write\s+code\s+for/i,
+  /generate\s+code\s+for/i,
+  /build\s+a\s+game/i,
+  /create\s+a\s+game/i,
+  /make\s+a\s+game/i,
+  /build\s+(?:a\s+)?website/i,
+  /create\s+(?:a\s+)?website/i,
+  /make\s+(?:a\s+)?website/i,
+]
 
-  console.log("RouteTask:", { lowerMessage, isImageRequest, isAudioRequest, isAppRequest })
+function detectImageIntent(message: string): boolean {
+  const lowerMsg = message.toLowerCase()
+  for (const pattern of imageIntentPatterns) {
+    if (pattern.test(lowerMsg)) {
+      return true
+    }
+  }
+  return false
+}
 
-  if (isImageRequest) {
+function detectAudioIntent(message: string): boolean {
+  const lowerMsg = message.toLowerCase()
+  for (const pattern of audioIntentPatterns) {
+    if (pattern.test(lowerMsg)) {
+      return true
+    }
+  }
+  return false
+}
+
+function detectAppIntent(message: string): boolean {
+  const lowerMsg = message.toLowerCase()
+  for (const pattern of appIntentPatterns) {
+    if (pattern.test(lowerMsg)) {
+      return true
+    }
+  }
+  return false
+}
+
+async function routeTask(userMessage: string): Promise<{ route: string; mode: string; prompt: string; reasoning: string }> {
+  // Use NLP-based pattern matching instead of relying solely on LLM routing
+  const hasImageIntent = detectImageIntent(userMessage)
+  const hasAudioIntent = detectAudioIntent(userMessage)
+  const hasAppIntent = detectAppIntent(userMessage)
+
+  console.log("Intent detection - image:", hasImageIntent, "audio:", hasAudioIntent, "app:", hasAppIntent)
+
+  // Priority: explicit intent > app building > regular chat
+  if (hasImageIntent) {
     return {
       route: "image_generation",
       mode: "image",
       prompt: userMessage,
-      reasoning: "User requested an image/picture generation"
+      reasoning: "Detected image generation intent using NLP pattern matching"
     }
   }
 
-  if (isAudioRequest) {
+  if (hasAudioIntent) {
     return {
       route: "audio_generation",
       mode: "audio",
       prompt: userMessage,
-      reasoning: "User requested audio/speech generation"
+      reasoning: "Detected audio generation intent using NLP pattern matching"
     }
   }
 
-  if (isAppRequest) {
+  if (hasAppIntent) {
     return {
       route: "text_generation",
       mode: "app_building",
       prompt: userMessage,
-      reasoning: "User requested to build an app or write code"
+      reasoning: "Detected app building intent using NLP pattern matching"
     }
   }
 
-  return {
-    route: "text_generation",
-    mode: "chat",
-    prompt: userMessage,
-    reasoning: "Regular conversation or task"
+  // Fallback to LLM-based routing for ambiguous cases
+  const routerModel = ollamaClient("qwen3.5-4B")
+
+  const controller = new AbortController()
+  const timeoutId = setTimeout(() => controller.abort(), 5000)
+
+  const result = await streamText({
+    model: routerModel,
+    system: `You are a task router. Analyze the user's message and determine if it requires image generation, audio generation, or text generation.
+
+## Image Generation
+Route to image_generation when user asks to:
+- Generate/create/draw an image or picture
+- Show me a [something]
+- Make me a [picture/image]
+- Create a photo of
+- Generate an image of
+Keywords: image, picture, photo, generate image, create image, draw, make picture
+
+## Audio Generation
+Route to audio_generation when user asks to:
+- Generate/create audio or sound
+- Text to speech, TTS
+- Convert text to voice
+- Generate music or song
+Keywords: audio, sound, speech, voice, TTS, music, song, synthesize
+
+## Text Generation
+Route to text_generation for:
+- App building
+- Code generation
+- Regular conversation
+- All other requests
+
+## Response Format
+Return ONLY valid JSON:
+{
+  "route": "text_generation" | "image_generation" | "audio_generation",
+  "mode": "chat" | "app_building" | "image" | "audio",
+  "prompt": "the original prompt",
+  "reasoning": "why this route was chosen"
+}
+`,
+    messages: [{ role: "user", content: userMessage }],
+    maxSteps: 1,
+    headers: {
+      "X-Request-ID": userMessage,
+    },
+  })
+
+  clearTimeout(timeoutId)
+
+  const text = await result.text
+  const jsonMatch = text.match(/\{[\s\S]*\}/)
+  if (!jsonMatch) {
+    console.error("Router failed to return valid JSON, defaulting to text_generation")
+    return {
+      route: "text_generation",
+      mode: "chat",
+      prompt: userMessage,
+      reasoning: "Router failed to parse response"
+    }
+  }
+
+  try {
+    const routing = JSON.parse(jsonMatch[0])
+    console.log("Router result:", routing)
+    return routing
+  } catch (e) {
+    console.error("Router JSON parse error:", e)
+    return {
+      route: "text_generation",
+      mode: "chat",
+      prompt: userMessage,
+      reasoning: "Router failed to parse response"
+    }
   }
 }
 
@@ -401,12 +577,11 @@ export async function POST(req: NextRequest) {
 
     const settings = loadSettings()
     const userMessage = message || messages?.filter((m: any) => m.role === 'user').pop()?.content || ""
-    const routing = routeTask(userMessage)
+    const routing = await routeTask(userMessage)
 
     if (routing.route === "image_generation") {
       const imageUrl = await generateImage(routing.prompt)
       return NextResponse.json({
-        type: "image",
         imageUrl: imageUrl,
         routing: routing
       })
@@ -415,7 +590,6 @@ export async function POST(req: NextRequest) {
     if (routing.route === "audio_generation") {
       const audioUrl = await generateAudio(routing.prompt)
       return NextResponse.json({
-        type: "audio",
         audioUrl: audioUrl,
         routing: routing
       })
