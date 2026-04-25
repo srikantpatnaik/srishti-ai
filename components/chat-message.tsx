@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef, useCallback } from "react"
-import { User, Bot, Code2, ExternalLink, Download, FolderHeart, X } from "lucide-react"
+import { User, Bot, Code2, ExternalLink, Download, FolderHeart, X, Check } from "lucide-react"
 import { cn } from "@/lib/utils"
 import ReactMarkdown from "react-markdown"
 import remarkGfm from "remark-gfm"
@@ -517,25 +517,23 @@ export const ChatMessage = React.memo(function ChatMessage({
   return (
      <div className="space-y-4 py-2 w-full">
        {!hasOnlyImage && (
-         <div
-         className={`px-3 py-2 text-[15px] text-[#e5e5e5] break-words ${
-           isUser 
-             ? "bg-[#2a2a2e] rounded-2xl self-end break-words inline-block text-right relative" 
-             : "w-full"
-         }`}
-       >
-        <div className="min-w-0">
+         <div className={`${isUser ? "text-right" : "w-full"}`}>
+        <div
+          className={`${isUser ? "inline-block bg-[#2a2a2e] rounded-2xl break-words px-3 py-2 relative" : "w-full"}`}
+        >
             {isUser ? renderUserContent() : renderContent()}
-          </div>
-          {isUser && status && status !== "idle" && status !== "ready" && (
-            <div className="absolute -bottom-1 right-2 flex items-center gap-1.5 px-1.5 py-0.5 bg-[#1a1a2e]/50 backdrop-blur-sm rounded-lg border border-[#2e2e32]">
-              <div className="flex gap-0.5">
-                <span className="w-0.5 h-0.5 rounded-full bg-[#de0f17] animate-pulse" style={{ animationDelay: '0ms' }} />
-                <span className="w-0.5 h-0.5 rounded-full bg-[#de0f17] animate-pulse" style={{ animationDelay: '100ms' }} />
-                <span className="w-0.5 h-0.5 rounded-full bg-[#de0f17] animate-pulse" style={{ animationDelay: '200ms' }} />
+            {status && status !== "idle" && (
+              <div className="absolute -bottom-1 -right-1">
+                {status === "ready" ? (
+                  <div className="border border-[#666666] rounded-full w-[12px] h-[12px] flex items-center justify-center">
+                    <Check className="h-[8px] w-[8px] text-[#666666]" />
+                  </div>
+                ) : (
+                  <div className="w-[12px] h-[12px] rounded-full border-[1.5px] border-[#444444] border-t-transparent animate-spin" />
+                )}
               </div>
-            </div>
-          )}
+            )}
+        </div>
         </div>
       )}
        

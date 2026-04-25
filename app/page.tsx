@@ -137,6 +137,13 @@ export default function Home() {
     }
   }, [messages])
 
+  // Save messages to localStorage
+  useEffect(() => {
+    if (messages.length > 0) {
+      localStorage.setItem("chatMessages", JSON.stringify(messages))
+    }
+  }, [messages])
+
   // Persistence and loading effects
   useEffect(() => {
     const savedShowPreview = localStorage.getItem("showPreview")
@@ -938,26 +945,27 @@ useEffect(() => {
               <div className="px-4 py-4 space-y-4 max-w-3xl mx-auto">
                 {useMemo(() => {
                   const visibleMessages = messages.slice(visibleRange.start, visibleRange.end)
+                  const lastUserIdx = messages.findLastIndex(m => m.role === 'user')
                   return visibleMessages.map((msg, idx) => {
                     const m = msg as any
                     if (m.type === 'tool-call' || m.type === 'tool-result') return null
                     const actualIdx = visibleRange.start + idx
                     const msgPreviewUrl = messagePreviews.get(actualIdx)
                     const msgImageUrl = messageImages.get(actualIdx) || (msg as any).imageUrl
-                    const isLatestAssistant = msg.role === 'assistant' && actualIdx === messages.length - 1
+                    const isLatestUser = msg.role === 'user' && actualIdx === lastUserIdx
                     const hasCode = extractCodeFromMessage(msg) !== null
                     const msgWithImage = { ...msg, imageUrl: msgImageUrl }
                     return (
                       <div key={msg.id} className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'} gap-2`}>
                         <div className={`${msg.role === 'user' ? 'self-end' : 'self-start'} max-w-[90%]`} data-testid={msg.role === 'user' ? 'user-message' : 'assistant-message'}>
-                          <ChatMessage 
-                            message={msgWithImage} 
-                            previewUrl={msgPreviewUrl} 
-                            onPreviewClick={() => setShowPreview(true)} 
+                          <ChatMessage
+                            message={msgWithImage}
+                            previewUrl={msgPreviewUrl}
+                            onPreviewClick={() => setShowPreview(true)}
                             onSaveToGallery={hasCode ? () => handleSaveFromChat(actualIdx) : undefined}
                             onDownload={hasCode ? () => handleDownloadFromChat(actualIdx) : undefined}
                             hasSavedToGallery={hasCode && isAppSavedInChat(actualIdx)}
-                            status={isLatestAssistant ? status : undefined}
+                            status={isLatestUser ? status : undefined}
                             onImageSave={msgImageUrl ? () => handleImageSaveFromChat(actualIdx) : undefined}
                             onImageDownload={msgImageUrl ? () => handleImageDownloadFromChat(actualIdx) : undefined}
                             onImageOpen={msgImageUrl ? () => handleImageOpenFromChat(actualIdx) : undefined}
