@@ -43,15 +43,57 @@ function getCategory(name: string): Category {
 
 function AppPreviewIcon({ code, name, isMedia }: { code: string, name: string, isMedia: boolean }) {
   if (code.startsWith('data:image/')) {
-    return <img src={code} alt={name} className="w-full h-full object-cover object-top" />
+    return <img src={code} alt={name} className="w-full h-full object-cover object-top rounded-xl" />
   }
 
   if (code.startsWith('data:video/') || code.startsWith('data:audio/')) {
-    return <div className="relative w-full h-full flex items-center justify-center bg-[#1a1a2e]"><Play className="h-10 w-10 text-white/70"/></div>
+    return (
+      <div className="relative w-full h-full flex items-center justify-center bg-[#1a1a2e] rounded-xl overflow-hidden">
+        <Play className="h-10 w-10 text-white/70" />
+        <div className="absolute bottom-0 left-0 right-0 bg-black/60 text-white text-[7px] px-1 py-0.5 truncate">
+          {name}
+        </div>
+      </div>
+    )
   }
 
-  // Gallery thumbnails: show emoji icon only, no blob URL (saves memory)
-  return <span className="text-lg">{getAppIcon(name)}</span>
+  const [visible, setVisible] = useState(false)
+  const ref = useRef<HTMLDivElement>(null)
+
+  useEffect(() => {
+    const el = ref.current
+    if (!el) return
+    const observer = new IntersectionObserver(([entry]) => {
+      setVisible(entry.isIntersecting)
+    }, { threshold: 0.1 })
+    observer.observe(el)
+    return () => observer.disconnect()
+  }, [])
+
+  if (!visible) {
+    return (
+      <div className="w-full h-full flex items-center justify-center bg-[#1a1a2e] rounded-xl overflow-hidden">
+        <span className="text-lg">{getAppIcon(name)}</span>
+      </div>
+    )
+  }
+
+  // Render app in tiny iframe via srcdoc — no blob URL needed
+  const wrapper = `<!DOCTYPE html><html lang="en"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no"><style>*{margin:0;padding:0;box-sizing:border-box;}html,body{width:100%;height:100%;overflow:hidden;background:linear-gradient(135deg,#667eea,#764ba2);display:flex;justify-content:center;align-items:center;}body{font-family:-apple-system,BlinkMacSystemFont,sans-serif;max-width:430px;width:100%;}</style></head><body>${code}</body></html>`
+
+  return (
+    <div ref={ref} className="w-full h-full relative overflow-hidden rounded-xl">
+      <iframe
+        srcDoc={wrapper}
+        className="w-full h-full border-0"
+        sandbox="allow-scripts allow-same-origin"
+        style={{ pointerEvents: 'none' as const }}
+      />
+      <div className="absolute bottom-0 left-0 right-0 bg-black/60 text-white text-[7px] px-1 py-0.5 truncate">
+        {name}
+      </div>
+    </div>
+  )
 }
 
 function getAppIcon(name: string): string {
@@ -297,7 +339,7 @@ export function AppDrawer({
       </div>
 
       <div className="flex-1 overflow-y-auto" onClick={(e) => { e.stopPropagation(); setContextMenuPos(null); }} onTouchStart={handleTouchStart} onTouchMove={handleTouchMove}>
-        <div className="grid grid-cols-4 gap-4 p-3">
+        <div className="grid grid-cols-4 gap-3 p-3">
           {filteredApps.map((app) => {
             const isMedia = isMediaFile(app.code)
             return (
@@ -314,11 +356,11 @@ export function AppDrawer({
                     const deltaY = Math.abs(touchStartY.current - e.changedTouches[0].clientY)
                     if (deltaY < 10) handleLongPress(app, e)
                   }}
-                  className={isMedia ? "w-32 h-32 rounded-xl bg-[#1e1e23] border border-[#2e2e32]/50 hover:border-[#de0f17]/50 hover:scale-105 transition-all cursor-pointer overflow-hidden" : "w-24 h-24 rounded-xl bg-[#1e1e23] border border-[#2e2e32]/50 hover:border-[#de0f17]/50 hover:scale-105 transition-all cursor-pointer overflow-hidden flex items-center justify-center"}
+                  className="w-24 h-24 rounded-xl bg-[#1e1e23] border border-[#2e2e32]/50 hover:border-[#de0f17]/50 hover:scale-105 transition-all cursor-pointer overflow-hidden"
                 >
                   <AppPreviewIcon code={app.code} name={app.name} isMedia={isMedia} />
                 </div>
-                <p className={`mt-1.5 text-xs text-[#888888] text-center truncate ${isMedia ? 'w-32' : 'w-24'}`}>{app.name}</p>
+                <p className="mt-1 text-[9px] text-[#888888] text-center truncate w-24">{app.name}</p>
               </div>
             )
           })}
