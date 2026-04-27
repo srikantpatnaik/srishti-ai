@@ -42,40 +42,16 @@ function getCategory(name: string): Category {
 }
 
 function AppPreviewIcon({ code, name, isMedia }: { code: string, name: string, isMedia: boolean }) {
-  const [blobUrl, setBlobUrl] = useState<string | null>(null)
-
-  useEffect(() => {
-    if (code.startsWith('data:')) {
-      return
-    }
-    
-    const doc = `<!DOCTYPE html><html lang="en"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no"><style>*{margin:0;padding:0;box-sizing:border-box;}html,body{width:100%;height:100%;overflow:hidden;background:#1a1a2e;}body{font-family:-apple-system,BlinkMacSystemFont,sans-serif;display:flex;justify-content:center;align-items:center;}</style></head><body>${code}</body></html>`
-    const blob = new Blob([doc], { type: 'text/html' })
-    const url = URL.createObjectURL(blob)
-    setBlobUrl(url)
-    
-    return () => {
-      URL.revokeObjectURL(url)
-    }
-  }, [code])
-
   if (code.startsWith('data:image/')) {
     return <img src={code} alt={name} className="w-full h-full object-cover object-top" />
   }
-  
+
   if (code.startsWith('data:video/') || code.startsWith('data:audio/')) {
     return <div className="relative w-full h-full flex items-center justify-center bg-[#1a1a2e]"><Play className="h-10 w-10 text-white/70"/></div>
   }
-  
-  if (blobUrl) {
-    return (
-      <div className="w-full h-full flex items-center justify-center bg-[#1a1a2e]">
-        <span className="text-lg">{getAppIcon(name)}</span>
-      </div>
-    )
-  }
-  
-  return <span className="text-lg">📱</span>
+
+  // Gallery thumbnails: show emoji icon only, no blob URL (saves memory)
+  return <span className="text-lg">{getAppIcon(name)}</span>
 }
 
 function getAppIcon(name: string): string {
@@ -331,18 +307,18 @@ export function AppDrawer({
                   onMouseEnter={() => setHoveredApp(app.id)}
                   onMouseLeave={() => setHoveredApp(null)}
                   onContextMenu={(e) => { e.preventDefault(); handleLongPress(app, e); }}
-                  onTouchStart={(e) => { 
+                  onTouchStart={(e) => {
                     touchStartY.current = e.touches[0].clientY
                   }}
                   onTouchEnd={(e) => {
                     const deltaY = Math.abs(touchStartY.current - e.changedTouches[0].clientY)
                     if (deltaY < 10) handleLongPress(app, e)
                   }}
-                  className={isMedia ? "w-28 h-28 rounded-xl bg-[#1e1e23] border border-[#2e2e32]/50 hover:border-[#de0f17]/50 hover:scale-105 transition-all cursor-pointer overflow-hidden" : "w-14 h-14 rounded-xl bg-[#1e1e23] border border-[#2e2e32]/50 hover:border-[#de0f17]/50 hover:scale-105 transition-all cursor-pointer overflow-hidden flex items-center justify-center"}
+                  className={isMedia ? "w-32 h-32 rounded-xl bg-[#1e1e23] border border-[#2e2e32]/50 hover:border-[#de0f17]/50 hover:scale-105 transition-all cursor-pointer overflow-hidden" : "w-24 h-24 rounded-xl bg-[#1e1e23] border border-[#2e2e32]/50 hover:border-[#de0f17]/50 hover:scale-105 transition-all cursor-pointer overflow-hidden flex items-center justify-center"}
                 >
                   <AppPreviewIcon code={app.code} name={app.name} isMedia={isMedia} />
                 </div>
-                <p className={`mt-1.5 text-xs text-[#888888] text-center truncate ${isMedia ? 'w-28' : 'w-14'}`}>{app.name}</p>
+                <p className={`mt-1.5 text-xs text-[#888888] text-center truncate ${isMedia ? 'w-32' : 'w-24'}`}>{app.name}</p>
               </div>
             )
           })}

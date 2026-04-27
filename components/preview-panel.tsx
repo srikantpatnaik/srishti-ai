@@ -226,7 +226,7 @@ export function PreviewPanel({
   <style>
     * { margin: 0; padding: 0; box-sizing: border-box; }
     html, body { height: 100%; width: 100%; overflow: hidden; display: flex; justify-content: center; align-items: center; }
-    body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background: #1a1a2e; color: #eaeaea; width: 100vw; height: 100vh; }
+    body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background: linear-gradient(135deg, #667eea, #764ba2); color: #eaeaea; width: 100vw; height: 100vh; }
     .app-container { width: 100%; height: 100%; }
   </style>
 </head>

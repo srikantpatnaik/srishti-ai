@@ -12,8 +12,8 @@ interface PreviewIframeProps {
 }
 
 function PreviewIframe({ src, isActive, onFocus, onBlur }: PreviewIframeProps) {
-  const [isVisible, setIsVisible] = useState(true)
-  const [currentSrc, setCurrentSrc] = useState(src)
+  const [isLoaded, setIsLoaded] = useState(false)
+  const [currentSrc, setCurrentSrc] = useState<string | null>(null)
   const containerRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
@@ -22,17 +22,23 @@ function PreviewIframe({ src, isActive, onFocus, onBlur }: PreviewIframeProps) {
 
     const observer = new IntersectionObserver(
       ([entry]) => {
-        setIsVisible(entry.isIntersecting)
         if (entry.isIntersecting) {
-          setCurrentSrc(src)
+          if (!isLoaded) {
+            setCurrentSrc(src)
+            setIsLoaded(true)
+          }
+        } else if (isLoaded) {
+          // Unload when scrolled out of view to free memory
+          setCurrentSrc(null)
+          setIsLoaded(false)
         }
       },
-      { threshold: 0.1 }
+      { threshold: 0.1, rootMargin: "200px" }
     )
 
     observer.observe(container)
     return () => observer.disconnect()
-  }, [src])
+  }, [src, isLoaded])
 
   const handleKeyDown = useCallback((e: KeyboardEvent) => {
     if (isActive) {
@@ -56,19 +62,21 @@ function PreviewIframe({ src, isActive, onFocus, onBlur }: PreviewIframeProps) {
       onFocus={onFocus}
       onBlur={onBlur}
       className={cn(
-        "w-full h-full bg-[#0a0a0f] transition-all duration-200 relative",
+        "w-full h-full bg-gradient-to-br from-[#667eea] to-[#764ba2] transition-all duration-200 relative",
         isActive && "ring-2 ring-[#de0f17]/50"
       )}
     >
-      <iframe
-        src={currentSrc}
-        className="w-full h-full border-0 bg-[#0a0a0f]"
-        style={{
-          overflow: 'hidden',
-        } as React.CSSProperties}
-        sandbox="allow-scripts allow-same-origin allow-forms allow-popups allow-pointer-lock"
-        allow="pointer-lock"
-      />
+      {isLoaded && currentSrc && (
+        <iframe
+          src={currentSrc}
+          className="w-full h-full border-0"
+          style={{
+            overflow: 'hidden',
+          } as React.CSSProperties}
+          sandbox="allow-scripts allow-same-origin allow-forms allow-popups allow-pointer-lock"
+          allow="pointer-lock"
+        />
+      )}
     </div>
   )
 }
@@ -140,6 +148,10 @@ export const ChatMessage = React.memo(function ChatMessage({
 
   const renderContent = () => {
     if (!message.content) return null
+    // Strip announce tool call text leaking into response
+    let content = message.content
+    content = content.replace(/\[announce\(phase:\s*"[^"]*"\)\]/g, '').trim()
+    if (!content) return null
     if ((message as any).type === "code" && (message as any).filePath) {
       return (
         <div className="mt-4 bg-[#0d0d10] rounded-xl overflow-hidden border border-[#2e2e32] shadow-lg">
@@ -151,7 +163,7 @@ export const ChatMessage = React.memo(function ChatMessage({
             <span className="text-xs text-[#666666]">CODE</span>
           </div>
           <pre className="p-4 text-sm overflow-x-auto bg-[#121215] text-[#d4d4d4]">
-            <code>{message.content}</code>
+            <code>{content}</code>
           </pre>
         </div>
       )
@@ -165,11 +177,11 @@ export const ChatMessage = React.memo(function ChatMessage({
 
 
 
-    const hasMarkdownTable = message.content.split('\n').some(line => line.trim().startsWith('|'))
-    const hasHtmlTable = message.content.includes('<table')
+    const hasMarkdownTable = content.split('\n').some(line => line.trim().startsWith('|'))
+    const hasHtmlTable = content.includes('<table')
 
     if (hasMarkdownTable || hasHtmlTable) {
-      let contentToParse = message.content
+      let contentToParse = content
 
       if (hasHtmlTable) {
         const parser = new DOMParser()
@@ -472,7 +484,7 @@ export const ChatMessage = React.memo(function ChatMessage({
             }
           }}
         >
-          {message.content || " "}
+          {content || " "}
         </ReactMarkdown>
       </div>
     )
@@ -527,7 +539,10 @@ export const ChatMessage = React.memo(function ChatMessage({
             {isUser && (
               <div className="absolute -bottom-1 -right-1">
                 {isSending ? (
-                  <div data-testid="message-spinner" className="w-[14px] h-[14px] rounded-full border-2 border-[#888888] border-t-transparent animate-spin" />
+                  <div
+                    data-testid="message-spinner"
+                    className="w-[10px] h-[10px] rounded-full border-[1px] border-[#444444] border-t-transparent animate-spin"
+                  />
                 ) : status === "ready" ? (
                   <div data-testid="message-tick" className="border border-[#666666] rounded-full w-[12px] h-[12px] flex items-center justify-center">
                     <Check className="h-[8px] w-[8px] text-[#666666]" />
@@ -541,7 +556,7 @@ export const ChatMessage = React.memo(function ChatMessage({
        
        {/* Preview in chat - shown when there's a preview URL */}
       {previewUrl && !isUser && (
-        <div className="mt-4 group relative overflow-hidden w-full bg-[#000000]" style={{ height: 'min(600px, 70vh)' }}>
+        <div className="mt-4 group relative overflow-hidden w-full bg-gradient-to-br from-[#667eea] to-[#764ba2] h-[80vh]">
           <PreviewIframe
             src={previewUrl}
             isActive={isActive}
@@ -588,11 +603,11 @@ export const ChatMessage = React.memo(function ChatMessage({
 
      {/* Image preview in chat - shown when there's an image URL */}
       {message.imageUrl && !isUser && (
-        <div className="mt-4 group relative overflow-hidden w-full bg-[#000000]">
+        <div className="mt-4 group relative overflow-hidden w-full bg-gradient-to-br from-[#667eea] to-[#764ba2]">
           <img
             src={message.imageUrl}
             alt="Generated image"
-            className="w-full h-auto max-h-[500px] object-contain bg-[#0a0a0f] cursor-pointer"
+            className="w-full h-auto max-h-[500px] object-contain cursor-pointer"
             onClick={() => onImageOpen?.()}
           />
           
@@ -626,7 +641,7 @@ export const ChatMessage = React.memo(function ChatMessage({
 
       {/* Audio preview in chat - shown when there's an audio URL */}
       {message.audioUrl && !isUser && (
-        <div className="mt-4 group relative overflow-hidden w-full bg-[#000000]">
+        <div className="mt-4 group relative overflow-hidden w-full bg-gradient-to-br from-[#667eea] to-[#764ba2]">
           <audio
             controls
             className="w-full h-12 rounded-lg"

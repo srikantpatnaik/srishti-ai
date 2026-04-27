@@ -38,9 +38,11 @@ const systemPromptBase = `You are Srishti AI - a friendly assistant that helps u
 
 **Code Requirements (internal only - NEVER show user):**
 - Complete HTML file with all CSS and JS inline
-- Mobile-first design with viewport meta tag
-- Dark theme: background #1a1a2e, text #eaeaea
+- Mobile-first design with viewport meta tag (max-width: 430px, centered)
+- **ALWAYS use vibrant, colorful gradients and themes** — never plain black/white
+- Use rich colors: gradients, accent colors, colorful buttons, themed backgrounds
 - Touch-friendly buttons (min 44px height)
+- Mobile screen optimized by default unless explicitly told otherwise (no extra padding/margins)
 
 **IMPORTANT:** You must include the full HTML code block with triple backticks and html. The code will be automatically extracted and shown as a preview.
 
@@ -64,9 +66,13 @@ export async function GET(req: Request) {
 async function streamWithFallback(
   systemPrompt: string,
   messages: any[],
-  opts: { isAutonomous?: boolean; sessionId: string },
+  opts: { isAutonomous?: boolean; sessionId: string; signal?: AbortSignal },
 ) {
-  const timeoutId = setTimeout(() => {}, 300000) // placeholder for abort logic
+  const controller = new AbortController()
+
+  // Listen for external abort signal (client disconnect / stop button)
+  const onAbort = () => controller.abort()
+  opts.signal?.addEventListener('abort', onAbort, { once: true })
 
   try {
     const result = await streamText({
@@ -77,6 +83,7 @@ async function streamWithFallback(
       maxSteps: 20,
       experimental_activeTools: opts.isAutonomous ? ["announce"] : [],
       headers: { "X-Model-Affinity": opts.sessionId },
+      abortSignal: controller.signal,
     })
 
     return {
@@ -90,6 +97,9 @@ async function streamWithFallback(
       fallback: false,
     }
   } catch (err: any) {
+    if (err.name === 'AbortError' || err.message?.includes('aborted')) {
+      throw err // Re-throw abort so POST handler can return 499
+    }
     console.warn("Ollama unavailable, falling back to Plano gateway:", err.message)
 
     const result = await streamText({
@@ -99,6 +109,7 @@ async function streamWithFallback(
       tools: { announce: announceTool },
       maxSteps: 20,
       experimental_activeTools: opts.isAutonomous ? ["announce"] : [],
+      abortSignal: controller.signal,
     })
 
     return {
@@ -116,41 +127,35 @@ async function streamWithFallback(
 }
 
 export async function POST(req: Request) {
-  const controller = new AbortController()
-  const timeoutId = setTimeout(() => controller.abort(), 300000)
+  const { messages, isAutonomous, selectedLanguage, sessionId } = await req.json()
+  const userMessage = messages?.filter((m: any) => m.role === 'user').pop()?.content || ""
+
+  const affinityId = sessionId || uuidv4()
+  const langInstruction = getLangInstruction(selectedLanguage)
+  const systemPrompt = langInstruction
+    ? `${systemPromptBase}\n\nRespond in ${langInstruction} language`
+    : systemPromptBase
+
+  const hasImage = detectImageIntent(userMessage)
+  const hasAudio = detectAudioIntent(userMessage)
+
+  let prompt = systemPrompt
+
+  if (hasImage) {
+    prompt = `${systemPrompt}\n\nFor image requests, respond with image generation guidance or use generateImage tool if available.`
+  } else if (hasAudio) {
+    prompt = `${systemPrompt}\n\nFor audio generation, respond with audio content or use generateAudio tool if available.`
+  }
 
   try {
-    const { messages, isAutonomous, selectedLanguage, sessionId } = await req.json()
-    const userMessage = messages?.filter((m: any) => m.role === 'user').pop()?.content || ""
-
-    const affinityId = sessionId || uuidv4()
-    const langInstruction = getLangInstruction(selectedLanguage)
-    const systemPrompt = langInstruction
-      ? `${systemPromptBase}\n\nRespond in ${langInstruction} language`
-      : systemPromptBase
-
-    const hasImage = detectImageIntent(userMessage)
-    const hasAudio = detectAudioIntent(userMessage)
-
-    let prompt = systemPrompt
-
-    if (hasImage) {
-      prompt = `${systemPrompt}\n\nFor image requests, respond with image generation guidance or use generateImage tool if available.`
-    } else if (hasAudio) {
-      prompt = `${systemPrompt}\n\nFor audio generation, respond with audio content or use generateAudio tool if available.`
-    }
-
     const { response } = await streamWithFallback(prompt, messages, {
       isAutonomous,
       sessionId: affinityId,
+      signal: req.signal, // Next.js built-in: fires when client disconnects
     })
-
-    clearTimeout(timeoutId)
     return response
   } catch (error: any) {
-    clearTimeout(timeoutId)
-    console.error("Chat API error:", error)
-    if (error.name === 'AbortError') {
+    if (error.name === 'AbortError' || error.message?.includes('aborted')) {
       return new Response(JSON.stringify({ error: "Generation stopped" }), {
         status: 499,
         headers: { 'Content-Type': 'application/json' },

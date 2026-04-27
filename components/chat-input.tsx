@@ -247,13 +247,6 @@ export function ChatInput({
                  </button>
                )}
              </div>
-             
-             {/* Status indicator - tiny, bottom right */}
-             {isGenerating && (
-               <div className="absolute bottom-1 right-2 flex items-center gap-1">
-                 <span className="text-[9px] text-[#555555]">{status}</span>
-               </div>
-             )}
            </div>
          </div>
        </div>
