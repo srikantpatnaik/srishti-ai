@@ -94,6 +94,7 @@ interface ChatMessageProps {
   onDownload?: () => void
   hasSavedToGallery?: boolean
   status?: string
+  isSending?: boolean
   onImageSave?: () => void
   onImageDownload?: () => void
   onImageOpen?: () => void
@@ -103,14 +104,15 @@ interface ChatMessageProps {
 
 let globalActivePreviewId: string | null = null
 
-export const ChatMessage = React.memo(function ChatMessage({ 
-  message, 
-  previewUrl, 
-  onPreviewClick, 
-  onSaveToGallery, 
+export const ChatMessage = React.memo(function ChatMessage({
+  message,
+  previewUrl,
+  onPreviewClick,
+  onSaveToGallery,
   onDownload,
   hasSavedToGallery = false,
   status,
+  isSending = false,
   onImageSave,
   onImageDownload,
  onImageOpen,
@@ -521,16 +523,16 @@ export const ChatMessage = React.memo(function ChatMessage({
         <div
           className={`${isUser ? "inline-block bg-[#2a2a2e] rounded-2xl break-words px-3 py-2 relative" : "w-full"}`}
         >
-            {isUser ? renderUserContent() : renderContent()}
-            {status && status !== "idle" && (
+           {isUser ? renderUserContent() : renderContent()}
+            {isUser && (
               <div className="absolute -bottom-1 -right-1">
-                {status === "ready" ? (
-                  <div className="border border-[#666666] rounded-full w-[12px] h-[12px] flex items-center justify-center">
+                {isSending ? (
+                  <div data-testid="message-spinner" className="w-[14px] h-[14px] rounded-full border-2 border-[#888888] border-t-transparent animate-spin" />
+                ) : status === "ready" ? (
+                  <div data-testid="message-tick" className="border border-[#666666] rounded-full w-[12px] h-[12px] flex items-center justify-center">
                     <Check className="h-[8px] w-[8px] text-[#666666]" />
                   </div>
-                ) : (
-                  <div className="w-[12px] h-[12px] rounded-full border-[1.5px] border-[#444444] border-t-transparent animate-spin" />
-                )}
+                ) : null}
               </div>
             )}
         </div>

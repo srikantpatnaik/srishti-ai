@@ -16,6 +16,11 @@ interface DeploymentChecklist {
   noErrors: boolean
   documentationReady: boolean
   performanceOk: boolean
+  testsChecking: boolean
+  buildChecking: boolean
+  noErrorsChecking: boolean
+  documentationChecking: boolean
+  performanceChecking: boolean
 }
 
 export function DeploymentPanel() {
@@ -31,6 +36,11 @@ export function DeploymentPanel() {
     noErrors: false,
     documentationReady: false,
     performanceOk: false,
+    testsChecking: false,
+    buildChecking: false,
+    noErrorsChecking: false,
+    documentationChecking: false,
+    performanceChecking: false,
   })
 
   const checkDeploymentReady = useCallback(() => {
@@ -42,24 +52,29 @@ export function DeploymentPanel() {
     setStatus({ status: "building", message: "Running pre-deployment checks...", progress: 10 })
 
     // Simulate checks
+    setChecklist((prev) => ({ ...prev, noErrorsChecking: true }))
     await new Promise((resolve) => setTimeout(resolve, 500))
-    setChecklist((prev) => ({ ...prev, noErrors: true }))
+    setChecklist((prev) => ({ ...prev, noErrorsChecking: false, noErrors: true }))
     setStatus((prev) => ({ ...prev, progress: 30 }))
 
+    setChecklist((prev) => ({ ...prev, testsChecking: true }))
     await new Promise((resolve) => setTimeout(resolve, 500))
-    setChecklist((prev) => ({ ...prev, testsPassed: true }))
+    setChecklist((prev) => ({ ...prev, testsChecking: false, testsPassed: true }))
     setStatus((prev) => ({ ...prev, progress: 50 }))
 
+    setChecklist((prev) => ({ ...prev, buildChecking: true }))
     await new Promise((resolve) => setTimeout(resolve, 500))
-    setChecklist((prev) => ({ ...prev, buildSuccessful: true }))
+    setChecklist((prev) => ({ ...prev, buildChecking: false, buildSuccessful: true }))
     setStatus((prev) => ({ ...prev, progress: 70 }))
 
+    setChecklist((prev) => ({ ...prev, documentationChecking: true }))
     await new Promise((resolve) => setTimeout(resolve, 500))
-    setChecklist((prev) => ({ ...prev, documentationReady: true }))
+    setChecklist((prev) => ({ ...prev, documentationChecking: false, documentationReady: true }))
     setStatus((prev) => ({ ...prev, progress: 85 }))
 
+    setChecklist((prev) => ({ ...prev, performanceChecking: true }))
     await new Promise((resolve) => setTimeout(resolve, 500))
-    setChecklist((prev) => ({ ...prev, performanceOk: true }))
+    setChecklist((prev) => ({ ...prev, performanceChecking: false, performanceOk: true }))
     setStatus({ status: "ready", message: "All checks passed! Ready to deploy", progress: 100 })
   }, [])
 
@@ -78,6 +93,11 @@ export function DeploymentPanel() {
       noErrors: false,
       documentationReady: false,
       performanceOk: false,
+      testsChecking: false,
+      buildChecking: false,
+      noErrorsChecking: false,
+      documentationChecking: false,
+      performanceChecking: false,
     })
   }, [])
 
@@ -143,30 +163,35 @@ export function DeploymentPanel() {
             icon={CheckCircle2}
             label="All tests passed"
             checked={checklist.testsPassed}
+            checking={checklist.testsChecking}
             description="Unit and integration tests"
           />
           <ChecklistItem
             icon={Package}
             label="Build successful"
             checked={checklist.buildSuccessful}
+            checking={checklist.buildChecking}
             description="Production build completed"
           />
           <ChecklistItem
             icon={AlertCircle}
             label="No errors"
             checked={checklist.noErrors}
+            checking={checklist.noErrorsChecking}
             description="Console and code errors"
           />
           <ChecklistItem
             icon={GitCommit}
             label="Documentation ready"
             checked={checklist.documentationReady}
+            checking={checklist.documentationChecking}
             description="README and API docs"
           />
           <ChecklistItem
             icon={Upload}
             label="Performance OK"
             checked={checklist.performanceOk}
+            checking={checklist.performanceChecking}
             description="Lighthouse score > 90"
           />
         </div>
@@ -209,11 +234,13 @@ function ChecklistItem({
   icon: Icon,
   label,
   checked,
+  checking,
   description,
 }: {
   icon: any
   label: string
   checked: boolean
+  checking: boolean
   description: string
 }) {
   return (
@@ -224,9 +251,11 @@ function ChecklistItem({
           : "bg-muted border-border"
       }`}
     >
-      <div className={`mt-0.5 ${checked ? "text-green-500" : "text-muted-foreground"}`}>
+      <div className={`mt-0.5 ${checked ? "text-green-500" : checking ? "text-primary" : "text-muted-foreground"}`}>
         {checked ? (
           <CheckCircle2 className="h-4 w-4" />
+        ) : checking ? (
+          <div className="h-4 w-4 rounded-full border-2 border-current border-t-transparent animate-spin" />
         ) : (
           <Icon className="h-4 w-4" />
         )}
