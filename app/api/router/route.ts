@@ -272,7 +272,7 @@ async function routeTask(userMessage: string): Promise<{ route: string; mode: st
   const timeoutId = setTimeout(() => controller.abort(), 5000)
 
   const result = await streamText({
-    model: ollamaClient("qwen3.5-4B"),
+    model: ollamaClient("qwen3.6-35B"),
     system: `You are a task router. Analyze the user's message and determine if it requires image generation, audio generation, or text generation.
 
 ## Image Generation
@@ -408,7 +408,9 @@ ${langInstruction ? `## Language\n${langInstruction}\n` : ""}
 
 ## Guidelines
 - Be concise and helpful
-- For apps: return code in \`\`\`html\`\`\` blocks`
+- For apps: return code in \`\`\`html\`\`\` blocks
+- Apps must be mobile-first, mobile-screen optimized by default (max-width: 430px, centered, no extra padding) unless explicitly told otherwise
+- **ALWAYS use vibrant, colorful gradients and themes** — never plain black/white`
 
   const result = await streamText({
     model,

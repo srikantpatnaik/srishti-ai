@@ -59,7 +59,7 @@ export async function GET(req: Request) {
   return NextResponse.json({
     gateway: process.env.PLANO_GATEWAY_URL || "http://localhost:12000/v1",
     routing: "dynamic",
-    router: "qwen3.5-4B",
+    router: "qwen3.6-35B",
   })
 }
 
@@ -76,7 +76,7 @@ async function streamWithFallback(
 
   try {
     const result = await streamText({
-      model: ollamaClient("qwen3.5-4B"),
+      model: ollamaClient("qwen3.6-35B"),
       system: systemPrompt,
       messages,
       tools: { announce: announceTool },

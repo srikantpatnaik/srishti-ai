@@ -57,63 +57,185 @@ function AppPreviewIcon({ code, name, isMedia }: { code: string, name: string, i
     )
   }
 
-  const [visible, setVisible] = useState(false)
+  // Lazy-loaded iframe thumbnail — renders actual app front page at small size
+  const [url, setUrl] = useState<string | null>(null)
+  const [isVisible, setIsVisible] = useState(false)
   const ref = useRef<HTMLDivElement>(null)
+  const blobRef = useRef<Blob | null>(null)
 
   useEffect(() => {
     const el = ref.current
     if (!el) return
-    const observer = new IntersectionObserver(([entry]) => {
-      setVisible(entry.isIntersecting)
-    }, { threshold: 0.1 })
-    observer.observe(el)
-    return () => observer.disconnect()
-  }, [])
-
-  if (!visible) {
-    return (
-      <div className="w-full h-full flex items-center justify-center bg-[#1a1a2e] rounded-xl overflow-hidden">
-        <span className="text-lg">{getAppIcon(name)}</span>
-      </div>
+    const obs = new IntersectionObserver(
+      ([e]) => {
+        if (e.isIntersecting && !isVisible) {
+          setIsVisible(true)
+        } else if (!e.isIntersecting && isVisible) {
+          setIsVisible(false)
+        }
+      },
+      { threshold: 0, rootMargin: "80px" }
     )
-  }
+    obs.observe(el)
+    return () => obs.disconnect()
+  }, [isVisible])
 
-  // Render app in tiny iframe via srcdoc — no blob URL needed
-  const wrapper = `<!DOCTYPE html><html lang="en"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no"><style>*{margin:0;padding:0;box-sizing:border-box;}html,body{width:100%;height:100%;overflow:hidden;background:linear-gradient(135deg,#667eea,#764ba2);display:flex;justify-content:center;align-items:center;}body{font-family:-apple-system,BlinkMacSystemFont,sans-serif;max-width:430px;width:100%;}</style></head><body>${code}</body></html>`
+  useEffect(() => {
+    if (isVisible && !url) {
+      const blob = new Blob([`<html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1.0,maximum-scale=1.0,user-scalable=no"><style>body{margin:0;padding:0;overflow:hidden;width:120px;height:120px;}</style></head><body>${code}</body></html>`], { type: 'text/html' })
+      blobRef.current = blob
+      setUrl(URL.createObjectURL(blob))
+    }
+    return () => {
+      if (url) { URL.revokeObjectURL(url); setUrl(null) }
+    }
+  }, [isVisible])
+
+  // Extract title from HTML (first <title> or <h1> or fallback to name)
+  const title = (() => {
+    const m = code.match(/<title[^>]*>([^<]+)<\/title>/i)
+    if (m?.[1]) return m[1].trim()
+    const h = code.match(/<h[1-6][^>]*>([^<]+)<\/h[1-6]>/i)
+    if (h?.[1]) return h[1].trim()
+    return name
+  })()
 
   return (
     <div ref={ref} className="w-full h-full relative overflow-hidden rounded-xl">
-      <iframe
-        srcDoc={wrapper}
-        className="w-full h-full border-0"
-        sandbox="allow-scripts allow-same-origin"
-        style={{ pointerEvents: 'none' as const }}
-      />
+      {url && <iframe src={url} className="w-full h-full border-0 rounded-xl" sandbox="allow-same-origin" scrolling="no" style={{ pointerEvents: 'none' }} />}
       <div className="absolute bottom-0 left-0 right-0 bg-black/60 text-white text-[7px] px-1 py-0.5 truncate">
-        {name}
+        {title}
       </div>
     </div>
   )
 }
 
-function getAppIcon(name: string): string {
+const THEME_PALETTE: Record<string, { bg1: string; bg2: string; symbol: string }> = {
+  calculator: { bg1: '#ff6b35', bg2: '#f7931e', symbol: '🔢' },
+  todo: { bg1: '#00b894', bg2: '#00cec9', symbol: '✅' },
+  task: { bg1: '#00b894', bg2: '#00cec9', symbol: '✅' },
+  game: { bg1: '#6c5ce7', bg2: '#a29bfe', symbol: '🎮' },
+  music: { bg1: '#e84393', bg2: '#fd79a8', symbol: '🎵' },
+  audio: { bg1: '#e84393', bg2: '#fd79a8', symbol: '🎵' },
+  video: { bg1: '#d63031', bg2: '#e17055', symbol: '🎬' },
+  photo: { bg1: '#0984e3', bg2: '#74b9ff', symbol: '📷' },
+  image: { bg1: '#0984e3', bg2: '#74b9ff', symbol: '📷' },
+  camera: { bg1: '#0984e3', bg2: '#74b9ff', symbol: '📷' },
+  weather: { bg1: '#fdcb6e', bg2: '#e17055', symbol: '🌤️' },
+  note: { bg1: '#55a3f0', bg2: '#74b9ff', symbol: '📝' },
+  notes: { bg1: '#55a3f0', bg2: '#74b9ff', symbol: '📝' },
+  calendar: { bg1: '#d63031', bg2: '#ff7675', symbol: '📅' },
+  timer: { bg1: '#636e72', bg2: '#b2bec3', symbol: '⏰' },
+  clock: { bg1: '#636e72', bg2: '#b2bec3', symbol: '⏰' },
+  quiz: { bg1: '#fdcb6e', bg2: '#f39c12', symbol: '❓' },
+  card: { bg1: '#e84393', bg2: '#e17055', symbol: '🎴' },
+  puzzle: { bg1: '#00b894', bg2: '#55efc4', symbol: '🧩' },
+  chat: { bg1: '#0984e3', bg2: '#00cec9', symbol: '💬' },
+  draw: { bg1: '#e84393', bg2: '#fd79a8', symbol: '🎨' },
+  paint: { bg1: '#e84393', bg2: '#fd79a8', symbol: '🎨' },
+}
+
+function getAppTheme(name: string) {
   const lower = name.toLowerCase()
-  if (lower.includes('calculator')) return '🔢'
-  if (lower.includes('todo') || lower.includes('task')) return '✅'
-  if (lower.includes('game')) return '🎮'
-  if (lower.includes('music') || lower.includes('audio')) return '🎵'
-  if (lower.includes('video')) return '🎬'
-  if (lower.includes('photo') || lower.includes('image') || lower.includes('camera')) return '📷'
-  if (lower.includes('weather')) return '🌤️'
-  if (lower.includes('note') || lower.includes('notes')) return '📝'
-  if (lower.includes('calendar')) return '📅'
-  if (lower.includes('timer') || lower.includes('clock')) return '⏰'
-  if (lower.includes('quiz')) return '❓'
-  if (lower.includes('card')) return '🎴'
-  if (lower.includes('puzzle')) return '🧩'
-  if (lower.includes('chat')) return '💬'
-  if (lower.includes('draw') || lower.includes('paint')) return '🎨'
-  return '📱'
+  for (const [key, theme] of Object.entries(THEME_PALETTE)) {
+    if (lower.includes(key)) return theme
+  }
+  return { bg1: '#6c5ce7', bg2: '#a29bfe', symbol: '📱' }
+}
+
+function AndroidIcon({ name, code }: { name: string; code: string }) {
+  const canvasRef = useRef<HTMLCanvasElement>(null)
+
+  useEffect(() => {
+    const canvas = canvasRef.current
+    if (!canvas) return
+    const ctx = canvas.getContext('2d')
+    if (!ctx) return
+
+    const size = 96
+    canvas.width = size * 2 // 2x for retina
+    canvas.height = size * 2
+    const s = 2 // scale factor
+
+    const theme = getAppTheme(name)
+
+    // Rounded rect background
+    const r = 20 * s
+    ctx.beginPath()
+    ctx.moveTo(r, 0)
+    ctx.lineTo(size * s - r, 0)
+    ctx.arcTo(size * s, 0, size * s, r, r)
+    ctx.lineTo(size * s, size * s - r)
+    ctx.arcTo(size * s, size * s, size * s - r, size * s, r)
+    ctx.lineTo(r, size * s)
+    ctx.arcTo(0, size * s, 0, size * s - r, r)
+    ctx.lineTo(0, r)
+    ctx.arcTo(0, 0, r, 0, r)
+    ctx.closePath()
+
+    // Gradient fill
+    const grad = ctx.createLinearGradient(0, 0, size * s, size * s)
+    grad.addColorStop(0, theme.bg1)
+    grad.addColorStop(1, theme.bg2)
+    ctx.fillStyle = grad
+    ctx.fill()
+
+    // Subtle inner shadow
+    const innerGrad = ctx.createRadialGradient(size * s / 2, size * s / 2, size * s * 0.2, size * s / 2, size * s / 2, size * s * 0.7)
+    innerGrad.addColorStop(0, 'rgba(255,255,255,0)')
+    innerGrad.addColorStop(1, 'rgba(0,0,0,0.15)')
+    ctx.fillStyle = innerGrad
+    ctx.fill()
+
+    // Glossy top reflection
+    const glossGrad = ctx.createLinearGradient(0, 0, 0, size * s * 0.5)
+    glossGrad.addColorStop(0, 'rgba(255,255,255,0.35)')
+    glossGrad.addColorStop(0.5, 'rgba(255,255,255,0.08)')
+    glossGrad.addColorStop(1, 'rgba(255,255,255,0)')
+    ctx.fillStyle = glossGrad
+    ctx.fill()
+
+    // White border
+    ctx.strokeStyle = 'rgba(255,255,255,0.2)'
+    ctx.lineWidth = 1.5 * s
+    ctx.stroke()
+
+    // Render app title text
+    const words = name.split(' ')
+    const isTwoWords = words.length >= 2
+    ctx.textAlign = 'center'
+    ctx.textBaseline = 'middle'
+
+    let fontSize = 42 * s
+    if (isTwoWords) fontSize = 28 * s
+    if (name.length > 10) fontSize = 24 * s
+
+    ctx.font = `bold ${fontSize}px -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif`
+    ctx.fillStyle = '#ffffff'
+    ctx.shadowColor = 'rgba(0,0,0,0.4)'
+    ctx.shadowBlur = 3 * s
+    ctx.shadowOffsetY = 2 * s
+
+    if (isTwoWords) {
+      // Two lines for two words
+      ctx.fillText(words[0], size * s / 2, size * s / 2 - fontSize * 0.55)
+      ctx.fillText(words[1], size * s / 2, size * s / 2 + fontSize * 0.55)
+    } else {
+      // Single word centered
+      ctx.fillText(name, size * s / 2, size * s / 2)
+    }
+    ctx.shadowBlur = 0
+  }, [name])
+
+  return (
+    <canvas
+      ref={canvasRef}
+      width={96}
+      height={96}
+      className="w-full h-full rounded-xl shadow-lg"
+      style={{ imageRendering: 'auto' }}
+    />
+  )
 }
 
 export function AppDrawer({
@@ -358,7 +480,11 @@ export function AppDrawer({
                   }}
                   className="w-24 h-24 rounded-xl bg-[#1e1e23] border border-[#2e2e32]/50 hover:border-[#de0f17]/50 hover:scale-105 transition-all cursor-pointer overflow-hidden"
                 >
-                  <AppPreviewIcon code={app.code} name={app.name} isMedia={isMedia} />
+                  {isMedia ? (
+                    <AppPreviewIcon code={app.code} name={app.name} isMedia={isMedia} />
+                  ) : (
+                    <AndroidIcon name={app.name} code={app.code} />
+                  )}
                 </div>
                 <p className="mt-1 text-[9px] text-[#888888] text-center truncate w-24">{app.name}</p>
               </div>

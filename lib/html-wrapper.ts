@@ -14,7 +14,7 @@ export function createBlobUrl(code: string, title = "My App"): string {
 }
 
 /** Generate an app name from raw user input by stripping filler words */
-const FILLER_WORDS = ['a', 'an', 'the', 'make', 'make a', 'build', 'build a', 'create', 'create a', 'can you', 'please', 'i want', 'build me', 'create me', 'app', 'application', 'in', 'telugu', 'hindi', 'tamil', 'kannada', 'malayalam', 'bengali', 'marathi', 'gujarati']
+const FILLER_WORDS = ['a', 'an', 'the', 'make', 'make a', 'build', 'build a', 'create', 'create a', 'can you', 'please', 'i want', 'build me', 'create me', 'app', 'application', 'in', 'telugu', 'hindi', 'tamil', 'kannada', 'malayalam', 'bengali', 'marathi', 'gujarati', 'your', 'my', 'its', 'this', 'that']
 
 export function generateAppName(rawText: string, fallback = "My App"): string {
   let name = rawText.replace(/```html[\s\S]*?```/g, '').trim() || fallback
@@ -23,12 +23,8 @@ export function generateAppName(rawText: string, fallback = "My App"): string {
   })
   name = name.replace(/[^\p{L}\p{N}\s]/gu, ' ').replace(/\s+/g, ' ').trim()
   const words = name.split(' ').filter(w => w.trim().length > 0)
-  let result = words.slice(0, 3).join(' ').trim() || fallback
+  let result = words.slice(0, 2).join(' ').trim() || fallback
   result = capitalizeWords(result)
-  if (result.length > 20) {
-    result = words.slice(0, 2).join(' ').trim()
-    result = capitalizeWords(result)
-  }
   return result || fallback
 }
 
