@@ -28,7 +28,7 @@ interface AppDrawerProps {
   clearCategory?: (category: Category) => void
 }
 
-type Category = "All" | "Apps" | "Media"
+type Category = "All" | "Apps" | "Media" | "Gallery"
 
 const MEDIA_KEYWORDS = ["music", "video", "photo", "camera", "media", "player", "streaming", "radio", "podcast", "gallery", "editor", "image", "audio"]
 
@@ -289,7 +289,7 @@ export function AppDrawer({
   const touchStartX = useRef(0)
   const swipeThreshold = 50
 
-  const filteredApps = savedApps.filter(app => getCategory(app.name) === activeCategory)
+  const filteredApps = activeCategory === "Gallery" ? savedApps : savedApps.filter(app => getCategory(app.name) === activeCategory)
 
   const mediaApps = filteredApps.filter(app => isMediaFile(app.code))
 
@@ -449,6 +449,32 @@ export function AppDrawer({
       <div className="flex items-center justify-between px-3 pt-3 pb-2 border-b border-[#2e2e32] touch-pan-y" onTouchStart={handleTouchStart} onTouchMove={handleTouchMove}>
         <div className="flex items-center gap-3">
           <h2 className="text-sm font-medium text-white">Gallery</h2>
+          {savedApps.length > 0 && (
+            clearConfirmCategory === 'Gallery' ? (
+              <div className="flex items-center gap-1">
+                <button
+                  onClick={(e) => { e.stopPropagation(); handleClearCategory('Gallery'); }}
+                  className="px-1.5 py-0.5 text-[10px] bg-[#ef4444] hover:bg-[#dc2626] text-white rounded transition-colors"
+                >
+                  Clear
+                </button>
+                <button
+                  onClick={(e) => { e.stopPropagation(); handleCancelClear(); }}
+                  className="px-1.5 py-0.5 text-[10px] bg-[#404040] hover:bg-[#4a4a4a] text-[#d1d1d1] rounded transition-colors"
+                >
+                  ✕
+                </button>
+              </div>
+            ) : (
+              <button
+                onClick={(e) => { e.stopPropagation(); setClearConfirmCategory('Gallery'); }}
+                className="px-2 py-0.5 text-[10px] bg-[#2a2a2e] text-[#8b8b8d] hover:text-[#ef4444] rounded transition-colors"
+                title="Clear gallery"
+              >
+                Clear All
+              </button>
+            )
+          )}
         </div>
 
         <button onClick={handleBack} className="w-7 h-7 flex items-center justify-center rounded-lg bg-[#2a2a2e] text-[#8b8b8d] hover:text-white">
@@ -458,7 +484,7 @@ export function AppDrawer({
 
       <div className="flex items-center gap-2 px-3 py-2">
         {categories.map((cat) => {
-          const count = savedApps.filter(a => getCategory(a.name) === cat).length
+          const count = cat === "Gallery" ? savedApps.length : savedApps.filter(a => getCategory(a.name) === cat).length
           return (
             <div key={cat} className="flex items-center gap-1">
               <button

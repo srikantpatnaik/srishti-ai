@@ -1073,12 +1073,13 @@ useEffect(() => {
   }
 
   const clearCategory = (category: string) => {
-    const MEDIA_KEYWORDS = ["music", "video", "photo", "camera", "media", "player", "streaming", "radio", "podcast", "gallery", "editor", "image", "audio"]
     const toDelete = savedApps.filter(a => {
+      if (category === "Gallery") return true
       const lower = a.name.toLowerCase()
       if (category === "Media") {
         return a.code.startsWith('data:image/') || a.code.startsWith('data:video/') || a.code.startsWith('data:audio/')
       }
+      const MEDIA_KEYWORDS = ["music", "video", "photo", "camera", "media", "player", "streaming", "radio", "podcast", "gallery", "editor", "image", "audio"]
       return MEDIA_KEYWORDS.some(k => lower.includes(k)) && !a.code.startsWith('data:image/') && !a.code.startsWith('data:video/') && !a.code.startsWith('data:audio/')
     })
     const deletePromises = toDelete.map(app => deleteAppFromDB(app.id))
