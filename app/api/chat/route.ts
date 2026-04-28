@@ -84,6 +84,7 @@ async function streamWithFallback(
       experimental_activeTools: opts.isAutonomous ? ["announce"] : [],
       headers: { "X-Model-Affinity": opts.sessionId },
       abortSignal: controller.signal,
+      reasoning: opts.isAutonomous ? true : false,
     })
 
     return {
@@ -110,6 +111,7 @@ async function streamWithFallback(
       maxSteps: 20,
       experimental_activeTools: opts.isAutonomous ? ["announce"] : [],
       abortSignal: controller.signal,
+      reasoning: opts.isAutonomous ? true : false,
     })
 
     return {
