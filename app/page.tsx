@@ -70,6 +70,8 @@ export default function Home() {
   const [selectedLanguage, setSelectedLanguage] = useState<string>("")
   const selectedLanguageRef = useRef(selectedLanguage)
   const [messageImages, setMessageImages] = useState<Map<number, string>>(new Map())
+  const messageImagesRef = useRef(messageImages)
+  useEffect(() => { messageImagesRef.current = messageImages }, [messageImages])
   const [mediaNavIndex, setMediaNavIndex] = useState(0)
   const mediaAppsRef = useRef<SavedApp[]>([])
   const [sessionId, setSessionId] = useState<string>("")
@@ -143,11 +145,6 @@ export default function Home() {
        }
      },
    })
-
-  // Cleanup cached blob URLs when messages change
-  useEffect(() => {
-    previewCacheRef.current.clear()
-  }, [messages.length])
 
   // Auto scroll to bottom only when new assistant message arrives
   useEffect(() => {
@@ -602,9 +599,12 @@ const handleSubmit = async (e?: React.FormEvent, language?: string) => {
     const intent = await detectIntent(userText)
 
     if (intent.asksClarification) {
-      // Don't create a chat for clarification — just show the prompt
-      append({ role: "user", content: userText })
-      append({ role: "assistant", content: "I'm not sure what you'd like. Could you clarify?\n\n- 📷 **Image**: \"show me a photo of...\", \"draw a...\", \"generate an image...\"\n- 🎵 **Audio**: \"generate audio...\", \"text to speech...\", \"create a song...\"\n- 💬 **Chat**: Ask a question, request an app, or just chat" })
+      // Don't create a chat for clarification — just show the prompt (no API call)
+      const ts = Date.now().toString()
+      setMessages(prev => [...prev,
+        { id: ts, role: "user" as const, content: userText },
+        { id: (Number(ts) + 1).toString(), role: "assistant" as const, content: "I'm not sure what you'd like. Could you clarify?\n\n- 📷 **Image**: \"show me a photo of...\", \"draw a...\", \"generate an image...\"\n- 🎵 **Audio**: \"generate audio...\", \"text to speech...\", \"create a song...\"\n- 💬 **Chat**: Ask a question, request an app, or just chat" }
+      ])
       setIsSending(false)
       isSendingRef.current = false
       setIsBuilding(false)
@@ -917,6 +917,12 @@ useEffect(() => {
   const [currentAppIndex, setCurrentAppIndex] = useState(-1)
   const [activeChatTab, setActiveChatTab] = useState<string | null>(null)
   const [visibleRange, setVisibleRange] = useState({ start: 0, end: 50 })
+  const messagesRef = useRef(messages)
+  useEffect(() => { messagesRef.current = messages }, [messages])
+  // Cleanup cached blob URLs when visible range changes
+  useEffect(() => {
+    previewCacheRef.current.clear()
+  }, [visibleRange.start, visibleRange.end])
 
   useEffect(() => {
     if (sessionApps.length > 0) {
@@ -1104,22 +1110,6 @@ useEffect(() => {
     if (blobUrl) { URL.revokeObjectURL(blobUrl); setBlobUrl("") }
   }
 
-  const clearCategory = (category: string) => {
-    const toDelete = savedApps.filter(a => {
-      if (category === "Gallery") return true
-      const lower = a.name.toLowerCase()
-      if (category === "Media") {
-        return a.code.startsWith('data:image/') || a.code.startsWith('data:video/') || a.code.startsWith('data:audio/')
-      }
-      const MEDIA_KEYWORDS = ["music", "video", "photo", "camera", "media", "player", "streaming", "radio", "podcast", "gallery", "editor", "image", "audio"]
-      return MEDIA_KEYWORDS.some(k => lower.includes(k)) && !a.code.startsWith('data:image/') && !a.code.startsWith('data:video/') && !a.code.startsWith('data:audio/')
-    })
-    const deletePromises = toDelete.map(app => deleteAppFromDB(app.id))
-    Promise.all(deletePromises).then(() => {
-      setSavedApps(prev => prev.filter(a => !toDelete.find(d => d.id === a.id)))
-    })
-  }
-
   const navigateToNextApp = () => {
     if (currentAppIndex < sessionApps.length - 1) {
       const nextApp = sessionApps[currentAppIndex + 1]
@@ -1230,13 +1220,14 @@ useEffect(() => {
                   </div>
                 )}
                 {useMemo(() => {
-                  const visibleMessages = messages.slice(visibleRange.start, visibleRange.end)
-                  const lastUserIdx = messages.findLastIndex(m => m.role === 'user')
+                  const msgs = messagesRef.current
+                  const imgMap = messageImagesRef.current
+                  const visibleMessages = msgs.slice(visibleRange.start, visibleRange.end)
+                  const lastUserIdx = msgs.findLastIndex(m => m.role === 'user')
                   return visibleMessages.map((msg, idx) => {
                     const m = msg as any
                     if (m.type === 'tool-call' || m.type === 'tool-result') return null
                     const actualIdx = visibleRange.start + idx
-                    // Lazy preview URL — create only when rendering this message
                     let msgPreviewUrl = previewCacheRef.current.get(actualIdx)
                     if (!msgPreviewUrl) {
                       const code = extractCodeFromMessage(msg)
@@ -1245,7 +1236,7 @@ useEffect(() => {
                         previewCacheRef.current.set(actualIdx, msgPreviewUrl)
                       }
                     }
-                    const msgImageUrl = messageImages.get(actualIdx) || (msg as any).imageUrl
+                    const msgImageUrl = imgMap.get(actualIdx) || (msg as any).imageUrl
                     const isLatestUser = msg.role === 'user' && actualIdx === lastUserIdx
                     const hasCode = extractCodeFromMessage(msg) !== null
                     const msgWithImage = { ...msg, imageUrl: msgImageUrl }
@@ -1273,7 +1264,7 @@ useEffect(() => {
                       </div>
                     )
                   })
-                }, [messages, visibleRange.start, visibleRange.end, messagePreviews, messageImages, status, savedApps, isSending])}
+                }, [visibleRange.start, visibleRange.end])}
                 <div ref={messagesEndRef} />
               </div>
             </ScrollArea>
@@ -1324,8 +1315,7 @@ useEffect(() => {
           setMediaNavIndex(idx >= 0 ? idx : 0)
           handleSwitchToSavedApp(app)
         }}
-        clearCategory={clearCategory}
-      />
+       />
 
       <div className={`transition-all duration-300 overflow-hidden ${showPreview ? "w-full sm:w-[50%]" : "w-0"}`}>
         {showPreview && (

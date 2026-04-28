@@ -25,7 +25,6 @@ interface AppDrawerProps {
   setSelectedIndex: (index: number) => void
   renameApp?: (app: SavedApp) => void
   onMediaClick?: (app: SavedApp) => void
-  clearCategory?: (category: Category) => void
 }
 
 type Category = "All" | "Apps" | "Media" | "Gallery"
@@ -257,7 +256,6 @@ export function AppDrawer({
   setSelectedIndex,
   renameApp,
   onMediaClick,
-  clearCategory,
 }: AppDrawerProps) {
   const handleBgClick = (e: React.MouseEvent) => {
     if (e.target === e.currentTarget) {
@@ -282,7 +280,6 @@ export function AppDrawer({
   const [contextMenuPos, setContextMenuPos] = useState<{x: number, y: number, app: SavedApp} | null>(null)
   const [renamingApp, setRenamingApp] = useState<SavedApp | null>(null)
   const [renameInput, setRenameInput] = useState("")
-  const [clearConfirmCategory, setClearConfirmCategory] = useState<Category | null>(null)
   const mediaScrollRef = useRef<HTMLDivElement>(null)
   const lastScrollY = useRef(0)
   const touchStartY = useRef(0)
@@ -377,15 +374,6 @@ export function AppDrawer({
       _renameApp({ ...renamingApp, name: renameInput.trim() })
       setRenamingApp(null)
     }
-  }
-
-  const handleClearCategory = (category: Category) => {
-    clearCategory?.(category)
-    setClearConfirmCategory(null)
-  }
-
-  const handleCancelClear = () => {
-    setClearConfirmCategory(null)
   }
 
   useEffect(() => {
@@ -497,34 +485,6 @@ export function AppDrawer({
               >
                 {cat}
               </button>
-              {count > 0 && (
-                <>
-                  {clearConfirmCategory === cat ? (
-                    <div className="flex items-center gap-0.5">
-                      <button
-                        onClick={(e) => { e.stopPropagation(); handleClearCategory(cat); }}
-                        className="px-1.5 py-0.5 text-[10px] bg-[#ef4444] hover:bg-[#dc2626] text-white rounded transition-colors"
-                      >
-                        Clear
-                      </button>
-                      <button
-                        onClick={(e) => { e.stopPropagation(); handleCancelClear(); }}
-                        className="px-1.5 py-0.5 text-[10px] bg-[#404040] hover:bg-[#4a4a4a] text-[#d1d1d1] rounded transition-colors"
-                      >
-                        ✕
-                      </button>
-                    </div>
-                  ) : (
-                    <button
-                      onClick={(e) => { e.stopPropagation(); setClearConfirmCategory(cat); }}
-                      className="px-1.5 py-0.5 text-[10px] bg-[#2a2a2e] text-[#8b8b8d] hover:text-[#ef4444] hover:bg-[#2a2a2e] rounded transition-colors"
-                      title={`Clear ${cat.toLowerCase()}`}
-                    >
-                      ✕
-                    </button>
-                  )}
-                </>
-              )}
             </div>
           )
         })}
