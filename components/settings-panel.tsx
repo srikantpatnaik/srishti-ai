@@ -13,6 +13,7 @@ interface SettingsPanelProps {
   recentChats: RecentChat[]
   onLoadChat: (chatId: string) => void
   onDeleteChat: (chatId: string) => void
+  onClearAll: () => void
 }
 
 function formatChatDate(timestamp: number): string {
@@ -36,8 +37,10 @@ export function SettingsPanel({
   recentChats,
   onLoadChat,
   onDeleteChat,
+  onClearAll,
 }: SettingsPanelProps) {
   const [deleteConfirmId, setDeleteConfirmId] = useState<string | null>(null)
+  const [clearAllConfirm, setClearAllConfirm] = useState(false)
   const [hoveredChatId, setHoveredChatId] = useState<string | null>(null)
   const [showShortcuts, setShowShortcuts] = useState(false)
 
@@ -66,6 +69,15 @@ export function SettingsPanel({
 
   const handleCancelDelete = () => {
     setDeleteConfirmId(null)
+  }
+
+  const handleClearAll = () => {
+    onClearAll()
+    setClearAllConfirm(false)
+  }
+
+  const handleCancelClearAll = () => {
+    setClearAllConfirm(false)
   }
 
   const handleChatClick = (chatId: string) => {
@@ -170,6 +182,38 @@ export function SettingsPanel({
           <div className="flex flex-col items-center justify-center py-12 text-[#8b8b8d]">
             <MessageSquare className="h-8 w-8 mb-3 opacity-50" />
             <p className="text-sm">No conversations yet</p>
+          </div>
+        )}
+
+        {recentChats.length > 0 && (
+          <div className="mt-4">
+            {clearAllConfirm ? (
+              <div className="flex items-center justify-between gap-2 px-3 py-2">
+                <span className="text-[14px] text-[#ececf1]">Delete all chats?</span>
+                <div className="flex items-center gap-1">
+                  <button
+                    onClick={(e) => { e.stopPropagation(); e.preventDefault(); handleClearAll(); }}
+                    className="px-2 py-1 text-xs bg-[#ef4444] hover:bg-[#dc2626] text-white rounded transition-colors"
+                  >
+                    Delete
+                  </button>
+                  <button
+                    onClick={(e) => { e.stopPropagation(); e.preventDefault(); handleCancelClearAll(); }}
+                    className="px-2 py-1 text-xs bg-[#404040] hover:bg-[#4a4a4a] text-[#d1d1d1] rounded transition-colors"
+                  >
+                    Cancel
+                  </button>
+                </div>
+              </div>
+            ) : (
+              <button
+                onClick={(e) => { e.stopPropagation(); e.preventDefault(); setClearAllConfirm(true); }}
+                className="w-full flex items-center gap-2 px-3 py-2 rounded-lg hover:bg-[#2a2a2e] text-[#8b8b8d] text-left text-[14px] hover:text-[#ef4444] transition-colors"
+              >
+                <Trash2 className="h-4 w-4 flex-shrink-0" />
+                <span className="truncate">Clear all</span>
+              </button>
+            )}
           </div>
         )}
       </div>

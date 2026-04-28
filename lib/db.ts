@@ -147,3 +147,22 @@ export const deleteChatHistoryFromDB = async (chatId: string): Promise<void> => 
     console.error('Failed to delete chat history from IndexedDB:', error)
   }
 }
+
+export const clearAllChatsFromDB = async (): Promise<void> => {
+  try {
+    const db = await openDB()
+    const keys = await new Promise<string[]>((resolve, reject) => {
+      const req = db.transaction([CHAT_STORE_NAME], 'readonly').objectStore(CHAT_STORE_NAME).getAllKeys()
+      req.onsuccess = () => resolve(req.result || [])
+      req.onerror = () => reject(req.error)
+    })
+    if (keys.length > 0) {
+      const tx = db.transaction([CHAT_STORE_NAME], 'readwrite')
+      const store = tx.objectStore(CHAT_STORE_NAME)
+      keys.forEach(k => store.delete(k))
+      await new Promise<void>((resolve) => { tx.oncomplete = () => resolve() })
+    }
+  } catch (error) {
+    console.error('Failed to clear all chats from IndexedDB:', error)
+  }
+}
