@@ -5,7 +5,7 @@ import * as path from "path"
 import yaml from "js-yaml"
 import { createOpenAI } from "@ai-sdk/openai"
 import { ollamaClient } from "@/lib/clients"
-import { detectImageIntent, detectAudioIntent, detectAppIntent } from "@/lib/intent-detector"
+import { detectImageIntent, detectAudioIntent, detectAppIntent, detectIntent } from "@/lib/intent-detector"
 import { languageNames, getLangInstruction } from "@/lib/i18n"
 
 // --- Types ---
@@ -184,12 +184,30 @@ async function generateImage(prompt: string): Promise<string> {
 
   if (data.images && data.images.length > 0) {
     const imageData = data.images[0]
-    if (typeof imageData === 'string' && (imageData.startsWith('http') || imageData.startsWith('/'))) {
+    if (typeof imageData === 'string' && (imageData.startsWith('http://') || imageData.startsWith('https://'))) {
+      // Fetch external URL and convert to base64 to avoid 431 on browser image request
+      const mimeType = outputFormat === "jpeg" ? "image/jpeg" : "image/png"
+      try {
+        const imgResp = await fetch(imageData)
+        const buf = Buffer.from(await imgResp.arrayBuffer())
+        return `data:${mimeType};base64,${buf.toString('base64')}`
+      } catch {
+        // Fallback: return URL as-is
+      }
       return imageData
     }
     const mimeType = outputFormat === "jpeg" ? "image/jpeg" : "image/png"
     return `data:${mimeType};base64,${imageData}`
   } else if (data.url) {
+    // Convert URL to base64 too
+    const mimeType = outputFormat === "jpeg" ? "image/jpeg" : "image/png"
+    try {
+      const imgResp = await fetch(data.url)
+      const buf = Buffer.from(await imgResp.arrayBuffer())
+      return `data:${mimeType};base64,${buf.toString('base64')}`
+    } catch {
+      // Fallback: return URL as-is
+    }
     return data.url
   }
 
@@ -240,34 +258,37 @@ async function generateAudio(prompt: string): Promise<string> {
 // --- Routing ---
 
 async function routeTask(userMessage: string): Promise<{ route: string; mode: string; prompt: string; reasoning: string }> {
-  if (detectImageIntent(userMessage)) {
+  // Use full detectIntent (regex + keyword matching) to avoid falling through to LLM
+  const intent = await detectIntent(userMessage)
+
+  if (intent.intent === "image") {
     return {
       route: "image_generation",
       mode: "image",
       prompt: userMessage,
-      reasoning: "Detected image generation intent using NLP pattern matching",
+      reasoning: intent.reasoning,
     }
   }
 
-  if (detectAudioIntent(userMessage)) {
+  if (intent.intent === "audio") {
     return {
       route: "audio_generation",
       mode: "audio",
       prompt: userMessage,
-      reasoning: "Detected audio generation intent using NLP pattern matching",
+      reasoning: intent.reasoning,
     }
   }
 
-  if (detectAppIntent(userMessage)) {
+  if (intent.intent === "text") {
     return {
       route: "text_generation",
-      mode: "app_building",
+      mode: "chat",
       prompt: userMessage,
-      reasoning: "Detected app building intent using NLP pattern matching",
+      reasoning: intent.reasoning,
     }
   }
 
-  // Fallback to LLM-based routing for ambiguous cases
+  // Fallback to LLM-based routing for ambiguous/clarify cases
   const controller = new AbortController()
   const timeoutId = setTimeout(() => controller.abort(), 5000)
 
@@ -395,7 +416,10 @@ function getTextProvider(settings: Settings, selectedProvider?: string): Provide
 }
 
 async function handleChatRequest(body: any, settings: Settings) {
-  const { messages, selectedProvider, selectedLanguage } = body
+  let { messages, selectedProvider, selectedLanguage } = body
+  if (!messages && body.message) {
+    messages = [{ role: "user", content: body.message }]
+  }
 
   const langInstruction = getLangInstruction(selectedLanguage)
 

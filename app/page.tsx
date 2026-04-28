@@ -345,23 +345,29 @@ export default function Home() {
     if (existingApp) return
 
     try {
-      const response = await fetch(imageUrl)
-      const blob = await response.blob()
-      const reader = new FileReader()
-      reader.onloadend = async () => {
-        const base64 = reader.result as string
-        const newApp: SavedApp = {
-          id: Date.now().toString(),
-          name: appName,
-          icon: "🖼️",
-          code: base64,
-          url: imageUrl,
-          createdAt: Date.now()
-        }
-        await saveAppToDB(newApp)
-        setSavedApps(prev => [newApp, ...prev])
+      let base64: string
+      if (imageUrl.startsWith('data:')) {
+        base64 = imageUrl
+      } else {
+        const response = await fetch(imageUrl)
+        const blob = await response.blob()
+        base64 = await new Promise<string>((resolve, reject) => {
+          const reader = new FileReader()
+          reader.onloadend = () => resolve(reader.result as string)
+          reader.onerror = reject
+          reader.readAsDataURL(blob)
+        })
       }
-      reader.readAsDataURL(blob)
+      const newApp: SavedApp = {
+        id: Date.now().toString(),
+        name: appName,
+        icon: "🖼️",
+        code: base64,
+        url: imageUrl,
+        createdAt: Date.now()
+      }
+      await saveAppToDB(newApp)
+      setSavedApps(prev => [newApp, ...prev])
     } catch (error) {
       console.error("Failed to save image:", error)
     }
@@ -617,21 +623,32 @@ const handleSubmit = async (e?: React.FormEvent, language?: string) => {
     const hasText = multiIntent.intents.includes('text')
 
     if (hasImage && hasText) {
+      const userMsg = { role: "user" as const, content: userText, id: Date.now().toString() } as any
+      setMessages(prev => [...prev, userMsg])
       setIsImageGenerating(true)
       try {
-        const res = await fetch('/api/chat', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ messages: [...messages, { role: "user", content: userText }], isAutonomous: false, selectedLanguage, sessionId }),
-        })
-        const data = await res.json()
-        if (data.type === "multi") {
-          setMessages(prev => [...prev, { role: "user", content: userText }])
-          if (data.imageUrl) {
-            setMessages(prev => [...prev, { role: "assistant", content: "", imageUrl: data.imageUrl }])
-          }
-          // Handle streaming chat response
-          const reader = data.chatResponse.body?.getReader()
+        // Get image from router, text from chat
+        const [imgRes, chatRes] = await Promise.all([
+          fetch('/api/router', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ message: userText, selectedLanguage, messages: [...messages, userMsg] }),
+          }),
+          fetch('/api/chat', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ messages: [...messages, userMsg], isAutonomous: false, selectedLanguage, sessionId }),
+          }),
+        ])
+        const imgData = await imgRes.json()
+        if (imgData.imageUrl) {
+          setMessages(prev => [...prev, { role: "assistant", content: "", imageUrl: imgData.imageUrl }])
+        } else if (imgData.error) {
+          setMessages(prev => [...prev, { role: "assistant", content: `Image generation failed: ${imgData.error}` }])
+        }
+        // Handle streaming chat response
+        if (chatRes.ok) {
+          const reader = chatRes.body?.getReader()
           if (reader) {
             const decoder = new TextDecoder()
             let fullResponse = ''
@@ -651,10 +668,6 @@ const handleSubmit = async (e?: React.FormEvent, language?: string) => {
               setMessages(prev => [...prev, { role: "assistant", content: fullResponse }])
             }
           }
-        } else if (data.imageUrl) {
-          setMessages(prev => [...prev, { role: "assistant", content: "", imageUrl: data.imageUrl }])
-        } else if (data.error) {
-          setMessages(prev => [...prev, { role: "assistant", content: `Image generation failed: ${data.error}` }])
         }
       } catch (err) {
         console.error("Multi-intent failed:", err)
@@ -670,12 +683,14 @@ const handleSubmit = async (e?: React.FormEvent, language?: string) => {
 
     // Route to image generation
     if (multiIntent.intents.includes("image")) {
+      const userMsg = { role: "user" as const, content: userText, id: Date.now().toString() } as any
+      setMessages(prev => [...prev, userMsg])
       setIsImageGenerating(true)
       try {
-        const res = await fetch('/api/chat', {
+        const res = await fetch('/api/router', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ messages: [...messages, { role: "user", content: userText }], isAutonomous: false, selectedLanguage, sessionId }),
+          body: JSON.stringify({ message: userText, selectedLanguage, messages: [...messages, userMsg] }),
         })
         const data = await res.json()
         if (data.imageUrl) {
@@ -697,12 +712,14 @@ const handleSubmit = async (e?: React.FormEvent, language?: string) => {
 
     // Route to audio generation
     if (multiIntent.intents.includes("audio")) {
+      const userMsg = { role: "user" as const, content: userText, id: Date.now().toString() } as any
+      setMessages(prev => [...prev, userMsg])
       setIsImageGenerating(true)
       try {
-        const res = await fetch('/api/chat', {
+        const res = await fetch('/api/router', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ messages: [...messages, { role: "user", content: userText }], isAutonomous: false, selectedLanguage, sessionId }),
+          body: JSON.stringify({ message: userText, selectedLanguage, messages: [...messages, userMsg] }),
         })
         const data = await res.json()
         if (data.audioUrl) {
@@ -1062,14 +1079,29 @@ useEffect(() => {
   }
 
   const clearAllChats = () => {
+    setChatKey(prev => String(Number(prev) + 1))
     setRecentChats([])
     localStorage.removeItem("recentChats")
     clearAllChatsFromDB().catch(() => {})
     setCurrentChatId("")
     setCurrentChatMessages([])
     setInitialMessages([])
+    setInput("")
+    setStatus("idle")
+    setIsBuilding(false)
+    setIsSending(false)
+    isSendingRef.current = false
+    setIsImageGenerating(false)
+    setAutoGenerated(false)
+    setHasSavedToGallery(false)
+    setEditedAppCode("")
+    setIsEditing(false)
     setLocalPreviewCode("")
     setMessagePreviews(new Map())
+    setMessageImages(new Map())
+    setSessionApps([])
+    setCurrentAppIndex(-1)
+    if (blobUrl) { URL.revokeObjectURL(blobUrl); setBlobUrl("") }
   }
 
   const clearCategory = (category: string) => {
