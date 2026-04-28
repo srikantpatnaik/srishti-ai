@@ -6,7 +6,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 Srishti AI: a Next.js 14 PWA that lets users create apps/games, generate images, and generate audio via natural language. Two API routes handle requests:
 
-- `/api/chat` — direct streaming chat (Ollama primary, Plano gateway fallback)
+- `/api/chat` — direct streaming chat via Ollama
 - `/api/router` — intent-routing gateway. Uses NLP regex patterns first, falls back to LLM routing. Dispatches to text/image/audio backends.
 
 Providers are configured in `settings.yaml` (text, image, audio generation). Router instructions live in `ROUTER.md`.
@@ -30,7 +30,7 @@ Tests hit two ports: main app on 3000, router on 3001. Start both servers before
 
 ### API routes
 
-**`/api/chat`** (`app/api/chat/route.ts`): streams text responses via Vercel AI SDK. Detects image/audio intent via regex, then calls `streamText` with the `announce` tool. Falls back from Ollama to Plano gateway on error.
+**`/api/chat`** (`app/api/chat/route.ts`): streams text responses via Vercel AI SDK using Ollama. Detects image/audio intent via regex, then calls `streamText` with the `announce` tool.
 
 **`/api/router`** (`app/api/router/route.ts`): routes requests to text/image/audio backends. Reads providers from `settings.yaml`. NLP patterns (`detectImageIntent`, `detectAudioIntent`, `detectAppIntent`) run first; ambiguous messages fall back to LLM-based routing via `routeTask()`.
 
@@ -43,7 +43,7 @@ Tests hit two ports: main app on 3000, router on 3001. Start both servers before
 
 ### Environment variables
 
-Set in `.env.local`. See `.env.example` for required keys. Key vars: `LLAMA_CPP_URL`, `LLAMA_CPP_API_KEY`, `PLANO_GATEWAY_URL`, `GOOGLE_AI_API_KEY`.
+Set in `.env.local`. See `.env.example` for required keys. Key vars: `LLAMA_CPP_URL`, `LLAMA_CPP_API_KEY`, `GOOGLE_AI_API_KEY`.
 
 ### Intent detection
 

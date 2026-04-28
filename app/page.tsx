@@ -74,7 +74,6 @@ export default function Home() {
   useEffect(() => { messageImagesRef.current = messageImages }, [messageImages])
   const [mediaNavIndex, setMediaNavIndex] = useState(0)
   const mediaAppsRef = useRef<SavedApp[]>([])
-  const [sessionId, setSessionId] = useState<string>("")
   const [hasSavedToGallery, setHasSavedToGallery] = useState(false)
   const savedAppsRef = useRef<SavedApp[]>([])
 
@@ -82,20 +81,6 @@ export default function Home() {
   useEffect(() => {
     selectedLanguageRef.current = selectedLanguage
   }, [selectedLanguage])
-
-  // Initialize session ID for Plano model affinity
-  useEffect(() => {
-    const storedSession = localStorage.getItem("plano_session_id")
-    if (storedSession) {
-      setSessionId(storedSession)
-    } else {
-      const array = new Uint32Array(4)
-      crypto.getRandomValues(array)
-      const newSessionId = Array.from(array).map(n => n.toString(16).padStart(8, '0')).join('')
-      setSessionId(newSessionId)
-      localStorage.setItem("plano_session_id", newSessionId)
-    }
-  }, [])
 
   const { darkMode, setDarkMode } = useDarkMode()
 
@@ -121,7 +106,7 @@ export default function Home() {
     key: chatKey,
     api: "/api/chat",
     initialMessages: initialMessages,
-    body: { selectedProvider, selectedLanguage, sessionId },
+    body: { selectedProvider, selectedLanguage },
     onError: (error) => {
       console.error("Chat error:", error)
       setStatus("error")
@@ -255,7 +240,6 @@ export default function Home() {
               { role: 'user', content: userContent },
             ],
             isAutonomous: false,
-            sessionId,
           }),
         })
         const reader = res.body?.getReader()
@@ -637,7 +621,7 @@ const handleSubmit = async (e?: React.FormEvent, language?: string) => {
           fetch('/api/chat', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ messages: [...messages, userMsg], isAutonomous: false, selectedLanguage, sessionId }),
+            body: JSON.stringify({ messages: [...messages, userMsg], isAutonomous: false, selectedLanguage }),
           }),
         ])
         const imgData = await imgRes.json()

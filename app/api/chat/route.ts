@@ -2,7 +2,7 @@ import { z } from "zod"
 import { streamText, tool } from "ai"
 import { NextResponse } from "next/server"
 import { v4 as uuidv4 } from "uuid"
-import { ollamaClient, planoClient } from "@/lib/clients"
+import { ollamaClient } from "@/lib/clients"
 import { detectImageIntent, detectAudioIntent } from "@/lib/intent-detector"
 import { getLangInstruction } from "@/lib/i18n"
 
@@ -57,82 +57,46 @@ const systemPromptBase = `You are Srishti AI - a friendly assistant that helps u
 
 export async function GET(req: Request) {
   return NextResponse.json({
-    gateway: process.env.PLANO_GATEWAY_URL || "http://localhost:12000/v1",
-    routing: "dynamic",
+    gateway: process.env.LLAMA_CPP_URL || "http://192.168.1.8:11434/v1",
     router: "qwen3.6-35B",
   })
 }
 
-async function streamWithFallback(
+async function streamChat(
   systemPrompt: string,
   messages: any[],
-  opts: { isAutonomous?: boolean; sessionId: string; signal?: AbortSignal },
+  opts: { isAutonomous?: boolean; signal?: AbortSignal },
 ) {
   const controller = new AbortController()
 
-  // Listen for external abort signal (client disconnect / stop button)
   const onAbort = () => controller.abort()
   opts.signal?.addEventListener('abort', onAbort, { once: true })
 
-  try {
-    const result = await streamText({
-      model: ollamaClient("qwen3.6-35B"),
-      system: systemPrompt,
-      messages,
-      tools: { announce: announceTool },
-      maxSteps: 20,
-      experimental_activeTools: opts.isAutonomous ? ["announce"] : [],
-      headers: { "X-Model-Affinity": opts.sessionId },
-      abortSignal: controller.signal,
-      reasoning: opts.isAutonomous ? true : false,
-    })
+  const result = await streamText({
+    model: ollamaClient("qwen3.6-35B"),
+    system: systemPrompt,
+    messages,
+    tools: { announce: announceTool },
+    maxSteps: 20,
+    experimental_activeTools: opts.isAutonomous ? ["announce"] : [],
+    abortSignal: controller.signal,
+    reasoning: opts.isAutonomous ? true : false,
+  })
 
-    return {
-      response: result.toDataStreamResponse({
-        headers: {
-          'Cache-Control': 'no-cache',
-          'Connection': 'keep-alive',
-          'X-Session-ID': opts.sessionId,
-        },
-      }),
-      fallback: false,
-    }
-  } catch (err: any) {
-    if (err.name === 'AbortError' || err.message?.includes('aborted')) {
-      throw err // Re-throw abort so POST handler can return 499
-    }
-    console.warn("Ollama unavailable, falling back to Plano gateway:", err.message)
-
-    const result = await streamText({
-      model: planoClient(""),
-      system: systemPrompt,
-      messages,
-      tools: { announce: announceTool },
-      maxSteps: 20,
-      experimental_activeTools: opts.isAutonomous ? ["announce"] : [],
-      abortSignal: controller.signal,
-      reasoning: opts.isAutonomous ? true : false,
-    })
-
-    return {
-      response: result.toDataStreamResponse({
-        headers: {
-          'Cache-Control': 'no-cache',
-          'Connection': 'keep-alive',
-          'X-Session-ID': opts.sessionId,
-          'X-Fallback': 'true',
-        },
-      }),
-      fallback: true,
-    }
+  return {
+    response: result.toDataStreamResponse({
+      headers: {
+        'Cache-Control': 'no-cache',
+        'Connection': 'keep-alive',
+      },
+    }),
   }
 }
 
 export async function POST(req: Request) {
-  const { messages, isAutonomous, selectedLanguage, sessionId } = await req.json()
+  const { messages, isAutonomous, selectedLanguage } = await req.json()
   const userMessage = messages?.filter((m: any) => m.role === 'user').pop()?.content || ""
 
-  const affinityId = sessionId || uuidv4()
   const langInstruction = getLangInstruction(selectedLanguage)
   const systemPrompt = langInstruction
     ? `${systemPromptBase}\n\nRespond in ${langInstruction} language`
@@ -150,10 +114,9 @@ export async function POST(req: Request) {
   }
 
   try {
-    const { response } = await streamWithFallback(prompt, messages, {
+    const { response } = await streamChat(prompt, messages, {
       isAutonomous,
-      sessionId: affinityId,
-      signal: req.signal, // Next.js built-in: fires when client disconnects
+      signal: req.signal,
     })
     return response
   } catch (error: any) {

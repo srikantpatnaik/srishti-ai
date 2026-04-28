@@ -3,28 +3,29 @@ Srishti AI - AI-powered app builder PWA
 What it does:
 - User types in chat interface
 - AI autonomously builds web apps (HTML/CSS/JS)
+- Generates images and audio
 - Live preview with dev console
-- Error detection + auto-fix
-- PWA installable on mobile
+- Gallery to save/share apps
 
-AI Pipeline:
-1. User request → /api/chat
-2. Plano gateway (localhost:12000) routes to:
-   - gpt-4o for code generation
-   - gpt-4o-mini for simple QA
-   - qwen3.5-4B (llama.cpp) for local/offline tasks
-3. Model generates code
+Intent Routing:
+1. User request → intent-detector.ts (regex + keyword matching)
+2. Image/audio intent → /api/router → SD API / TTS API
+3. Text intent → /api/chat → Ollama (qwen3.6-35B)
 4. Frontend renders HTML preview
 
 Tech Stack:
-- Next.js 15 + App Router
-- Vercel AI SDK (Google Gemini + OpenAI)
+- Next.js 14 + App Router
+- Vercel AI SDK
+- Ollama (qwen3.6-35B on LAN)
+- Stable Diffusion API for images
+- TTS API for audio
 - Tailwind CSS + shadcn/ui
-- Rust tools for file ops
 - next-pwa for offline support
 
 Key files:
-- app/api/chat/route.ts - AI chat API
+- app/api/chat/route.ts - Text streaming API
+- app/api/router/route.ts - Intent routing (image/audio)
+- lib/intent-detector.ts - Intent detection patterns
+- lib/clients.ts - Ollama client
 - app/page.tsx - Main UI
-- plano_config.yaml - Routing config
-- rust-tools/ - Optimized Rust utilities
+- settings.yaml - Provider config
