@@ -119,8 +119,10 @@ async function streamWithFallback(
   const settings = loadSettings()
   const { primary, fallback } = selectProvider(settings, opts.purpose || "general")
 
-  // Try primary with short timeout
-  const primaryTimeout = 3000 // 3s timeout on busy node
+  // App building needs longer timeout — LLM loads model + generates code
+  const primaryTimeout = opts.purpose === "app" ? 30000 : 3000
+
+  console.log(`[chat] purpose=${opts.purpose || "general"} → primary=${primary.url}, fallback=${fallback.url}`)
   const primaryPromise = streamText({
     model: createChatClient(primary),
     system: systemPrompt,
