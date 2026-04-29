@@ -16,7 +16,7 @@ import { ChatInput } from "@/components/chat-input"
 import { AgentStatus, Provider, SavedApp } from "@/types"
 import { saveAppToDB, getAllAppsFromDB, deleteAppFromDB, saveChatHistoryToDB, getChatHistoryFromDB, deleteChatHistoryFromDB, clearAllChatsFromDB } from "@/lib/db"
 import { wrapHtml, createBlobUrl, generateAppName, generateFileName, extractHtmlCode, findLatestHtmlCode } from "@/lib/html-wrapper"
-import { detectImageIntent, detectAudioIntent, detectIntent, detectMultiIntent, type IntentResult, type MultiIntentResult } from "@/lib/intent-detector"
+import { detectImageIntent, detectAudioIntent, detectAppIntent, detectIntent, detectMultiIntent, type IntentResult, type MultiIntentResult } from "@/lib/intent-detector"
 
 export default function Home() {
   const [status, setStatus] = useState<AgentStatus>("idle")
@@ -75,6 +75,7 @@ export default function Home() {
   const [mediaNavIndex, setMediaNavIndex] = useState(0)
   const mediaAppsRef = useRef<SavedApp[]>([])
   const [hasSavedToGallery, setHasSavedToGallery] = useState(false)
+  const [purpose, setPurpose] = useState<string>("general")
   const savedAppsRef = useRef<SavedApp[]>([])
 
 
@@ -106,7 +107,7 @@ export default function Home() {
     key: chatKey,
     api: "/api/chat",
     initialMessages: initialMessages,
-    body: { selectedProvider, selectedLanguage },
+    body: { selectedProvider, selectedLanguage, purpose },
     onError: (error) => {
       console.error("Chat error:", error)
       setStatus("error")
@@ -582,6 +583,10 @@ const handleSubmit = async (e?: React.FormEvent, language?: string) => {
     // LLM-based intent detection
     const intent = await detectIntent(userText)
 
+    // Determine purpose: app building vs general chat
+    const isAppBuilding = intent.intent === "text" && detectAppIntent(userText)
+    setPurpose(isAppBuilding ? "app" : "general")
+
     if (intent.asksClarification) {
       // Don't create a chat for clarification — just show the prompt (no API call)
       const ts = Date.now().toString()
@@ -621,14 +626,14 @@ const handleSubmit = async (e?: React.FormEvent, language?: string) => {
           fetch('/api/chat', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ messages: [...messages, userMsg], isAutonomous: false, selectedLanguage }),
+            body: JSON.stringify({ messages: [...messages, userMsg], isAutonomous: false, selectedLanguage, purpose }),
           }),
         ])
         const imgData = await imgRes.json()
         if (imgData.imageUrl) {
-          setMessages(prev => [...prev, { role: "assistant", content: "", imageUrl: imgData.imageUrl }])
+          setMessages(prev => [...prev, { id: (Date.now() + 1).toString(), role: "assistant", content: "", imageUrl: imgData.imageUrl }] as any)
         } else if (imgData.error) {
-          setMessages(prev => [...prev, { role: "assistant", content: `Image generation failed: ${imgData.error}` }])
+          setMessages(prev => [...prev, { id: (Date.now() + 1).toString(), role: "assistant", content: `Image generation failed: ${imgData.error}` }] as any)
         }
         // Handle streaming chat response
         if (chatRes.ok) {
@@ -649,13 +654,13 @@ const handleSubmit = async (e?: React.FormEvent, language?: string) => {
               }
             }
             if (fullResponse) {
-              setMessages(prev => [...prev, { role: "assistant", content: fullResponse }])
+              setMessages(prev => [...prev, { id: (Date.now() + 1).toString(), role: "assistant", content: fullResponse }] as any)
             }
           }
         }
       } catch (err) {
         console.error("Multi-intent failed:", err)
-        setMessages(prev => [...prev, { role: "assistant", content: "Multi-intent request failed." }])
+        setMessages(prev => [...prev, { id: (Date.now() + 1).toString(), role: "assistant", content: "Multi-intent request failed." }] as any)
       }
       setIsImageGenerating(false)
       setIsSending(false)
@@ -678,13 +683,13 @@ const handleSubmit = async (e?: React.FormEvent, language?: string) => {
         })
         const data = await res.json()
         if (data.imageUrl) {
-          setMessages(prev => [...prev, { role: "assistant", content: "", imageUrl: data.imageUrl }])
+          setMessages(prev => [...prev, { id: (Date.now() + 1).toString(), role: "assistant", content: "", imageUrl: data.imageUrl }] as any)
         } else if (data.error) {
-          setMessages(prev => [...prev, { role: "assistant", content: `Image generation failed: ${data.error}` }])
+          setMessages(prev => [...prev, { id: (Date.now() + 1).toString(), role: "assistant", content: `Image generation failed: ${data.error}` }] as any)
         }
       } catch (err) {
         console.error("Image generation failed:", err)
-        setMessages(prev => [...prev, { role: "assistant", content: "Image generation failed. Please check the image provider settings." }])
+        setMessages(prev => [...prev, { id: (Date.now() + 1).toString(), role: "assistant", content: "Image generation failed. Please check the image provider settings." }] as any)
       }
       setIsImageGenerating(false)
       setIsSending(false)
@@ -707,13 +712,13 @@ const handleSubmit = async (e?: React.FormEvent, language?: string) => {
         })
         const data = await res.json()
         if (data.audioUrl) {
-          setMessages(prev => [...prev, { role: "assistant", content: "", audioUrl: data.audioUrl }])
+          setMessages(prev => [...prev, { id: (Date.now() + 1).toString(), role: "assistant", content: "", audioUrl: data.audioUrl }] as any)
         } else if (data.error) {
-          setMessages(prev => [...prev, { role: "assistant", content: `Audio generation failed: ${data.error}` }])
+          setMessages(prev => [...prev, { id: (Date.now() + 1).toString(), role: "assistant", content: `Audio generation failed: ${data.error}` }] as any)
         }
       } catch (err) {
         console.error("Audio generation failed:", err)
-        setMessages(prev => [...prev, { role: "assistant", content: "Audio generation failed. Please check the audio provider settings." }])
+        setMessages(prev => [...prev, { id: (Date.now() + 1).toString(), role: "assistant", content: "Audio generation failed. Please check the audio provider settings." }] as any)
       }
       setIsImageGenerating(false)
       setIsSending(false)
@@ -1292,6 +1297,7 @@ useEffect(() => {
         setLongPressedApp={setLongPressedApp}
         contextMenu={contextMenu} longPressedApp={longPressedApp}
         selectedIndex={galleryIndex} setSelectedIndex={setGalleryIndex}
+        onClearAll={clearAllChats}
         onMediaClick={(app) => {
           const mediaApps = savedApps.filter(a => a.code.startsWith('data:image/') || a.code.startsWith('data:video/') || a.code.startsWith('data:audio/'))
           mediaAppsRef.current = mediaApps

@@ -153,7 +153,7 @@ export const clearAllChatsFromDB = async (): Promise<void> => {
     const db = await openDB()
     const keys = await new Promise<string[]>((resolve, reject) => {
       const req = db.transaction([CHAT_STORE_NAME], 'readonly').objectStore(CHAT_STORE_NAME).getAllKeys()
-      req.onsuccess = () => resolve(req.result || [])
+      req.onsuccess = () => resolve((req.result || []) as string[])
       req.onerror = () => reject(req.error)
     })
     if (keys.length > 0) {

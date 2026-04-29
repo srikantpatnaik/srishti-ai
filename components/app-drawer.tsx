@@ -25,6 +25,7 @@ interface AppDrawerProps {
   setSelectedIndex: (index: number) => void
   renameApp?: (app: SavedApp) => void
   onMediaClick?: (app: SavedApp) => void
+  onClearAll?: () => void
 }
 
 type Category = "All" | "Apps" | "Media" | "Gallery"
@@ -256,6 +257,7 @@ export function AppDrawer({
   setSelectedIndex,
   renameApp,
   onMediaClick,
+  onClearAll,
 }: AppDrawerProps) {
   const handleBgClick = (e: React.MouseEvent) => {
     if (e.target === e.currentTarget) {
@@ -278,6 +280,7 @@ export function AppDrawer({
   const [previewApp, setPreviewApp] = useState<SavedApp | null>(null)
   const [mediaIndex, setMediaIndex] = useState(0)
   const [contextMenuPos, setContextMenuPos] = useState<{x: number, y: number, app: SavedApp} | null>(null)
+  const [confirmClearGallery, setConfirmClearGallery] = useState(false)
   const [renamingApp, setRenamingApp] = useState<SavedApp | null>(null)
   const [renameInput, setRenameInput] = useState("")
   const mediaScrollRef = useRef<HTMLDivElement>(null)
@@ -438,24 +441,24 @@ export function AppDrawer({
         <div className="flex items-center gap-3">
           <h2 className="text-sm font-medium text-white">Gallery</h2>
           {savedApps.length > 0 && (
-            clearConfirmCategory === 'Gallery' ? (
+            confirmClearGallery ? (
               <div className="flex items-center gap-1">
                 <button
-                  onClick={(e) => { e.stopPropagation(); handleClearCategory('Gallery'); }}
+                  onClick={(e) => { e.stopPropagation(); onClearAll?.(); setConfirmClearGallery(false); }}
                   className="px-1.5 py-0.5 text-[10px] bg-[#ef4444] hover:bg-[#dc2626] text-white rounded transition-colors"
                 >
                   Clear
                 </button>
                 <button
-                  onClick={(e) => { e.stopPropagation(); handleCancelClear(); }}
+                  onClick={(e) => { e.stopPropagation(); setConfirmClearGallery(false); }}
                   className="px-1.5 py-0.5 text-[10px] bg-[#404040] hover:bg-[#4a4a4a] text-[#d1d1d1] rounded transition-colors"
                 >
-                  ✕
+                  Cancel
                 </button>
               </div>
             ) : (
               <button
-                onClick={(e) => { e.stopPropagation(); setClearConfirmCategory('Gallery'); }}
+                onClick={(e) => { e.stopPropagation(); setConfirmClearGallery(true); }}
                 className="px-2 py-0.5 text-[10px] bg-[#2a2a2e] text-[#8b8b8d] hover:text-[#ef4444] rounded transition-colors"
                 title="Clear gallery"
               >

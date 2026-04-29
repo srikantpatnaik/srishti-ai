@@ -19,6 +19,7 @@ interface Provider {
   model: string
   router?: boolean
   enabled?: boolean
+  purpose?: string
 }
 
 interface ImageProvider extends Provider {
@@ -401,13 +402,18 @@ function getModel(provider: Provider) {
   return providerFactories.openai(provider) // default fallback
 }
 
-function getTextProvider(settings: Settings, selectedProvider?: string): Provider {
+function getTextProvider(settings: Settings, selectedProvider?: string, purpose?: string): Provider {
   if (!settings.text_generation || settings.text_generation.length === 0) {
     throw new Error("No text generation provider configured")
   }
   if (selectedProvider) {
     const found = settings.text_generation.find(p => p.name === selectedProvider)
     if (found) return found
+  }
+  // Select by purpose (general vs app)
+  if (purpose) {
+    const byPurpose = settings.text_generation.find(p => p.purpose === purpose && p.enabled !== false)
+    if (byPurpose) return byPurpose
   }
   const router = getRouterProvider(settings.text_generation)
   if (router) return router
@@ -416,14 +422,14 @@ function getTextProvider(settings: Settings, selectedProvider?: string): Provide
 }
 
 async function handleChatRequest(body: any, settings: Settings) {
-  let { messages, selectedProvider, selectedLanguage } = body
+  let { messages, selectedProvider, selectedLanguage, purpose } = body
   if (!messages && body.message) {
     messages = [{ role: "user", content: body.message }]
   }
 
   const langInstruction = getLangInstruction(selectedLanguage)
 
-  const provider = getTextProvider(settings, selectedProvider)
+  const provider = getTextProvider(settings, selectedProvider, purpose)
   const model = getModel(provider)
 
   const systemPrompt = `You are Srishti AI, a helpful assistant.

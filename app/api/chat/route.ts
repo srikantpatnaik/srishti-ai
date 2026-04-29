@@ -1,8 +1,10 @@
 import { z } from "zod"
 import { streamText, tool } from "ai"
 import { NextResponse } from "next/server"
-import { v4 as uuidv4 } from "uuid"
-import { ollamaClient } from "@/lib/clients"
+import * as fs from "fs"
+import * as path from "path"
+import yaml from "js-yaml"
+import { createOpenAI } from "@ai-sdk/openai"
 import { detectImageIntent, detectAudioIntent } from "@/lib/intent-detector"
 import { getLangInstruction } from "@/lib/i18n"
 
@@ -55,32 +57,73 @@ const systemPromptBase = `You are Srishti AI - a friendly assistant that helps u
 - Call announce tool ONCE with phase: "planning"
 - IMMEDIATELY generate the COMPLETE HTML code in a single code block`
 
+// --- Settings cache with TTL ---
+let cachedSettings: any = null
+let settingsLoadTime = 0
+const SETTINGS_TTL_MS = 30_000
+
+function loadSettings() {
+  const now = Date.now()
+  if (cachedSettings && (now - settingsLoadTime) < SETTINGS_TTL_MS) {
+    return cachedSettings
+  }
+  try {
+    const settingsPath = path.join(process.cwd(), "settings.yaml")
+    const settingsContent = fs.readFileSync(settingsPath, "utf-8")
+    cachedSettings = yaml.load(settingsContent)
+    settingsLoadTime = now
+    return cachedSettings
+  } catch (e) {
+    console.error("Failed to load settings:", e)
+    return null
+  }
+}
+
+function createChatClient(purpose: string) {
+  const settings = loadSettings()
+  if (!settings?.text_generation) {
+    // Fallback to hardcoded URL
+    const url = process.env.LLAMA_CPP_URL || "http://192.168.1.8:11434/v1"
+    const key = process.env.LLAMA_CPP_API_KEY || "sk-123"
+    return createOpenAI({ baseURL: url, apiKey: key })("qwen3.6-35B")
+  }
+
+  // Select provider by purpose
+  const providers = settings.text_generation
+  let provider: any = providers.find((p: any) => p.purpose === purpose && p.enabled !== false)
+  if (!provider) provider = providers.find((p: any) => p.enabled !== false)
+  if (!provider) provider = providers[0]
+
+  const url = (provider.base_url || provider.url || "http://192.168.1.8:11434/v1") + (provider.base_url ? "" : "")
+  const model = provider.model || "qwen3.6-35B"
+  const apiKey = provider.api_key || "sk-123"
+
+  return createOpenAI({ baseURL: url, apiKey })(model)
+}
+
 export async function GET(req: Request) {
-  return NextResponse.json({
-    gateway: process.env.LLAMA_CPP_URL || "http://192.168.1.8:11434/v1",
-    router: "qwen3.6-35B",
-  })
+  return NextResponse.json({ router: "multi-node" })
 }
 
 async function streamChat(
   systemPrompt: string,
   messages: any[],
-  opts: { isAutonomous?: boolean; signal?: AbortSignal },
+  opts: { isAutonomous?: boolean; purpose?: string; signal?: AbortSignal },
 ) {
   const controller = new AbortController()
-
   const onAbort = () => controller.abort()
   opts.signal?.addEventListener('abort', onAbort, { once: true })
 
+  const model = createChatClient(opts.purpose || "general")
+
   const result = await streamText({
-    model: ollamaClient("qwen3.6-35B"),
+    model,
     system: systemPrompt,
     messages,
     tools: { announce: announceTool },
     maxSteps: 20,
     experimental_activeTools: opts.isAutonomous ? ["announce"] : [],
     abortSignal: controller.signal,
-    reasoning: opts.isAutonomous ? true : false,
   })
 
   return {
@@ -94,7 +137,7 @@ async function streamChat(
 }
 
 export async function POST(req: Request) {
-  const { messages, isAutonomous, selectedLanguage } = await req.json()
+  const { messages, isAutonomous, selectedLanguage, purpose } = await req.json()
   const userMessage = messages?.filter((m: any) => m.role === 'user').pop()?.content || ""
 
   const langInstruction = getLangInstruction(selectedLanguage)
@@ -116,6 +159,7 @@ export async function POST(req: Request) {
   try {
     const { response } = await streamChat(prompt, messages, {
       isAutonomous,
+      purpose,
       signal: req.signal,
     })
     return response
