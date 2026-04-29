@@ -5,8 +5,9 @@ import * as fs from "fs"
 import * as path from "path"
 import yaml from "js-yaml"
 import { createOpenAI } from "@ai-sdk/openai"
-import { detectImageIntent, detectAudioIntent } from "@/lib/intent-detector"
+import { detectImageIntent, detectAudioIntent, detectAppIntent, detectIntent } from "@/lib/intent-detector"
 import { getLangInstruction } from "@/lib/i18n"
+import { checkInput, sanitizeOutput, generateComplianceMetadata } from "@/lib/safety"
 
 export const runtime = "nodejs"
 export const maxDuration = 60
@@ -79,74 +80,123 @@ function loadSettings() {
   }
 }
 
-function createChatClient(purpose: string) {
-  const settings = loadSettings()
-  if (!settings?.text_generation) {
-    // Fallback to hardcoded URL
-    const url = process.env.LLAMA_CPP_URL || "http://192.168.1.8:11434/v1"
-    const key = process.env.LLAMA_CPP_API_KEY || "sk-123"
-    return createOpenAI({ baseURL: url, apiKey: key })("qwen3.6-35B")
-  }
-
-  // Select provider by purpose
-  const providers = settings.text_generation
-  let provider: any = providers.find((p: any) => p.purpose === purpose && p.enabled !== false)
-  if (!provider) provider = providers.find((p: any) => p.enabled !== false)
-  if (!provider) provider = providers[0]
-
-  const url = (provider.base_url || provider.url || "http://192.168.1.8:11434/v1") + (provider.base_url ? "" : "")
+function createChatClient(provider: any) {
+  const url = (provider.base_url || provider.url || "http://192.168.1.8:11434/v1")
   const model = provider.model || "qwen3.6-35B"
   const apiKey = provider.api_key || "sk-123"
-
   return createOpenAI({ baseURL: url, apiKey })(model)
+}
+
+function selectProvider(settings: any, purpose: string): { primary: any; fallback: any } {
+  if (!settings?.text_generation) {
+    const url = process.env.LLAMA_CPP_URL || "http://192.168.1.8:11434/v1"
+    const key = process.env.LLAMA_CPP_API_KEY || "sk-123"
+    const fallback = createOpenAI({ baseURL: url, apiKey: key })(process.env.LLAMA_CPP_MODEL || "qwen3.6-35B")
+    return { primary: { url, model: process.env.LLAMA_CPP_MODEL || "qwen3.6-35B", api_key: key }, fallback }
+  }
+
+  const providers = settings.text_generation
+  // Primary: match purpose
+  let primary: any = providers.find((p: any) => p.purpose === purpose && p.enabled !== false)
+  // Fallback: first enabled provider with different URL (different node)
+  let fallback: any = providers.find((p: any) => p.enabled !== false && p.url !== primary?.url)
+  // If no different-URL provider, pick the other one
+  if (!fallback || fallback === primary) {
+    fallback = providers.find((p: any) => p.enabled !== false && p !== primary)
+  }
+  // If only one provider exists, use it as both primary and fallback
+  if (!primary) primary = providers.find((p: any) => p.enabled !== false) || providers[0]
+  if (!fallback) fallback = primary // same node — no real fallback, but won't crash
+
+  return { primary, fallback }
+}
+
+async function streamWithFallback(
+  systemPrompt: string,
+  messages: any[],
+  opts: { isAutonomous?: boolean; purpose?: string; signal?: AbortSignal },
+): Promise<Response> {
+  const settings = loadSettings()
+  const { primary, fallback } = selectProvider(settings, opts.purpose || "general")
+
+  // Try primary with short timeout
+  const primaryTimeout = 3000 // 3s timeout on busy node
+  const primaryPromise = streamText({
+    model: createChatClient(primary),
+    system: systemPrompt,
+    messages,
+    tools: { announce: announceTool },
+    maxSteps: 20,
+    experimental_activeTools: opts.isAutonomous ? ["announce"] : [],
+    abortSignal: opts.signal,
+  })
+
+  // Race: primary vs fallback timeout
+  const timeoutPromise = new Promise<null>((resolve) => {
+    setTimeout(() => resolve(null), primaryTimeout)
+  })
+
+  const primaryResult = await Promise.race([primaryPromise, timeoutPromise])
+
+  if (primaryResult) {
+    return primaryResult.toDataStreamResponse({
+      headers: {
+        'Cache-Control': 'no-cache',
+        'Connection': 'keep-alive',
+      },
+    })
+  }
+
+  // Primary timed out — try fallback
+  console.log(`[chat] primary provider timed out, falling back to: ${fallback.url}`)
+
+  const fallbackController = new AbortController()
+  opts.signal?.addEventListener('abort', () => fallbackController.abort(), { once: true })
+
+  const fallbackResult = await streamText({
+    model: createChatClient(fallback),
+    system: systemPrompt,
+    messages,
+    tools: { announce: announceTool },
+    maxSteps: 20,
+    experimental_activeTools: opts.isAutonomous ? ["announce"] : [],
+    abortSignal: fallbackController.signal,
+  })
+
+  return fallbackResult.toDataStreamResponse({
+    headers: {
+      'Cache-Control': 'no-cache',
+      'Connection': 'keep-alive',
+    },
+  })
 }
 
 export async function GET(req: Request) {
   return NextResponse.json({ router: "multi-node" })
 }
 
-async function streamChat(
-  systemPrompt: string,
-  messages: any[],
-  opts: { isAutonomous?: boolean; purpose?: string; signal?: AbortSignal },
-) {
-  const controller = new AbortController()
-  const onAbort = () => controller.abort()
-  opts.signal?.addEventListener('abort', onAbort, { once: true })
-
-  const model = createChatClient(opts.purpose || "general")
-
-  const result = await streamText({
-    model,
-    system: systemPrompt,
-    messages,
-    tools: { announce: announceTool },
-    maxSteps: 20,
-    experimental_activeTools: opts.isAutonomous ? ["announce"] : [],
-    abortSignal: controller.signal,
-  })
-
-  return {
-    response: result.toDataStreamResponse({
-      headers: {
-        'Cache-Control': 'no-cache',
-        'Connection': 'keep-alive',
-      },
-    }),
-  }
-}
-
 export async function POST(req: Request) {
   const { messages, isAutonomous, selectedLanguage, purpose } = await req.json()
   const userMessage = messages?.filter((m: any) => m.role === 'user').pop()?.content || ""
+
+  // Safety: validate input
+  const safetyIssue = checkInput(userMessage)
+  if (safetyIssue) {
+    return NextResponse.json({
+      messages: [{ role: "assistant", content: safetyIssue.reason || "Request blocked for safety reasons." }],
+      compliance: generateComplianceMetadata("text", selectedLanguage),
+    })
+  }
 
   const langInstruction = getLangInstruction(selectedLanguage)
   const systemPrompt = langInstruction
     ? `${systemPromptBase}\n\nRespond in ${langInstruction} language`
     : systemPromptBase
 
-  const hasImage = detectImageIntent(userMessage)
-  const hasAudio = detectAudioIntent(userMessage)
+  const intent = detectIntent(userMessage, selectedLanguage)
+  const hasImage = intent.intent === 'image'
+  const hasAudio = intent.intent === 'audio'
+  const hasApp = intent.intent === 'app'
 
   let prompt = systemPrompt
 
@@ -154,10 +204,12 @@ export async function POST(req: Request) {
     prompt = `${systemPrompt}\n\nFor image requests, respond with image generation guidance or use generateImage tool if available.`
   } else if (hasAudio) {
     prompt = `${systemPrompt}\n\nFor audio generation, respond with audio content or use generateAudio tool if available.`
+  } else if (hasApp) {
+    prompt = `${systemPrompt}\n\n## User is requesting app/code building. Use the announce tool and generate complete HTML code.`
   }
 
   try {
-    const { response } = await streamChat(prompt, messages, {
+    const response = await streamWithFallback(prompt, messages, {
       isAutonomous,
       purpose,
       signal: req.signal,

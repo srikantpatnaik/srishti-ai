@@ -2,9 +2,23 @@ const HTML_HEAD = `<!DOCTYPE html><html lang="en"><head><meta charset="UTF-8"><m
 const HTML_HEAD_CLOSE = `</title><style>*{margin:0;padding:0;box-sizing:border-box;}html,body{height:100%;width:100%;overflow:hidden;display:flex;justify-content:center;align-items:center;}body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;background:#1a1a2e;color:#eaeaea;width:100vw;height:100vh;}.app-container{width:100%;height:100%;}</style></head><body><div class="app-container">`
 const HTML_TAIL = `</div><script>window.parent.postMessage({ type: 'loaded' }, '*');</script></body></html>`
 
+/** Strip dangerous HTML elements from generated code */
+function sanitizeGeneratedHtml(code: string): string {
+  return code
+    .replace(/<script[^>]*>[\s\S]*?<\/script>/gi, "")
+    .replace(/<object[^>]*>[\s\S]*?<\/object>/gi, "")
+    .replace(/<embed[^>]*\/?>/gi, "")
+    .replace(/<form[^>]*>[\s\S]*?<\/form>/gi, "")
+    .replace(/<applet[^>]*>[\s\S]*?<\/applet>/gi, "")
+    .replace(/<iframe[^>]*>[\s\S]*?<\/iframe>/gi, "")
+    .replace(/<frame[^>]*>[\s\S]*?<\/frame>/gi, "")
+    .replace(/href\s*=\s*["']javascript:[^"']*["']/gi, "href=\"#\"")
+}
+
 /** Wrap raw HTML code in a complete preview shell */
 export function wrapHtml(code: string, title = "My App"): string {
-  return `${HTML_HEAD}${title}${HTML_HEAD_CLOSE}${code}${HTML_TAIL}`
+  const sanitized = sanitizeGeneratedHtml(code)
+  return `${HTML_HEAD}${title}${HTML_HEAD_CLOSE}${sanitized}${HTML_TAIL}`
 }
 
 /** Create a blob URL from wrapped HTML code */

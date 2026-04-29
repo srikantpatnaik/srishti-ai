@@ -162,7 +162,7 @@ export function LocalPreview({ code, onClose }: LocalPreviewProps) {
             src={blobUrlRef.current}
             className="w-full h-full"
             title="Local Preview"
-            sandbox="allow-scripts allow-same-origin allow-popups"
+            sandbox="allow-scripts allow-popups"
           />
         </div>
       </div>

@@ -352,7 +352,7 @@ export function PreviewPanel({
           onLoad={() => {
             setIsLoaded(true)
           }}
-          sandbox="allow-scripts allow-same-origin allow-popups allow-forms"
+          sandbox="allow-scripts allow-popups allow-forms"
           allow="fullscreen"
           style={{ width: '100%', height: '100%', border: 'none' }}
         />

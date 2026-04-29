@@ -3,6 +3,7 @@ import { User, Bot, Code2, ExternalLink, Download, FolderHeart, X, Check } from 
 import { cn } from "@/lib/utils"
 import ReactMarkdown from "react-markdown"
 import remarkGfm from "remark-gfm"
+import { sanitizeOutput, stripHtml } from "@/lib/safety"
 
 interface PreviewIframeProps {
   src: string
@@ -73,7 +74,7 @@ function PreviewIframe({ src, isActive, onFocus, onBlur }: PreviewIframeProps) {
           style={{
             overflow: 'hidden',
           } as React.CSSProperties}
-          sandbox="allow-scripts allow-same-origin allow-forms allow-popups allow-pointer-lock"
+          sandbox="allow-scripts allow-forms allow-popups allow-pointer-lock"
           allow="pointer-lock"
         />
       )}
@@ -151,6 +152,8 @@ export const ChatMessage = React.memo(function ChatMessage({
     // Strip announce tool call text leaking into response
     let content = message.content
     content = content.replace(/\[announce\(phase:\s*"[^"]*"\)\]/g, '').trim()
+    // Sanitize: strip dangerous tags from LLM output
+    content = sanitizeOutput(content)
     if (!content) return null
     if ((message as any).type === "code" && (message as any).filePath) {
       return (
@@ -206,6 +209,8 @@ export const ChatMessage = React.memo(function ChatMessage({
       if (tableLines.length > 1 && tableLines.some(line => line.trim().includes('|---'))) {
         const processCell = (cell: string) => {
           let text = cell.trim()
+          // Escape HTML entities first to prevent XSS
+          text = text.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;")
           text = text.replace(/\*\*(.*?)\*\*/g, '<strong style="color: #a78bfa; font-weight: 600;">$1</strong>')
           text = text.replace(/\*(.*?)\*/g, '<em style="color: #2dd4bf;">$1</em>')
           text = text.replace(/`([^`]+)`/g, '<code style="background: rgba(45, 212, 191, 0.1); color: #2dd4bf; padding: 2px 8px; border-radius: 6px; border: 1px solid rgba(45, 212, 191, 0.2); font-family: monospace; font-size: 0.9em;">$1</code>')

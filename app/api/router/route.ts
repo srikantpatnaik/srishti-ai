@@ -4,9 +4,9 @@ import * as fs from "fs"
 import * as path from "path"
 import yaml from "js-yaml"
 import { createOpenAI } from "@ai-sdk/openai"
-import { ollamaClient } from "@/lib/clients"
-import { detectImageIntent, detectAudioIntent, detectAppIntent, detectIntent } from "@/lib/intent-detector"
+import { detectIntent } from "@/lib/intent-detector"
 import { languageNames, getLangInstruction } from "@/lib/i18n"
+import { checkInput, checkImagePrompt, checkAudioPrompt, sanitizeOutput, generateComplianceMetadata, validateHtmlForIframe, injectWatermark } from "@/lib/safety"
 
 // --- Types ---
 
@@ -258,9 +258,8 @@ async function generateAudio(prompt: string): Promise<string> {
 
 // --- Routing ---
 
-async function routeTask(userMessage: string): Promise<{ route: string; mode: string; prompt: string; reasoning: string }> {
-  // Use full detectIntent (regex + keyword matching) to avoid falling through to LLM
-  const intent = await detectIntent(userMessage)
+async function routeTask(userMessage: string, lang?: string): Promise<{ route: string; mode: string; prompt: string; reasoning: string }> {
+  const intent = detectIntent(userMessage, lang)
 
   if (intent.intent === "image") {
     return {
@@ -280,74 +279,141 @@ async function routeTask(userMessage: string): Promise<{ route: string; mode: st
     }
   }
 
-  if (intent.intent === "text") {
+  if (intent.intent === "app") {
     return {
       route: "text_generation",
-      mode: "chat",
+      mode: "app_building",
       prompt: userMessage,
       reasoning: intent.reasoning,
     }
   }
 
-  // Fallback to LLM-based routing for ambiguous/clarify cases
-  const controller = new AbortController()
-  const timeoutId = setTimeout(() => controller.abort(), 5000)
+  // Low confidence → use LLM for disambiguation
+  if (intent.confidence < 0.6) {
+    return await routeTaskWithLLM(userMessage, intent, lang)
+  }
 
-  const result = await streamText({
-    model: ollamaClient("qwen3.6-35B"),
-    system: `You are a task router. Analyze the user's message and determine if it requires image generation, audio generation, or text generation.
+  // Anything else → text (default chat)
+  return {
+    route: "text_generation",
+    mode: "chat",
+    prompt: userMessage,
+    reasoning: intent.reasoning,
+  }
+}
 
-## Image Generation
-Route to image_generation when user asks to:
-- Generate/create/draw an image or picture
-- Show me a [something]
-- Make me a [picture/image]
-- Create a photo of
-Keywords: image, picture, photo, generate image, create image, draw, make picture
+async function routeTaskWithLLM(userMessage: string, priorIntent: any, lang?: string): Promise<{ route: string; mode: string; prompt: string; reasoning: string }> {
+  const settings = loadSettings()
+  const textProviders = settings.text_generation || []
+  const router = getRouterProvider(settings.text_generation) || textProviders.find(p => p.enabled !== false)
 
-## Audio Generation
-Route to audio_generation when user asks to:
-- Generate/create audio or sound
-- Text to speech, TTS
-- Convert text to voice
-- Generate music or song
-Keywords: audio, sound, speech, voice, TTS, music, song, synthesize
+  if (!router) {
+    const appMode = priorIntent.intent === 'app' ? 'app_building' : 'chat'
+    return {
+      route: "text_generation",
+      mode: appMode,
+      prompt: userMessage,
+      reasoning: `low confidence (prior: ${priorIntent.reasoning}), no LLM router available`,
+    }
+  }
 
-## Text Generation
-Route to text_generation for:
-- App building
-- Code generation
-- Regular conversation
-- All other requests
+  const model = getModel(router)
+
+  const llmSystemPrompt = `You are a task routing assistant. Analyze the user's request and determine which service handles it.
+
+## Previous analysis (context, not final):
+${priorIntent.reasoning}
+Scores — image: ${priorIntent.scores?.image || 0}, audio: ${priorIntent.scores?.audio || 0}, app: ${priorIntent.scores?.app || 0}
+
+## Critical disambiguation rules:
+
+### APP BUILDING vs IMAGE GENERATION
+- "make a calculator" → APP (functional tool, not a picture)
+- "build a calculator app" → APP
+- "create a to-do list" → APP
+- "build a game" → APP
+- "show me a sunset" → IMAGE
+- "draw a cat" → IMAGE
+- "generate an image of a sunset" → IMAGE
+- **KEY DISTINCTION**: If the request asks for a FUNCTIONAL tool/utility/game/website → APP. If it asks for a VISUAL representation → IMAGE.
+
+### Common misclassifications to avoid:
+- "make a calculator" → APP, NOT image
+- "build a todo app" → APP, NOT image
+- "create a game" → APP, NOT image
+- "draw a calculator" → IMAGE (explicit "draw" means show a picture)
+- "show me a calculator" → IMAGE (show a picture of, not build one)
 
 ## Response Format
-Return ONLY valid JSON:
+
+Return a JSON object with:
+\`\`\`json
 {
   "route": "text_generation" | "image_generation" | "audio_generation",
   "mode": "chat" | "app_building" | "image" | "audio",
-  "prompt": "the original prompt",
+  "prompt": "the original or enhanced prompt for the target service",
   "reasoning": "why this route was chosen"
 }
-`,
-    messages: [{ role: "user", content: userMessage }],
-    maxSteps: 1,
-    headers: { "X-Request-ID": userMessage },
-  })
-
-  clearTimeout(timeoutId)
-
-  const text = await result.text
-  const jsonMatch = text.match(/\{[\s\S]*\}/)
-  if (!jsonMatch) {
-    console.error("Router failed to return valid JSON, defaulting to text_generation")
-    return { route: "text_generation", mode: "chat", prompt: userMessage, reasoning: "Router failed to parse response" }
-  }
+\`\`\``
 
   try {
-    return JSON.parse(jsonMatch[0])
-  } catch (e) {
-    console.error("Router JSON parse error:", e)
-    return { route: "text_generation", mode: "chat", prompt: userMessage, reasoning: "Router JSON parse failed" }
+    const result = await streamText({
+      model,
+      system: llmSystemPrompt,
+      messages: [{ role: 'user', content: userMessage }],
+      maxSteps: 1,
+    })
+
+    const reader = result.toDataStreamResponse().body?.getReader()
+    if (!reader) {
+      return {
+        route: "text_generation",
+        mode: priorIntent.intent === 'app' ? 'app_building' : 'chat',
+        prompt: userMessage,
+        reasoning: `LLM response empty, using prior: ${priorIntent.reasoning}`,
+      }
+    }
+
+    const decoder = new TextDecoder()
+    let fullText = ''
+    while (true) {
+      const { done, value } = await reader.read()
+      if (done) break
+      const text = decoder.decode(value)
+      for (const line of text.split('\n')) {
+        if (!line || !line.startsWith('{')) continue
+        try {
+          const j = JSON.parse(line)
+          if (j.type === 'text-delta' && j.textDelta) fullText += j.textDelta
+        } catch {}
+      }
+    }
+
+    const jsonMatch = fullText.match(/\{[\s\S]*\}/)
+    if (jsonMatch) {
+      const parsed = JSON.parse(jsonMatch[0])
+      return {
+        route: parsed.route || "text_generation",
+        mode: parsed.mode || "chat",
+        prompt: parsed.prompt || userMessage,
+        reasoning: `LLM routed: ${parsed.reasoning || fullText.substring(0, 100)}`,
+      }
+    }
+
+    return {
+      route: "text_generation",
+      mode: priorIntent.intent === 'app' ? 'app_building' : 'chat',
+      prompt: userMessage,
+      reasoning: `LLM parsing failed, using prior: ${priorIntent.reasoning}`,
+    }
+  } catch (err: any) {
+    const appMode = priorIntent.intent === 'app' ? 'app_building' : 'chat'
+    return {
+      route: "text_generation",
+      mode: appMode,
+      prompt: userMessage,
+      reasoning: `LLM error: ${err.message || 'unknown'}, using prior: ${priorIntent.reasoning}`,
+    }
   }
 }
 
@@ -470,12 +536,40 @@ export async function POST(req: NextRequest) {
 
     const settings = loadSettings()
     const userMessage = message || messages?.filter((m: any) => m.role === 'user').pop()?.content || ""
-    const routing = await routeTask(userMessage)
+    const routing = await routeTask(userMessage, selectedLanguage)
+
+    // Safety: validate input before processing
+    const safetyIssue = checkInput(userMessage)
+    if (safetyIssue) {
+      return NextResponse.json({
+        error: safetyIssue.reason,
+        routing: { route: "text_generation", mode: "chat", prompt: userMessage, reasoning: safetyIssue.reason },
+        compliance: generateComplianceMetadata("text", selectedLanguage),
+      })
+    }
+
+    // Safety: validate image/audio prompts
+    if (routing.route === "image_generation") {
+      const imgSafety = checkImagePrompt(routing.prompt)
+      if (imgSafety) {
+        return NextResponse.json({ error: imgSafety.reason, routing, compliance: generateComplianceMetadata("image", selectedLanguage) })
+      }
+    }
+    if (routing.route === "audio_generation") {
+      const audioSafety = checkAudioPrompt(routing.prompt)
+      if (audioSafety) {
+        return NextResponse.json({ error: audioSafety.reason, routing, compliance: generateComplianceMetadata("audio", selectedLanguage) })
+      }
+    }
 
     if (routing.route === "image_generation") {
       try {
         const imageUrl = await generateImage(routing.prompt)
-        return NextResponse.json({ imageUrl, routing })
+        return NextResponse.json({
+          imageUrl,
+          routing,
+          compliance: generateComplianceMetadata("image", selectedLanguage),
+        })
       } catch (err: any) {
         return NextResponse.json({ error: err.message, routing }, { status: 503 })
       }
@@ -484,7 +578,11 @@ export async function POST(req: NextRequest) {
     if (routing.route === "audio_generation") {
       try {
         const audioUrl = await generateAudio(routing.prompt)
-        return NextResponse.json({ audioUrl, routing })
+        return NextResponse.json({
+          audioUrl,
+          routing,
+          compliance: generateComplianceMetadata("audio", selectedLanguage),
+        })
       } catch (err: any) {
         return NextResponse.json({ error: err.message, routing }, { status: 503 })
       }
