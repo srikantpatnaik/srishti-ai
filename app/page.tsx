@@ -585,18 +585,17 @@ const handleSubmit = async (e?: React.FormEvent, language?: string) => {
     const userMsg = { id: userMsgId, role: "user" as const, content: userText } as any
     setMessages(prev => [...prev, userMsg])
 
-    // LLM-based intent detection (with timeout)
-    const intent = await Promise.race([
-      detectIntent(userText),
-      new Promise(resolve => setTimeout(() => resolve({ intent: 'text' as const, confidence: 0.5, reasoning: 'detectIntent timeout', asksClarification: false }), 8000)),
-    ]) as any
+    // Client-side regex intent detection (instant, no LLM call)
+    const hasImage = detectImageIntent(userText)
+    const hasAudio = detectAudioIntent(userText)
+    const hasApp = detectAppIntent(userText)
 
     // Determine purpose: app building vs general chat
-    const isAppBuilding = intent.intent === "text" && detectAppIntent(userText)
+    const isAppBuilding = hasApp
     setPurpose(isAppBuilding ? "app" : "general")
 
-    if (intent.asksClarification) {
-      // User message already added above — just add the clarification prompt
+    if (hasImage && hasAudio) {
+      // Ambiguous: ask for clarification
       const ts2 = (Date.now() + 1).toString()
       setMessages(prev => [...prev,
         { id: ts2, role: "assistant" as const, content: "I'm not sure what you'd like. Could you clarify?\n\n- 📷 **Image**: \"show me a photo of...\", \"draw a...\", \"generate an image...\"\n- 🎵 **Audio**: \"generate audio...\", \"text to speech...\", \"create a song...\"\n- 💬 **Chat**: Ask a question, request an app, or just chat" }
@@ -615,10 +614,10 @@ const handleSubmit = async (e?: React.FormEvent, language?: string) => {
 
     // Multi-intent: text + image
     const multiIntent = detectMultiIntent(userText)
-    const hasImage = multiIntent.intents.includes('image')
     const hasText = multiIntent.intents.includes('text')
+    const multiImage = multiIntent.intents.includes('image')
 
-    if (hasImage && hasText) {
+    if (multiImage && hasText) {
       setIsImageGenerating(true)
       try {
         // Get image from router, text from chat
