@@ -123,13 +123,16 @@ async function streamWithFallback(
   const primaryTimeout = opts.purpose === "app" ? 30000 : 3000
 
   console.log(`[chat] purpose=${opts.purpose || "general"} → primary=${primary.url}, fallback=${fallback.url}`)
+  // Enable announce tool for app building and autonomous mode
+  const activeTools: "announce"[] = (opts.purpose === "app" || opts.isAutonomous) ? ["announce"] : []
+
   const primaryPromise = streamText({
     model: createChatClient(primary),
     system: systemPrompt,
     messages,
     tools: { announce: announceTool },
     maxSteps: 20,
-    experimental_activeTools: opts.isAutonomous ? ["announce"] : [],
+    experimental_activeTools: activeTools,
     abortSignal: opts.signal,
   })
 
@@ -161,7 +164,7 @@ async function streamWithFallback(
     messages,
     tools: { announce: announceTool },
     maxSteps: 20,
-    experimental_activeTools: opts.isAutonomous ? ["announce"] : [],
+    experimental_activeTools: activeTools,
     abortSignal: fallbackController.signal,
   })
 
