@@ -120,7 +120,7 @@ async function streamWithFallback(
   const { primary, fallback } = selectProvider(settings, opts.purpose || "general")
 
   // App building needs longer timeout — LLM loads model + generates code
-  const primaryTimeout = opts.purpose === "app" ? 30000 : 3000
+  const primaryTimeout = opts.purpose === "app" ? 120000 : 3000
 
   console.log(`[chat] purpose=${opts.purpose || "general"} → primary=${primary.url}, fallback=${fallback.url}`)
   // Enable announce tool for app building and autonomous mode
