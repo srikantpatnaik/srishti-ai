@@ -17,6 +17,7 @@ import { AgentStatus, Provider, SavedApp } from "@/types"
 import { saveAppToDB, getAllAppsFromDB, deleteAppFromDB, saveChatHistoryToDB, getChatHistoryFromDB, deleteChatHistoryFromDB, clearAllChatsFromDB } from "@/lib/db"
 import { wrapHtml, createBlobUrl, generateAppName, generateFileName, extractHtmlCode, findLatestHtmlCode } from "@/lib/html-wrapper"
 import { detectImageIntent, detectAudioIntent, detectAppIntent, detectIntent, detectMultiIntent, type IntentResult, type MultiIntentResult } from "@/lib/intent-detector"
+import { DebugWidget } from "@/components/debug-widget"
 
 export default function Home() {
   const [status, setStatus] = useState<AgentStatus>("idle")
@@ -76,6 +77,13 @@ export default function Home() {
   const mediaAppsRef = useRef<SavedApp[]>([])
   const [hasSavedToGallery, setHasSavedToGallery] = useState(false)
   const [purpose, setPurpose] = useState<string>("general")
+  const purposeRef = useRef(purpose)
+  useEffect(() => { purposeRef.current = purpose }, [purpose])
+
+  const setPurposeImmediate = (p: string) => {
+    setPurpose(p)
+    purposeRef.current = p
+  }
   const savedAppsRef = useRef<SavedApp[]>([])
 
 
@@ -107,7 +115,7 @@ export default function Home() {
     key: chatKey,
     api: "/api/chat",
     initialMessages: initialMessages,
-    body: { selectedProvider, selectedLanguage, purpose },
+    body: () => ({ selectedProvider, selectedLanguage, purpose: purposeRef.current }),
     onError: (error) => {
       console.error("Chat error:", error)
       setStatus("error")
@@ -134,6 +142,7 @@ export default function Home() {
 
   // Auto scroll to bottom only when new assistant message arrives
   useEffect(() => {
+    console.log('[page] messages updated:', messages.length, messages.map(m => ({ role: m.role, content: (m.content || '').substring(0, 50) })))
     const lastMsg = messages[messages.length - 1]
     if (lastMsg && lastMsg.role === 'assistant') {
       setTimeout(() => {
@@ -587,7 +596,7 @@ const handleSubmit = async (e?: React.FormEvent, language?: string) => {
 
     // Determine purpose: app building vs general chat
     const isAppBuilding = hasApp
-    setPurpose(isAppBuilding ? "app" : "general")
+    setPurposeImmediate(isAppBuilding ? "app" : "general")
 
     if (hasImage && hasAudio) {
       // Ambiguous: ask for clarification
@@ -629,7 +638,7 @@ const handleSubmit = async (e?: React.FormEvent, language?: string) => {
           fetch('/api/chat', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ messages: [...messages, userMsg], isAutonomous: false, selectedLanguage, purpose }),
+            body: JSON.stringify({ messages: [...messages, userMsg], isAutonomous: false, selectedLanguage, purpose: purposeRef.current }),
           }),
         ])
         const imgData = await imgRes.json()
@@ -1129,6 +1138,7 @@ useEffect(() => {
 
   return (
     <div className="flex h-screen bg-[#0a0a0a]">
+      <DebugWidget />
       {shareMessage && (
         <div className="fixed top-4 left-1/2 transform -translate-x-1/2 bg-muted text-foreground px-4 py-2 rounded-lg shadow-md z-50">
           {shareMessage}
@@ -1208,25 +1218,15 @@ useEffect(() => {
                     </ul>
                   </div>
                 )}
-                {useMemo(() => {
-                  const msgs = messagesRef.current
-                  const imgMap = messageImagesRef.current
-                  const visibleMessages = msgs.slice(visibleRange.start, visibleRange.end)
-                  const lastUserIdx = msgs.findLastIndex(m => m.role === 'user')
-                  return visibleMessages.map((msg, idx) => {
+                {messages.map((msg, idx) => {
                     const m = msg as any
                     if (m.type === 'tool-call' || m.type === 'tool-result') return null
-                    const actualIdx = visibleRange.start + idx
-                    let msgPreviewUrl = previewCacheRef.current.get(actualIdx)
-                    if (!msgPreviewUrl) {
-                      const code = extractCodeFromMessage(msg)
-                      if (code) {
-                        msgPreviewUrl = createBlobUrl(code)
-                        previewCacheRef.current.set(actualIdx, msgPreviewUrl)
-                      }
-                    }
-                    const msgImageUrl = imgMap.get(actualIdx) || (msg as any).imageUrl
-                    const isLatestUser = msg.role === 'user' && actualIdx === lastUserIdx
+                    let msgPreviewUrl: string | undefined
+                    const code = extractCodeFromMessage(msg)
+                    if (code) msgPreviewUrl = createBlobUrl(code)
+                    const msgImageUrl = messageImages.get(idx) || (msg as any).imageUrl
+                    const lastUserIdx = messages.findLastIndex((mm: any) => mm.role === 'user')
+                    const isLatestUser = msg.role === 'user' && idx === lastUserIdx
                     const hasCode = extractCodeFromMessage(msg) !== null
                     const msgWithImage = { ...msg, imageUrl: msgImageUrl }
                     return (
@@ -1236,15 +1236,15 @@ useEffect(() => {
                             message={msgWithImage}
                             previewUrl={msgPreviewUrl}
                             onPreviewClick={() => setShowPreview(true)}
-                            onSaveToGallery={hasCode ? () => handleSaveFromChat(actualIdx) : undefined}
-                            onDownload={hasCode ? () => handleDownloadFromChat(actualIdx) : undefined}
-                            hasSavedToGallery={hasCode && isAppSavedInChat(actualIdx)}
+                            onSaveToGallery={hasCode ? () => handleSaveFromChat(idx) : undefined}
+                            onDownload={hasCode ? () => handleDownloadFromChat(idx) : undefined}
+                            hasSavedToGallery={hasCode && isAppSavedInChat(idx)}
                             status={isLatestUser ? status : undefined}
                             isSending={isLatestUser && isSending}
-                            onImageSave={msgImageUrl ? () => handleImageSaveFromChat(actualIdx) : undefined}
-                            onImageDownload={msgImageUrl ? () => handleImageDownloadFromChat(actualIdx) : undefined}
-                            onImageOpen={msgImageUrl ? () => handleImageOpenFromChat(actualIdx) : undefined}
-                            hasImageSavedToGallery={msgImageUrl && isImageSavedInChat(actualIdx)}
+                            onImageSave={msgImageUrl ? () => handleImageSaveFromChat(idx) : undefined}
+                            onImageDownload={msgImageUrl ? () => handleImageDownloadFromChat(idx) : undefined}
+                            onImageOpen={msgImageUrl ? () => handleImageOpenFromChat(idx) : undefined}
+                            hasImageSavedToGallery={msgImageUrl && isImageSavedInChat(idx)}
                             onSuggestionClick={(suggestion) => {
                               setInput(suggestion)
                             }}
@@ -1252,8 +1252,7 @@ useEffect(() => {
                         </div>
                       </div>
                     )
-                  })
-                }, [visibleRange.start, visibleRange.end])}
+                  })}
                 <div ref={messagesEndRef} />
               </div>
             </ScrollArea>
