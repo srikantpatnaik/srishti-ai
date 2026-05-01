@@ -1,0 +1,15 @@
+/home/sri/tools/srishti.ai/LOCAL_PREVIEW.md
+/home/sri/tools/srishti.ai/CLAUDE.md
+/home/sri/tools/srishti.ai/settings.yaml
+/home/sri/tools/srishti.ai/INSTRUCTIONS.md
+/home/sri/tools/srishti.ai/AGENTS.md
+/home/sri/tools/srishti.ai/config/output-format.yaml
+/home/sri/tools/srishti.ai/docs/AGENT_INSTRUCTIONS.md
+/home/sri/tools/srishti.ai/public/about.txt
+/home/sri/tools/srishti.ai/public/favicon-32x32.png
+/home/sri/tools/srishti.ai/public/android-chrome-192x192.png
+/home/sri/tools/srishti.ai/public/icon-512x512.png
+/home/sri/tools/srishti.ai/public/android-chrome-512x512.png
+/home/sri/tools/srishti.ai/public/favicon-16x16.png
+/home/sri/tools/srishti.ai/public/icon-192x192.png
+/home/sri/tools/srishti.ai/public/apple-touch-icon.png
