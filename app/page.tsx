@@ -185,19 +185,14 @@ export default function Home() {
     isLatestUserRef.current = messages.length > 0 && messages.length - 1 === lastIdx
   }, [messages])
 
-  // Auto scroll: enabled by default, disabled when user scrolls up, re-enabled on new assistant message
+  // Auto scroll: enabled by default, disabled when user scrolls up, re-enabled on new message
   useEffect(() => {
-    const lastMsg = messages[messages.length - 1]
-    if (lastMsg && lastMsg.role === 'assistant') {
-      setTimeout(() => {
-        if (autoScrollRef.current) {
-          const viewport = document.querySelector('[data-radix-scroll-area-viewport]') as HTMLElement | null
-          if (viewport) {
-            viewport.scrollTo({ top: viewport.scrollHeight, behavior: "smooth" })
-          }
-        }
-      }, 100)
-    }
+    if (messages.length === 0) return
+    requestAnimationFrame(() => {
+      if (autoScrollRef.current) {
+        messagesEndRef.current?.scrollIntoView({ behavior: "smooth", block: "end" })
+      }
+    })
   }, [messages])
 
   // Scroll listener: track if user is at bottom, release auto-scroll on manual scroll
@@ -669,14 +664,17 @@ useEffect(() => {
     setStatus("idle")
   }
 
-const handleSubmit = async (e?: React.FormEvent, language?: string) => {
+const handleSubmit = async (userText: string, e?: React.FormEvent, language?: string) => {
     if (e) e.preventDefault()
-    if (!input.trim() || isGenerating || isImageGenerating) return
+    if (!userText.trim() || isGenerating || isImageGenerating) return
     setIsSending(true)
     isSendingRef.current = true
     setInput("")
+    autoScrollRef.current = true
+    requestAnimationFrame(() => {
+      messagesEndRef.current?.scrollIntoView({ behavior: "smooth", block: "end" })
+    })
 
-    const userText = input
     setLocalPreviewCode("")
     setBlobUrl("")
     setStatus("planning")
@@ -1489,12 +1487,11 @@ const handleSubmit = async (e?: React.FormEvent, language?: string) => {
                     const code = extractCodeFromMessage(msg)
                     const msgImageUrl = messageImages.get(idx) || (msg as any).imageUrl
                     const hasCode = code !== null
-                    const msgWithImage = { ...msg, imageUrl: msgImageUrl }
                     return (
                       <div key={msg.id} className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'} gap-2`}>
                         <div className={`${msg.role === 'user' ? 'self-end' : 'self-start'} max-w-[90%]`} data-testid={msg.role === 'user' ? 'user-message' : 'assistant-message'}>
                           <ChatMessage
-                            message={msgWithImage}
+                            message={msg}
                             previewUrl={hasCode ? getPreviewUrl(msg) || undefined : undefined}
                             onPreviewClick={() => setShowPreview(true)}
                             onSaveToGallery={hasCode ? () => handleSaveFromChat(idx) : undefined}
@@ -1509,6 +1506,7 @@ const handleSubmit = async (e?: React.FormEvent, language?: string) => {
                             onSuggestionClick={(suggestion) => {
                               setInput(suggestion)
                             }}
+                            msgImageUrl={msgImageUrl}
                           />
                         </div>
                       </div>
@@ -1520,8 +1518,8 @@ const handleSubmit = async (e?: React.FormEvent, language?: string) => {
 
             <div className="px-4 pb-6 pt-2 max-w-3xl mx-auto w-full">
               <div className="w-full">
-                <ChatInput 
-                  input={input} setInput={setInput} isGenerating={isGenerating}
+                <ChatInput
+                  isGenerating={isGenerating}
                   handleSubmit={handleSubmit} stopGeneration={stopGeneration}
                   selectedLanguage={selectedLanguage}
                   onLanguageChange={(lang) => setSelectedLanguage(lang)}

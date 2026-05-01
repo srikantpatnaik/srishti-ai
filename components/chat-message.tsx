@@ -109,6 +109,7 @@ interface ChatMessageProps {
   onImageOpen?: () => void
   hasImageSavedToGallery?: boolean
   onSuggestionClick?: (suggestion: string) => void
+  msgImageUrl?: string
 }
 
 let globalActivePreviewId: string | null = null
@@ -127,6 +128,7 @@ export const ChatMessage = React.memo(function ChatMessage({
  onImageOpen,
   hasImageSavedToGallery = false,
   onSuggestionClick,
+  msgImageUrl,
 }: ChatMessageProps) {
   const isUser = message.role === "user"
   const [isActive, setIsActive] = useState(false)
@@ -490,7 +492,7 @@ export const ChatMessage = React.memo(function ChatMessage({
     )
   }
 
-  const hasOnlyImage = message.imageUrl && !message.content && message.role === "assistant"
+  const hasOnlyImage = (message.imageUrl || msgImageUrl) && !message.content && message.role === "assistant"
 
   const renderUserContent = () => {
     if (isUser) {
@@ -602,10 +604,10 @@ export const ChatMessage = React.memo(function ChatMessage({
       )}
 
      {/* Image preview in chat - shown when there's an image URL */}
-      {message.imageUrl && !isUser && (
+      {(message.imageUrl || msgImageUrl) && !isUser && (
         <div className="mt-4 group relative overflow-hidden w-full bg-gradient-to-br from-[#667eea] to-[#764ba2]">
           <img
-            src={message.imageUrl}
+            src={message.imageUrl || msgImageUrl}
             alt="Generated image"
             className="w-full h-auto max-h-[500px] object-contain cursor-pointer"
             onClick={() => onImageOpen?.()}

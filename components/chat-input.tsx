@@ -9,7 +9,7 @@ const languages = [
   { code: "te", name: "Telugu", native: "తెలుగు", placeholder: "ఏదైనా అడగండి..." },
   { code: "ta", name: "Tamil", native: "தமிழ்", placeholder: "எதையும் கேளுங்கள்..." },
   { code: "mr", name: "Marathi", native: "मराठी", placeholder: "काहीही विचारा..." },
-  { code: "gu", name: "Gujarati", native: "ગુજરાતી", placeholder: "કંઈપૂછો..." },
+  { code: "gu", name: "Gujarati", placeholder: "કંઈપૂછો..." },
   { code: "kn", name: "Kannada", native: "ಕನ್ನಡ", placeholder: "ಏನು ಕೇಳಿ..." },
   { code: "ml", name: "Malayalam", native: "മലയാളം", placeholder: "എന്തും ചോദിക്കുക..." },
   { code: "pa", name: "Punjabi", native: "ਪੰਜਾਬੀ", placeholder: "ਕੁਝ ਵੀ ਪੁੱਛੋ..." },
@@ -20,10 +20,8 @@ const languages = [
 ]
 
 interface ChatInputProps {
-  input: string
-  setInput: (val: string) => void
   isGenerating: boolean
-  handleSubmit: (e?: React.FormEvent, language?: string) => void
+  handleSubmit: (text: string, e?: React.FormEvent, language?: string) => void
   stopGeneration?: () => void
   selectedLanguage: string
   onLanguageChange: (lang: string) => void
@@ -51,8 +49,6 @@ function savePromptToHistory(prompt: string) {
 }
 
 export function ChatInput({
-  input,
-  setInput,
   isGenerating,
   handleSubmit,
   stopGeneration,
@@ -67,9 +63,15 @@ export function ChatInput({
   const textareaRef = useRef<HTMLTextAreaElement>(null)
   const currentLang = languages.find(l => l.code === selectedLanguage) || languages[0]
 
+  // Local input state — avoids parent re-render on every keystroke
+  const [inputValue, setInputValue] = useState("")
+  const inputValueRef = useRef(inputValue)
+  useEffect(() => { inputValueRef.current = inputValue }, [inputValue])
+
   // Bash-style history state
   const [historyIndex, setHistoryIndex] = useState(-1)
   const [savedInput, setSavedInput] = useState("")
+  // Cached on mount — only re-read when localStorage changes
   const promptHistory = getPromptHistory()
 
   useEffect(() => {
@@ -86,16 +88,17 @@ export function ChatInput({
     }
   }, [showMenu])
 
-  const canSubmit = input.trim() && !isGenerating
+  const canSubmit = inputValueRef.current.trim() && !isGenerating
 
   const onSubmit = (e?: React.FormEvent) => {
     if (isGenerating) return
-    if (input.trim()) {
-      savePromptToHistory(input)
-    }
+    const text = inputValueRef.current
+    if (!text.trim()) return
+    savePromptToHistory(text)
     setHistoryIndex(-1)
     setSavedInput("")
-    handleSubmit(e)
+    setInputValue("")
+    handleSubmit(text, e)
   }
 
   const onStop = (e?: React.FormEvent) => {
@@ -109,16 +112,16 @@ export function ChatInput({
     if (!textarea) return
 
     if (historyIndex === -1) {
-      setSavedInput(input)
+      setSavedInput(inputValue)
       setHistoryIndex(promptHistory.length)
     }
 
     if (historyIndex > 0) {
       const newIndex = historyIndex - 1
       setHistoryIndex(newIndex)
-      setInput(promptHistory[newIndex])
+      setInputValue(promptHistory[newIndex])
     }
-  }, [historyIndex, input, isGenerating, promptHistory, setInput])
+  }, [historyIndex, inputValue, isGenerating, promptHistory])
 
   const handleArrowDown = useCallback(() => {
     if (isGenerating) return
@@ -128,14 +131,14 @@ export function ChatInput({
     if (historyIndex === -1) return
 
     if (historyIndex === 0) {
-      setInput(savedInput)
+      setInputValue(savedInput)
       setHistoryIndex(-1)
     } else {
       const newIndex = historyIndex - 1
       setHistoryIndex(newIndex)
-      setInput(promptHistory[newIndex])
+      setInputValue(promptHistory[newIndex])
     }
-  }, [historyIndex, isGenerating, promptHistory, savedInput, setInput])
+  }, [historyIndex, isGenerating, promptHistory, savedInput])
 
   return (
     <div className="relative">
@@ -144,8 +147,9 @@ export function ChatInput({
           <div className="relative">
             <Textarea
               ref={textareaRef}
-              value={input}
-              onChange={(e) => setInput(e.target.value)}
+              autoFocus
+              value={inputValue}
+              onChange={(e) => setInputValue(e.target.value)}
               onKeyDown={(e) => {
                 if (e.key === "ArrowUp" && !isGenerating) {
                   e.preventDefault()
