@@ -305,6 +305,7 @@ function detectIntentStructured(message: string): {
     }
   }
 
+  console.log("DEBUG scores:", [...scores.entries()])
   // 3. Apply disambiguation rules
   const hasApp = scores.has('app')
   const hasImage = scores.has('image')
@@ -488,17 +489,6 @@ export function detectIntent(
         audio: semantic.audio,
         app: semantic.app,
       },
-    }
-  }
-
-  // Structured returned 'text' with low confidence (ambiguous conflict) — respect it
-  if (structured.intent === 'text' && structured.confidence < 0.5) {
-    return {
-      intent: 'text',
-      confidence: structured.confidence,
-      reasoning: `${structured.reasoning} (structured ambiguity)`,
-      asksClarification: true,
-      scores: semantic,
     }
   }
 

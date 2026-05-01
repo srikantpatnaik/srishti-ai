@@ -5,7 +5,6 @@ const HTML_TAIL = `</div><script>window.parent.postMessage({ type: 'loaded' }, '
 /** Strip dangerous HTML elements from generated code */
 function sanitizeGeneratedHtml(code: string): string {
   return code
-    .replace(/<script[^>]*>[\s\S]*?<\/script>/gi, "")
     .replace(/<object[^>]*>[\s\S]*?<\/object>/gi, "")
     .replace(/<embed[^>]*\/?>/gi, "")
     .replace(/<form[^>]*>[\s\S]*?<\/form>/gi, "")

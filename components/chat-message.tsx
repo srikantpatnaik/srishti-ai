@@ -476,12 +476,7 @@ export const ChatMessage = React.memo(function ChatMessage({
             ),
             div: ({children, ...props}) => {
               if (children && typeof children === 'string') {
-                if (children.includes('```html')) {
-                  return null
-                }
-                const dangerousPatterns = ['<!DOCTYPE html>', '<html ', '<head>', '<body>', '<script>', '<style>']
-                const hasDangerousPattern = dangerousPatterns.some(pattern => children.includes(pattern))
-                if (hasDangerousPattern) {
+                if (children.toLowerCase().includes('javascript:')) {
                   return null
                 }
               }

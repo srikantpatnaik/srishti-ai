@@ -19,6 +19,26 @@ import { wrapHtml, createBlobUrl, generateAppName, generateFileName, extractHtml
 import { detectImageIntent, detectAudioIntent, detectAppIntent, detectIntent, detectMultiIntent, type IntentResult, type MultiIntentResult } from "@/lib/intent-detector"
 
 export default function Home() {
+  // Performance monitoring for tests
+  useEffect(() => {
+    if (typeof window !== 'undefined' && (window as any).__performanceMetrics) {
+      return
+    }
+    const mem = (performance as any).memory
+    ;(window as any).__performanceMetrics = {
+      heapBefore: mem ? mem.usedJSHeapSize / 1024 / 1024 : 0,
+      heapAfter: 0,
+      startTime: Date.now(),
+      messages: 0,
+      blobUrls: 0,
+    }
+    window.addEventListener('beforeunload', () => {
+      const m = (performance as any).memory
+      if (m) {
+        ;(window as any).__performanceMetrics.heapAfter = m.usedJSHeapSize / 1024 / 1024
+      }
+    })
+  }, [])
   const [status, setStatus] = useState<AgentStatus>("idle")
   const [isSending, setIsSending] = useState(false)
   const [isImageGenerating, setIsImageGenerating] = useState(false)
@@ -46,6 +66,15 @@ export default function Home() {
   }, [])
   const messagesEndRef = useRef<HTMLDivElement>(null)
   const lastAssistantMsgRef = useRef<string>("")
+  const isAtBottomRef = useRef(true)
+  const autoScrollRef = useRef(true)
+
+  const scrollToBottom = useCallback(() => {
+    const viewport = document.querySelector('[data-radix-scroll-area-viewport]') as HTMLElement | null
+    if (viewport) {
+      viewport.scrollTo({ top: viewport.scrollHeight, behavior: "smooth" })
+    }
+  }, [])
   const [localPreviewCode, setLocalPreviewCode] = useState("")
   const [blobUrl, setBlobUrl] = useState<string>("")
   const [savedApps, setSavedApps] = useState<SavedApp[]>([])
@@ -103,7 +132,7 @@ export default function Home() {
   )
 
   const {
-    messages,
+    messages: allMessages,
     input,
     setInput,
     setMessages,
@@ -114,7 +143,10 @@ export default function Home() {
     key: chatKey,
     api: "/api/chat",
     initialMessages: initialMessages,
-    body: () => ({ selectedProvider, selectedLanguage, purpose: purposeRef.current }),
+    body: () => {
+      const b = { selectedProvider, selectedLanguage, purpose: purposeRef.current }
+      return b
+    },
     onError: (error) => {
       console.error("Chat error:", error)
       setStatus("error")
@@ -123,12 +155,14 @@ export default function Home() {
       if (isBuilding) setStatus("ready")
       isSendingRef.current = false
       setIsSending(false)
-      // Check for tool results in last message
-      const lastMsg = messages[messages.length - 1] as any
+      const lastMsg = allMessages[allMessages.length - 1] as any
       if (lastMsg?.imageUrl) {
         setStatus("idle")
       } else if (lastMsg?.audioUrl) {
         setStatus("idle")
+      }
+      if ((window as any).__performanceMetrics) {
+        ;(window as any).__performanceMetrics.messages = allMessages.length
       }
     },
     onToolCall: (params) => {
@@ -139,16 +173,69 @@ export default function Home() {
      },
    })
 
-  // Auto scroll to bottom only when new assistant message arrives
+  // Cap messages to last 50 to prevent OOM on long chats
+  const messages = useMemo(() => allMessages.slice(-50), [allMessages])
+  const messagesRef = useRef(messages)
+  useEffect(() => { messagesRef.current = messages }, [messages])
+
+  // Cache last user message index to avoid O(n²) findLastIndex
+  const isLatestUserRef = useRef(false)
   useEffect(() => {
-    console.log('[page] messages updated:', messages.length, messages.map(m => ({ role: m.role, content: (m.content || '').substring(0, 50) })))
+    const lastIdx = messages.findLastIndex((m: any) => m.role === 'user')
+    isLatestUserRef.current = messages.length > 0 && messages.length - 1 === lastIdx
+  }, [messages])
+
+  // Auto scroll: enabled by default, disabled when user scrolls up, re-enabled on new assistant message
+  useEffect(() => {
     const lastMsg = messages[messages.length - 1]
     if (lastMsg && lastMsg.role === 'assistant') {
       setTimeout(() => {
-        messagesEndRef.current?.scrollIntoView({ behavior: "smooth", block: "end" })
+        if (autoScrollRef.current) {
+          const viewport = document.querySelector('[data-radix-scroll-area-viewport]') as HTMLElement | null
+          if (viewport) {
+            viewport.scrollTo({ top: viewport.scrollHeight, behavior: "smooth" })
+          }
+        }
       }, 100)
     }
   }, [messages])
+
+  // Scroll listener: track if user is at bottom, release auto-scroll on manual scroll
+  useEffect(() => {
+    const onScroll = () => {
+      const viewport = document.querySelector('[data-radix-scroll-area-viewport]') as HTMLElement | null
+      if (!viewport) return
+
+      const { scrollTop, scrollHeight, clientHeight } = viewport
+      isAtBottomRef.current = scrollHeight - scrollTop - clientHeight < 80
+
+      // Release auto-scroll if user scrolled up
+      if (!isAtBottomRef.current) {
+        autoScrollRef.current = false
+      }
+    }
+
+    // Use MutationObserver to catch viewport appearing
+    const observer = new MutationObserver(() => {
+      const viewport = document.querySelector('[data-radix-scroll-area-viewport]') as HTMLElement | null
+      if (viewport) {
+        viewport.addEventListener('scroll', onScroll, { passive: true })
+      }
+    })
+    observer.observe(document.body, { childList: true, subtree: true })
+
+    // Also try immediately
+    const viewport = document.querySelector('[data-radix-scroll-area-viewport]') as HTMLElement | null
+    if (viewport) {
+      viewport.addEventListener('scroll', onScroll, { passive: true })
+    }
+
+    return () => {
+      observer.disconnect()
+      const vp = document.querySelector('[data-radix-scroll-area-viewport]') as HTMLElement | null
+      if (vp) vp.removeEventListener('scroll', onScroll)
+    }
+  }, [])
 
   // Save messages to localStorage
   useEffect(() => {
@@ -260,11 +347,22 @@ export default function Home() {
           if (done) break
           const text = dec.decode(value)
           for (const line of text.split('\n')) {
-            if (!line || !line.startsWith('{')) continue
-            try {
-              const j = JSON.parse(line)
-              if (j.type === 'text-delta' && j.textDelta) name += j.textDelta
-            } catch {}
+            const trimmed = line.trim()
+            if (!trimmed) continue
+            // AI SDK v4 binary text format: 0:"text"
+            if (trimmed.startsWith('0:')) {
+              try {
+                const t = JSON.parse(trimmed.slice(2))
+                if (typeof t === 'string') name += t
+              } catch {}
+            }
+            // Legacy: {"type":"text-delta","textDelta":"..."}
+            else if (trimmed.startsWith('{')) {
+              try {
+                const j = JSON.parse(trimmed)
+                if (j.type === 'text-delta' && j.textDelta) name += j.textDelta
+              } catch {}
+            }
           }
           if (name.length > 100) break
         }
@@ -599,10 +697,15 @@ const handleSubmit = async (e?: React.FormEvent, language?: string) => {
 
     if (hasImage && hasAudio) {
       // Ambiguous: ask for clarification
-      const ts2 = (Date.now() + 1).toString()
+      const clarMsgId = (Date.now() + 1).toString()
       setMessages(prev => [...prev,
-        { id: ts2, role: "assistant" as const, content: "I'm not sure what you'd like. Could you clarify?\n\n- 📷 **Image**: \"show me a photo of...\", \"draw a...\", \"generate an image...\"\n- 🎵 **Audio**: \"generate audio...\", \"text to speech...\", \"create a song...\"\n- 💬 **Chat**: Ask a question, request an app, or just chat" }
+        { id: Date.now().toString(), role: "user" as const, content: userText },
+        { id: clarMsgId, role: "assistant" as const, content: "I'm not sure what you'd like. Could you clarify?\n\n- 📷 **Image**: \"show me a photo of...\", \"draw a...\", \"generate an image...\"\n- 🎵 **Audio**: \"generate audio...\", \"text to speech...\", \"create a song...\"\n- 💬 **Chat**: Ask a question, request an app, or just chat" }
       ])
+      autoScrollRef.current = true
+      setTimeout(() => {
+        scrollToBottom()
+      }, 50)
       setIsSending(false)
       isSendingRef.current = false
       setIsBuilding(false)
@@ -625,6 +728,10 @@ const handleSubmit = async (e?: React.FormEvent, language?: string) => {
 
     if (multiImage && hasText) {
       setMessages(prev => [...prev, userMsg])
+      autoScrollRef.current = true
+      setTimeout(() => {
+        scrollToBottom()
+      }, 50)
       setIsImageGenerating(true)
       try {
         // Get image from router, text from chat
@@ -652,14 +759,60 @@ const handleSubmit = async (e?: React.FormEvent, language?: string) => {
           if (reader) {
             const decoder = new TextDecoder()
             let fullResponse = ''
+            let buffer = ''
             while (true) {
               const { done, value } = await reader.read()
               if (done) break
-              const text = decoder.decode(value)
-              for (const line of text.split('\n')) {
-                if (!line || !line.startsWith('{')) continue
+              buffer += decoder.decode(value, { stream: true })
+              const lines = buffer.split('\n')
+              buffer = lines.pop() || ''
+              for (const line of lines) {
+                const trimmed = line.trim()
+                if (!trimmed) continue
+                // AI SDK v4 binary text format: 0:"text"
+                if (trimmed.startsWith('0:')) {
+                  try {
+                    const t = JSON.parse(trimmed.slice(2))
+                    if (typeof t === 'string') fullResponse += t
+                  } catch {}
+                }
+                // Legacy: data: {"type":"text-delta","textDelta":"..."}
+                else if (trimmed.startsWith('data:')) {
+                  const d = trimmed.slice(5).trim()
+                  if (d) {
+                    try {
+                      const j = JSON.parse(d)
+                      if (j.type === 'text-delta' && j.textDelta) fullResponse += j.textDelta
+                    } catch {}
+                  }
+                }
+                // Legacy: {"type":"text-delta","textDelta":"..."}
+                else if (trimmed.startsWith('{')) {
+                  try {
+                    const j = JSON.parse(trimmed)
+                    if (j.type === 'text-delta' && j.textDelta) fullResponse += j.textDelta
+                  } catch {}
+                }
+              }
+            }
+            if (buffer) {
+              const trimmed = buffer.trim()
+              if (trimmed.startsWith('0:')) {
                 try {
-                  const j = JSON.parse(line)
+                  const t = JSON.parse(trimmed.slice(2))
+                  if (typeof t === 'string') fullResponse += t
+                } catch {}
+              } else if (trimmed.startsWith('data:')) {
+                const d = trimmed.slice(5).trim()
+                if (d) {
+                  try {
+                    const j = JSON.parse(d)
+                    if (j.type === 'text-delta' && j.textDelta) fullResponse += j.textDelta
+                  } catch {}
+                }
+              } else if (trimmed.startsWith('{')) {
+                try {
+                  const j = JSON.parse(trimmed)
                   if (j.type === 'text-delta' && j.textDelta) fullResponse += j.textDelta
                 } catch {}
               }
@@ -684,6 +837,10 @@ const handleSubmit = async (e?: React.FormEvent, language?: string) => {
       // Route to image generation
     if (multiIntent.intents.includes("image")) {
       setMessages(prev => [...prev, userMsg])
+      autoScrollRef.current = true
+      setTimeout(() => {
+        scrollToBottom()
+      }, 50)
       setIsImageGenerating(true)
       try {
         const res = await fetch('/api/router', {
@@ -712,6 +869,10 @@ const handleSubmit = async (e?: React.FormEvent, language?: string) => {
   // Route to audio generation
     if (multiIntent.intents.includes("audio")) {
       setMessages(prev => [...prev, userMsg])
+      autoScrollRef.current = true
+      setTimeout(() => {
+        scrollToBottom()
+      }, 50)
       setIsImageGenerating(true)
       try {
         const res = await fetch('/api/router', {
@@ -738,7 +899,99 @@ const handleSubmit = async (e?: React.FormEvent, language?: string) => {
     }
 
     // Text streaming (app building / chat) — use append (handles message + streaming)
-    await append({ role: "user", content: userText })
+    if (isAppBuilding) {
+      // Non-streaming for app building: streaming causes 500+ re-renders per response
+      // (every token triggers full message list render + blob URL creation)
+      setMessages(prev => [...prev, { id: Date.now().toString(), role: "user", content: userText }])
+      autoScrollRef.current = true
+      setTimeout(() => scrollToBottom(), 50)
+
+      const res = await fetch('/api/chat', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          messages: [...messages, { role: "user", content: userText }],
+          isAutonomous: false,
+          selectedLanguage,
+          purpose: "app",
+        }),
+      })
+
+      if (res.ok) {
+        const reader = res.body?.getReader()
+        if (reader) {
+          const decoder = new TextDecoder()
+          let fullResponse = ''
+          let buffer = ''
+          while (true) {
+            const { done, value } = await reader.read()
+            if (done) break
+            buffer += decoder.decode(value, { stream: true })
+            const lines = buffer.split('\n')
+            buffer = lines.pop() || ''
+            for (const line of lines) {
+              const trimmed = line.trim()
+              if (!trimmed) continue
+
+              // AI SDK v4 binary text format: 0:"text", f:{...}, 9:{...}, a:{...}, e:{...}
+              if (trimmed.startsWith('0:')) {
+                try {
+                  const text = JSON.parse(trimmed.slice(2))
+                  if (typeof text === 'string') fullResponse += text
+                } catch { /* skip */ }
+              }
+              // Legacy SSE format: data: {"type":"text-delta","textDelta":"..."}
+              else if (trimmed.startsWith('data:')) {
+                const data = trimmed.slice(5).trim()
+                if (!data) continue
+                try {
+                  const j = JSON.parse(data)
+                  if (j.type === 'text-delta' && j.textDelta) fullResponse += j.textDelta
+                } catch { /* skip */ }
+              }
+            }
+          }
+          // Handle remaining buffer
+          if (buffer) {
+            const trimmed = buffer.trim()
+            if (trimmed.startsWith('0:')) {
+              try {
+                const text = JSON.parse(trimmed.slice(2))
+                if (typeof text === 'string') fullResponse += text
+              } catch {}
+            } else if (trimmed.startsWith('data:')) {
+              const data = trimmed.slice(5).trim()
+              if (data) {
+                try {
+                  const j = JSON.parse(data)
+                  if (j.type === 'text-delta' && j.textDelta) fullResponse += j.textDelta
+                } catch {}
+              }
+            }
+          }
+          if (fullResponse) {
+            setMessages(prev => [...prev, { id: (Date.now() + 1).toString(), role: "assistant", content: fullResponse }] as any)
+          } else {
+            console.warn('[chat] app building: empty response')
+          }
+        }
+      } else {
+        const body = await res.text().catch(() => '')
+        console.error('[chat] app building failed:', res.status, body.slice(0, 500))
+        setMessages(prev => [...prev, { id: (Date.now() + 1).toString(), role: "assistant", content: `Chat error: ${res.status} ${res.statusText}` }] as any)
+      }
+      setIsSending(false)
+      isSendingRef.current = false
+      setIsBuilding(false)
+      setStatus("idle")
+    } else {
+      await append({ role: "user", content: userText })
+      // Scroll to show user message, enable auto-scroll for incoming response
+      autoScrollRef.current = true
+      setTimeout(() => {
+        scrollToBottom()
+      }, 50)
+    }
   }
 
   function getAppIcon(appName: string): string {
@@ -772,7 +1025,38 @@ const handleSubmit = async (e?: React.FormEvent, language?: string) => {
     if (code) setLocalPreviewCode(code)
   }, [messages])
 
-useEffect(() => {
+  // Defer blob URL creation to avoid blocking the main thread during response reading
+  const pendingBlobUrlRef = useRef<string | null>(null)
+  useEffect(() => {
+    if (!localPreviewCode) return
+    // Revoke previous blob URL
+    if (pendingBlobUrlRef.current) {
+      URL.revokeObjectURL(pendingBlobUrlRef.current)
+      pendingBlobUrlRef.current = null
+    }
+    // Create blob URL asynchronously to avoid blocking
+    const timer = setTimeout(() => {
+      const url = createBlobUrl(localPreviewCode)
+      setBlobUrl(url)
+      pendingBlobUrlRef.current = url
+      if ((performance as any).memory) {
+        ;(window as any).__performanceMetrics.blobUrls = pendingBlobUrlRef.current ? 1 : 0
+        ;(window as any).__performanceMetrics.heapAfter = (performance as any).memory.usedJSHeapSize / 1024 / 1024
+      }
+      // Find the assistant message that contains this code and store preview
+      const msgs = messagesRef.current
+      for (let i = msgs.length - 1; i >= 0; i--) {
+        const code = extractHtmlCode(msgs[i])
+        if (code === localPreviewCode) {
+          setMessagePreviews(prev => new Map(prev).set(i, url))
+          break
+        }
+      }
+    }, 0)
+    return () => { clearTimeout(timer) }
+  }, [localPreviewCode])
+
+  useEffect(() => {
     if (status === "ready" && localPreviewCode && autoGenerated) {
       const lastUserMsg = messages.filter(m => m.role === 'user').pop()
       const rawName = lastUserMsg?.content?.substring(0, 50) || 'My App'
@@ -802,24 +1086,7 @@ useEffect(() => {
     }
   }, [messages])
 
-  useEffect(() => {
-    if (localPreviewCode) {
-      if (blobUrl) URL.revokeObjectURL(blobUrl)
-      const url = createBlobUrl(localPreviewCode)
-      setBlobUrl(url)
-      
-      // Find the assistant message that contains this code and store preview
-      for (let i = messages.length - 1; i >= 0; i--) {
-        const code = extractHtmlCode(messages[i])
-        if (code === localPreviewCode) {
-          setMessagePreviews(prev => new Map(prev).set(i, url))
-          break
-        }
-      }
-      
-      return () => URL.revokeObjectURL(url)
-    }
-  }, [localPreviewCode])
+  // Blob URL creation deferred to avoid blocking main thread
 
 
   const openSavedApp = (app: SavedApp) => {
@@ -914,8 +1181,6 @@ useEffect(() => {
   const [currentAppIndex, setCurrentAppIndex] = useState(-1)
   const [activeChatTab, setActiveChatTab] = useState<string | null>(null)
   const [visibleRange, setVisibleRange] = useState({ start: 0, end: 50 })
-  const messagesRef = useRef(messages)
-  useEffect(() => { messagesRef.current = messages }, [messages])
   // Cleanup cached blob URLs when visible range changes
   useEffect(() => {
     previewCacheRef.current.clear()
@@ -1082,6 +1347,7 @@ useEffect(() => {
   }
 
   const clearAllChats = () => {
+    setMessages([])
     setChatKey(prev => String(Number(prev) + 1))
     setRecentChats([])
     localStorage.removeItem("recentChats")
@@ -1193,9 +1459,10 @@ useEffect(() => {
       <div className={`flex-1 flex min-w-0 transition-all duration-300 ${showAppDrawer ? 'w-full md:w-[50%]' : 'w-full md:w-[50%]'}`}>
         <div className={`absolute top-4 left-4 z-50 ${showAppDrawer ? 'hidden md:block' : ''}`}>
           {!showSettings && !showPreview && (
-            <button 
+            <button
               id="settings-toggle"
               onClick={() => setShowSettings(true)}
+              aria-label="Open settings"
               className="p-2 text-[#666666] hover:text-[#888888] transition-colors"
             >
               <ChevronRight className="h-4 w-4" />
@@ -1210,7 +1477,7 @@ useEffect(() => {
                 {messages.length === 0 && (
                   <div className="text-center py-16 text-[#888888]">
                     <p className="text-lg mb-3">🚀 Srishti AI</p>
-                    <ul className="text-sm space-y-1 text-[#666666]">
+                    <ul className="text-sm space-y-1">
                       <li>• Type "build a calculator" to generate a colorful app</li>
                       <li>• Ask for images: "show me a sunset"</li>
                     </ul>
@@ -1219,26 +1486,22 @@ useEffect(() => {
                 {messages.map((msg, idx) => {
                     const m = msg as any
                     if (m.type === 'tool-call' || m.type === 'tool-result') return null
-                    let msgPreviewUrl: string | undefined
                     const code = extractCodeFromMessage(msg)
-                    if (code) msgPreviewUrl = createBlobUrl(code)
                     const msgImageUrl = messageImages.get(idx) || (msg as any).imageUrl
-                    const lastUserIdx = messages.findLastIndex((mm: any) => mm.role === 'user')
-                    const isLatestUser = msg.role === 'user' && idx === lastUserIdx
-                    const hasCode = extractCodeFromMessage(msg) !== null
+                    const hasCode = code !== null
                     const msgWithImage = { ...msg, imageUrl: msgImageUrl }
                     return (
                       <div key={msg.id} className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'} gap-2`}>
                         <div className={`${msg.role === 'user' ? 'self-end' : 'self-start'} max-w-[90%]`} data-testid={msg.role === 'user' ? 'user-message' : 'assistant-message'}>
                           <ChatMessage
                             message={msgWithImage}
-                            previewUrl={msgPreviewUrl}
+                            previewUrl={hasCode ? getPreviewUrl(msg) || undefined : undefined}
                             onPreviewClick={() => setShowPreview(true)}
                             onSaveToGallery={hasCode ? () => handleSaveFromChat(idx) : undefined}
                             onDownload={hasCode ? () => handleDownloadFromChat(idx) : undefined}
                             hasSavedToGallery={hasCode && isAppSavedInChat(idx)}
-                            status={isLatestUser ? status : undefined}
-                            isSending={isLatestUser && isSending}
+                            status={isLatestUserRef.current ? status : undefined}
+                            isSending={isLatestUserRef.current && isSending}
                             onImageSave={msgImageUrl ? () => handleImageSaveFromChat(idx) : undefined}
                             onImageDownload={msgImageUrl ? () => handleImageDownloadFromChat(idx) : undefined}
                             onImageOpen={msgImageUrl ? () => handleImageOpenFromChat(idx) : undefined}
