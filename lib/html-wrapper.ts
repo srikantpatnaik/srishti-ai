@@ -1,6 +1,22 @@
 const HTML_HEAD = `<!DOCTYPE html><html lang="en"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no"><title>`
-const HTML_HEAD_CLOSE = `</title><style>*{margin:0;padding:0;box-sizing:border-box;}html,body{height:100%;width:100%;overflow:hidden;display:flex;justify-content:center;align-items:center;}body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;background:#1a1a2e;color:#eaeaea;width:100vw;height:100vh;}.app-container{width:100%;height:100%;}</style></head><body><div class="app-container">`
-const HTML_TAIL = `</div><script>window.parent.postMessage({ type: 'loaded' }, '*');</script></body></html>`
+const HTML_HEAD_CLOSE = `</title><style>
+*{margin:0;padding:0;box-sizing:border-box;}
+html,body{height:100%;width:100%;overflow:hidden;background:#050508;}
+.phone-frame{
+  width:100%;height:100%;max-width:430px;max-height:100vh;
+  margin:0 auto;position:relative;overflow:hidden;
+  background:#0a0a0f;
+  display:flex;flex-direction:column;
+}
+.app-container{
+  width:100%;height:100%;overflow-y:auto;overflow-x:hidden;
+  padding:12px;
+  scrollbar-width:none;
+}
+.app-container::-webkit-scrollbar{display:none;}
+body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;color:#e8e8e8;}
+</style></head><body><div class="phone-frame"><div class="app-container">`
+const HTML_TAIL = `</div></div><script>window.parent.postMessage({ type: 'loaded' }, '*');</script></body></html>`
 
 /** Strip dangerous HTML elements from generated code */
 function sanitizeGeneratedHtml(code: string): string {
