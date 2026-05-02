@@ -910,8 +910,9 @@ const handleSubmit = async (userText: string, e?: React.FormEvent, language?: st
       let city = "Delhi"
       const cleaned = userText.toLowerCase()
         .replace(/\b(?:temperature|weather|mausam|mausum|mosam|tapman|tapmān|tapamatra|abohawa|vaatavaranam|ushnograta|kalanilai|havamana|darja\s+hararat|how\s+is\s+the\s+weather|what\s+is\s+the\s+temperature|check\s+(?:the\s+)?weather|show\s+(?:me\s+)?(?:the\s+)?weather|show\s+me\s+the\s+temperature|check\s+temperature|tell\s+me\s+the\s+weather|tell\s+me\s+the\s+temperature|show\s+me\s+an?\s+weather)\s*/gi, '')
-        .replace(/\b(?:in|for|please|can|you|tell|me|show|check|what|is|the|how|at|kaise|hai|hai\s+ki|ka|ki|ke|se|mein|mein|rain|raining|will|going|to)\b\s*/gi, ' ')
+        .replace(/\b(?:in|for|please|can|you|tell|me|show|check|what|is|the|how|at|it|kaise|hai|hai\s+ki|ka|ki|ke|se|mein|mein|rain|raining|will|going|to)\b\s*/gi, ' ')
         .replace(/\s+/g, ' ')
+        .replace(/[?!.]/g, '')
         .trim()
       if (cleaned.length > 0 && cleaned.length < 30) {
         city = cleaned.charAt(0).toUpperCase() + cleaned.slice(1)
