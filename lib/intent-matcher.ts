@@ -189,6 +189,10 @@ const PHRASES: KeywordEntry[] = [
   { keyword: 'show weather', intent: 'weather', category: 'phrase', priority: 9 },
   { keyword: 'tell me the weather', intent: 'weather', category: 'phrase', priority: 10 },
   { keyword: 'tell me the temperature', intent: 'weather', category: 'phrase', priority: 9 },
+  { keyword: 'is it raining', intent: 'weather', category: 'phrase', priority: 9 },
+  { keyword: 'is it rain', intent: 'weather', category: 'phrase', priority: 9 },
+  { keyword: 'will it rain', intent: 'weather', category: 'phrase', priority: 9 },
+  { keyword: 'going to rain', intent: 'weather', category: 'phrase', priority: 9 },
 
   // Cricket phrases
   { keyword: 'cricket score', intent: 'cricket', category: 'phrase', priority: 10 },
@@ -291,6 +295,7 @@ const WORDS: KeywordEntry[] = [
   { keyword: 'forecast', intent: 'weather', category: 'word', priority: 8 },
   { keyword: 'humidity', intent: 'weather', category: 'word', priority: 7 },
   { keyword: 'rain', intent: 'weather', category: 'word', priority: 6 },
+  { keyword: 'raining', intent: 'weather', category: 'word', priority: 6 },
   { keyword: 'sunny', intent: 'weather', category: 'word', priority: 6 },
   { keyword: 'cloudy', intent: 'weather', category: 'word', priority: 6 },
   { keyword: 'cold', intent: 'weather', category: 'word', priority: 6 },

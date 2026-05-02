@@ -906,21 +906,40 @@ const handleSubmit = async (userText: string, e?: React.FormEvent, language?: st
     // Route to weather tool
     console.log('[chat] hasWeather=%s hasImage=%s hasAudio=%s hasApp=%s', hasWeather, hasImage, hasAudio, hasApp)
     if (hasWeather) {
-      setMessages(prev => [...prev, userMsg])
-      autoScrollRef.current = true
-      setTimeout(() => scrollToBottom(), 50)
-      setIsSending(true)
-      try {
-        // Extract city: strip weather keywords (English + romanized multilingual), take remaining words as city
-        let city = "Delhi"
-        const cleaned = userText.toLowerCase()
-          .replace(/\b(?:temperature|weather|mausam|mausum|mosam|tapman|tapmān|tapamatra|abohawa|vaatavaranam|ushnograta|kalanilai|havamana|darja\s+hararat|how\s+is\s+the\s+weather|what\s+is\s+the\s+temperature|check\s+(?:the\s+)?weather|show\s+(?:me\s+)?(?:the\s+)?weather|show\s+me\s+the\s+temperature|check\s+temperature|tell\s+me\s+the\s+weather|tell\s+me\s+the\s+temperature|show\s+me\s+an?\s+weather)\s*/gi, '')
-          .replace(/\b(?:in|for|please|can|you|tell|me|show|check|what|is|the|how|at|kaise|hai|hai\s+ki|ka|ki|ke|se|mein|mein)\b\s*/gi, ' ')
-          .replace(/\s+/g, ' ')
-          .trim()
-        if (cleaned.length > 0 && cleaned.length < 30) {
-          city = cleaned.charAt(0).toUpperCase() + cleaned.slice(1)
+      // Extract city: strip weather keywords (English + romanized multilingual), take remaining words as city
+      let city = "Delhi"
+      const cleaned = userText.toLowerCase()
+        .replace(/\b(?:temperature|weather|mausam|mausum|mosam|tapman|tapmān|tapamatra|abohawa|vaatavaranam|ushnograta|kalanilai|havamana|darja\s+hararat|how\s+is\s+the\s+weather|what\s+is\s+the\s+temperature|check\s+(?:the\s+)?weather|show\s+(?:me\s+)?(?:the\s+)?weather|show\s+me\s+the\s+temperature|check\s+temperature|tell\s+me\s+the\s+weather|tell\s+me\s+the\s+temperature|show\s+me\s+an?\s+weather)\s*/gi, '')
+        .replace(/\b(?:in|for|please|can|you|tell|me|show|check|what|is|the|how|at|kaise|hai|hai\s+ki|ka|ki|ke|se|mein|mein|rain|raining|will|going|to)\b\s*/gi, ' ')
+        .replace(/\s+/g, ' ')
+        .trim()
+      if (cleaned.length > 0 && cleaned.length < 30) {
+        city = cleaned.charAt(0).toUpperCase() + cleaned.slice(1)
+      }
+
+      // Check for rain query: "is it raining", "will it rain", etc. → plain text answer
+      const rainMatch = userText.toLowerCase().match(/\b(is it raining|is it rain|will it rain|going to rain)\b/)
+      if (rainMatch) {
+        setMessages(prev => [...prev, userMsg])
+        autoScrollRef.current = true
+        setTimeout(() => scrollToBottom(), 50)
+        setIsSending(true)
+        try {
+          const res = await fetch(`/api/tools/weather?city=${encodeURIComponent(city)}&mode=rain`)
+          const data = await res.json()
+          setMessages(prev => [...prev, { id: (Date.now() + 1).toString(), role: "assistant", content: data.answer || "Weather data unavailable." }] as any)
+        } catch (err) {
+          console.error("Rain query failed:", err)
+          setMessages(prev => [...prev, { id: (Date.now() + 1).toString(), role: "assistant", content: "Weather data unavailable." }] as any)
         }
+        setIsSending(false)
+        isSendingRef.current = false
+        setStatus("idle")
+        return
+      }
+
+      // Full weather card path
+      try {
         const res = await fetch(`/api/tools/weather?city=${encodeURIComponent(city)}`)
         const data = await res.json()
         if (data.structured) {

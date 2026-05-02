@@ -121,3 +121,8 @@
   92%, 96% { opacity: 0.2; }
   94% { opacity: 1; }
 }
+
+@keyframes moon-glow {
+  0%, 100% { filter: drop-shadow(0 0 4px rgba(148,163,184,0.3)); }
+  50% { filter: drop-shadow(0 0 12px rgba(148,163,184,0.6)); }
+}
