@@ -1,13 +1,24 @@
 // Structured intent detection with semantic tiebreaker
 // Three-tier pipeline: phrase matching → word matching → semantic cosine similarity
 
-type IntentType = 'image' | 'audio' | 'app' | 'text'
+import { INTENT_KEYWORDS } from './intent-keywords'
+
+type IntentType = 'image' | 'audio' | 'app' | 'weather' | 'cricket' | 'news' | 'text'
 
 interface KeywordEntry {
   keyword: string
   intent: IntentType
   category: 'phrase' | 'word'
   priority: number
+}
+
+function buildKeywordEntries(
+  words: string[],
+  intent: IntentType,
+  category: 'phrase' | 'word',
+  basePriority: number,
+): KeywordEntry[] {
+  return words.map(w => ({ keyword: w, intent, category, priority: basePriority }))
 }
 
 // Phrase patterns — exact multi-word matches, high priority
@@ -166,6 +177,42 @@ const PHRASES: KeywordEntry[] = [
   { keyword: 'generate an infographic', intent: 'image', category: 'phrase', priority: 10 },
   { keyword: 'generate a poster', intent: 'image', category: 'phrase', priority: 10 },
   { keyword: 'generate a mockup', intent: 'image', category: 'phrase', priority: 10 },
+
+  // Weather phrases
+  { keyword: 'weather', intent: 'weather', category: 'phrase', priority: 10 },
+  { keyword: 'temperature', intent: 'weather', category: 'phrase', priority: 9 },
+  { keyword: 'what is the weather', intent: 'weather', category: 'phrase', priority: 10 },
+  { keyword: 'what is the temperature', intent: 'weather', category: 'phrase', priority: 10 },
+  { keyword: 'check weather', intent: 'weather', category: 'phrase', priority: 10 },
+  { keyword: 'check temperature', intent: 'weather', category: 'phrase', priority: 9 },
+  { keyword: 'how is the weather', intent: 'weather', category: 'phrase', priority: 10 },
+  { keyword: 'show weather', intent: 'weather', category: 'phrase', priority: 9 },
+  { keyword: 'tell me the weather', intent: 'weather', category: 'phrase', priority: 10 },
+  { keyword: 'tell me the temperature', intent: 'weather', category: 'phrase', priority: 9 },
+
+  // Cricket phrases
+  { keyword: 'cricket score', intent: 'cricket', category: 'phrase', priority: 10 },
+  { keyword: 'cricket live', intent: 'cricket', category: 'phrase', priority: 10 },
+  { keyword: 'cricket scorecard', intent: 'cricket', category: 'phrase', priority: 10 },
+  { keyword: 'cricket schedule', intent: 'cricket', category: 'phrase', priority: 10 },
+  { keyword: 'cricket match', intent: 'cricket', category: 'phrase', priority: 9 },
+  { keyword: 'cricket results', intent: 'cricket', category: 'phrase', priority: 9 },
+  { keyword: 'live cricket', intent: 'cricket', category: 'phrase', priority: 10 },
+  { keyword: 'ipl score', intent: 'cricket', category: 'phrase', priority: 10 },
+  { keyword: 'ipl live', intent: 'cricket', category: 'phrase', priority: 10 },
+  { keyword: 'show cricket score', intent: 'cricket', category: 'phrase', priority: 10 },
+  { keyword: 'show cricket live', intent: 'cricket', category: 'phrase', priority: 10 },
+
+  // News phrases
+  { keyword: 'latest news', intent: 'news', category: 'phrase', priority: 10 },
+  { keyword: 'top news', intent: 'news', category: 'phrase', priority: 10 },
+  { keyword: 'breaking news', intent: 'news', category: 'phrase', priority: 10 },
+  { keyword: 'news today', intent: 'news', category: 'phrase', priority: 10 },
+  { keyword: 'show news', intent: 'news', category: 'phrase', priority: 9 },
+  { keyword: 'sports news', intent: 'news', category: 'phrase', priority: 9 },
+  { keyword: 'business news', intent: 'news', category: 'phrase', priority: 9 },
+  { keyword: 'headlines', intent: 'news', category: 'phrase', priority: 9 },
+  { keyword: 'news headlines', intent: 'news', category: 'phrase', priority: 10 },
 ]
 
 // Word keywords — single-word matches with word boundary regex
@@ -237,6 +284,36 @@ const WORDS: KeywordEntry[] = [
   { keyword: 'artwork', intent: 'image', category: 'word', priority: 3 },
   { keyword: 'rendering', intent: 'image', category: 'word', priority: 3 },
   { keyword: 'visual', intent: 'image', category: 'word', priority: 3 },
+
+  // Weather terms
+  { keyword: 'weather', intent: 'weather', category: 'word', priority: 9 },
+  { keyword: 'temperature', intent: 'weather', category: 'word', priority: 9 },
+  { keyword: 'forecast', intent: 'weather', category: 'word', priority: 8 },
+  { keyword: 'humidity', intent: 'weather', category: 'word', priority: 7 },
+  { keyword: 'rain', intent: 'weather', category: 'word', priority: 6 },
+  { keyword: 'sunny', intent: 'weather', category: 'word', priority: 6 },
+  { keyword: 'cloudy', intent: 'weather', category: 'word', priority: 6 },
+  { keyword: 'cold', intent: 'weather', category: 'word', priority: 6 },
+  { keyword: 'hot', intent: 'weather', category: 'word', priority: 6 },
+  { keyword: 'wind', intent: 'weather', category: 'word', priority: 5 },
+  // Romanized multilingual (catch "mausam" without language selection)
+  { keyword: 'mausam', intent: 'weather', category: 'word', priority: 7 },
+  { keyword: 'mausum', intent: 'weather', category: 'word', priority: 7 },
+  { keyword: 'mosam', intent: 'weather', category: 'word', priority: 7 },
+  { keyword: 'tapman', intent: 'weather', category: 'word', priority: 7 },
+  { keyword: 'tapamatra', intent: 'weather', category: 'word', priority: 7 },
+  { keyword: 'abohawa', intent: 'weather', category: 'word', priority: 6 },
+  { keyword: 'vaatavaranam', intent: 'weather', category: 'word', priority: 6 },
+
+  // Cricket terms
+  { keyword: 'cricket', intent: 'cricket', category: 'word', priority: 9 },
+  { keyword: 'scorecard', intent: 'cricket', category: 'word', priority: 8 },
+  { keyword: 'ipl', intent: 'cricket', category: 'word', priority: 8 },
+
+  // News terms
+  { keyword: 'news', intent: 'news', category: 'word', priority: 9 },
+  { keyword: 'headline', intent: 'news', category: 'word', priority: 8 },
+  { keyword: 'headlines', intent: 'news', category: 'word', priority: 8 },
 ]
 
 // Compile phrase regex once (sorted by length desc for longest-match-first)
@@ -263,15 +340,30 @@ const WORD_REGEX = (() => {
   }
 })()
 
-function detectIntentStructured(message: string): {
+function detectIntentStructured(message: string, lang?: string): {
   intent: IntentType
   confidence: number
   matchedPatterns: string[]
   reasoning: string
-  scores: { image: number; audio: number; app: number }
+  scores: { image: number; audio: number; app: number; weather: number; cricket: number; news: number }
 } {
   const lower = message.toLowerCase()
-  const scores: Map<string, { maxPriority: number; matched: string[] }> = new Map()
+  const scores: Map<IntentType, { maxPriority: number; matched: string[] }> = new Map()
+  // Initialize all intent types so scores always have all fields
+  ;['image','audio','app','weather','cricket','news'].forEach(k => scores.set(k as IntentType, { maxPriority: 0, matched: [] }))
+
+  // Build per-language keyword supplements
+  let extraWords: KeywordEntry[] = []
+  if (lang && INTENT_KEYWORDS[lang]) {
+    const lk = INTENT_KEYWORDS[lang]
+    // Native script words get medium priority (5-7) — won't override English phrases
+    extraWords = [
+      ...buildKeywordEntries(lk.image, 'image', 'word', 5),
+      ...buildKeywordEntries(lk.audio, 'audio', 'word', 5),
+      ...buildKeywordEntries(lk.app, 'app', 'word', 5),
+      ...buildKeywordEntries(lk.weather, 'weather', 'word', 6),
+    ]
+  }
 
   // 1. Check ALL phrase patterns (use lastIndex loop)
   const phraseRe = PHRASE_REGEX.regex
@@ -305,10 +397,24 @@ function detectIntentStructured(message: string): {
     }
   }
 
+  // 3. Check language-specific native script words (substring match — no word boundary)
+  for (const entry of extraWords) {
+    const kw = entry.keyword.toLowerCase()
+    if (lower.includes(kw)) {
+      const existing = scores.get(entry.intent)
+      if (!existing || entry.priority > existing.maxPriority) {
+        scores.set(entry.intent, { maxPriority: entry.priority, matched: [entry.keyword] })
+      } else {
+        existing.matched.push(entry.keyword)
+      }
+    }
+  }
+
   // 3. Apply disambiguation rules
-  const hasApp = scores.has('app')
-  const hasImage = scores.has('image')
-  const hasAudio = scores.has('audio')
+  const hasApp = (scores.get('app')?.maxPriority ?? 0) > 0
+  const hasImage = (scores.get('image')?.maxPriority ?? 0) > 0
+  const hasAudio = (scores.get('audio')?.maxPriority ?? 0) > 0
+  const hasWeather = (scores.get('weather')?.maxPriority ?? 0) > 0
 
   // "show me" phrase always wins (image) — "show me a calculator" = show a picture
   const showMePhrase = PHRASES.find(e =>
@@ -323,7 +429,7 @@ function detectIntentStructured(message: string): {
       confidence: 0.95,
       matchedPatterns: scores.get('image')!.matched,
       reasoning: '"show me" phrase overrides all other intents',
-      scores: { image: scores.get('image')!.maxPriority, audio: 0, app: 0 },
+      scores: { image: scores.get('image')!.maxPriority, audio: 0, app: 0, weather: 0, cricket: 0, news: 0 },
     }
   }
 
@@ -339,7 +445,7 @@ function detectIntentStructured(message: string): {
         confidence: 0.95,
         matchedPatterns: scores.get('image')!.matched,
         reasoning: `image phrase (${scores.get('image')!.matched.join(', ')}) beats app word (priority ${imageScore} >= 9, app ${appScore} < 8)`,
-        scores: { image: imageScore, audio: 0, app: 0 },
+        scores: { image: imageScore, audio: 0, app: 0, weather: 0, cricket: 0, news: 0 },
       }
     }
     // App wins if it has high-priority app keywords (app, calculator, game, etc.)
@@ -349,7 +455,7 @@ function detectIntentStructured(message: string): {
         confidence: 0.95,
         matchedPatterns: scores.get('app')!.matched,
         reasoning: `app intent (${scores.get('app')!.matched.join(', ')}) wins over image (priority ${appScore} >= 6)`,
-        scores: { image: scores.get('image')?.maxPriority || 0, audio: 0, app: appScore },
+        scores: { image: scores.get('image')?.maxPriority || 0, audio: 0, app: appScore, weather: 0, cricket: 0, news: 0 },
       }
     }
   }
@@ -361,7 +467,7 @@ function detectIntentStructured(message: string): {
       confidence: 0.95,
       matchedPatterns: scores.get('app')!.matched,
       reasoning: 'app intent wins over audio',
-      scores: { image: 0, audio: scores.get('audio')?.maxPriority || 0, app: scores.get('app')!.maxPriority },
+      scores: { image: 0, audio: scores.get('audio')?.maxPriority || 0, app: scores.get('app')!.maxPriority, weather: 0, cricket: 0, news: 0 },
     }
   }
 
@@ -372,7 +478,7 @@ function detectIntentStructured(message: string): {
       confidence: 0.45,
       matchedPatterns: [...(scores.get('image')?.matched || []), ...(scores.get('audio')?.matched || [])],
       reasoning: 'ambiguous: image + audio conflict',
-      scores: { image: scores.get('image')!.maxPriority, audio: scores.get('audio')!.maxPriority, app: 0 },
+      scores: { image: scores.get('image')!.maxPriority, audio: scores.get('audio')!.maxPriority, app: 0, weather: 0, cricket: 0, news: 0 },
     }
   }
 
@@ -386,7 +492,11 @@ function detectIntentStructured(message: string): {
     }
   }
 
-  const confidence = bestPriority > 0 ? Math.min(0.98, 0.5 + (bestPriority - 3) * 0.07) : 0.4
+  // Calculate base confidence
+  const baseConfidence = bestPriority > 0 ? Math.min(0.98, 0.5 + (bestPriority - 3) * 0.07) : 0.4
+  // Boost confidence for language-specific matches (native script keywords, priority 5-8)
+  // These don't match English word boundaries, so structured confidence needs bump
+  const confidence = (bestPriority >= 5 && bestPriority < 9) ? 0.85 : baseConfidence
 
   return {
     intent: bestIntent,
@@ -399,6 +509,9 @@ function detectIntentStructured(message: string): {
       image: scores.get('image')?.maxPriority || 0,
       audio: scores.get('audio')?.maxPriority || 0,
       app: scores.get('app')?.maxPriority || 0,
+      weather: scores.get('weather')?.maxPriority || 0,
+      cricket: scores.get('cricket')?.maxPriority || 0,
+      news: scores.get('news')?.maxPriority || 0,
     },
   }
 }
@@ -430,6 +543,26 @@ const TERM_VECTORS: Record<string, Map<string, number>> = {
     ['page', 0.5], ['webpage', 1], ['write', 0.8],
     ['create', 0.3],
   ]),
+  weather: new Map([
+    ['weather', 1], ['temperature', 1], ['forecast', 1],
+    ['humidity', 1], ['rain', 1], ['sunny', 1], ['cloudy', 1],
+    ['cold', 1], ['hot', 1], ['wind', 1], ['climate', 1],
+    ['celsius', 0.8], ['fahrenheit', 0.8],
+    ['mausam', 1], ['tapman', 0.9], ['tapamatra', 0.9],
+    ['abohawa', 0.8], ['vaatavaranam', 0.8], ['ushnograta', 0.8],
+    ['kalanilai', 0.8], ['havamana', 0.8],
+    ['darja hararat', 0.8], ['mosam', 0.9], ['mausum', 0.8],
+  ]),
+  cricket: new Map([
+    ['cricket', 1], ['score', 1], ['live', 1], ['scorecard', 1],
+    ['overs', 1], ['ipl', 1], ['match', 1], ['result', 0.8],
+    ['toss', 0.6], ['batting', 0.6], ['bowling', 0.6],
+  ]),
+  news: new Map([
+    ['news', 1], ['headline', 1], ['headlines', 1], ['breaking', 0.8],
+    ['today', 0.5], ['latest', 0.5], ['article', 0.6], ['top story', 1],
+    ['sports news', 1], ['business news', 1],
+  ]),
 }
 
 function tokenize(text: string): string[] {
@@ -452,28 +585,31 @@ function cosineSimilarity(vector: Map<string, number>, tokens: string[]): number
   return dot / (Math.sqrt(normA) * normB)
 }
 
-function detectIntentSemantic(message: string): { image: number; audio: number; app: number } {
+function detectIntentSemantic(message: string): { image: number; audio: number; app: number; weather: number; cricket: number; news: number } {
   const tokens = tokenize(message)
   return {
     image: cosineSimilarity(TERM_VECTORS.image, tokens),
     audio: cosineSimilarity(TERM_VECTORS.audio, tokens),
     app: cosineSimilarity(TERM_VECTORS.app, tokens),
+    weather: cosineSimilarity(TERM_VECTORS.weather, tokens),
+    cricket: cosineSimilarity(TERM_VECTORS.cricket, tokens),
+    news: cosineSimilarity(TERM_VECTORS.news, tokens),
   }
 }
 
 export interface IntentResult {
-  intent: 'image' | 'audio' | 'app' | 'text'
+  intent: 'image' | 'audio' | 'app' | 'weather' | 'cricket' | 'news' | 'text'
   confidence: number
   reasoning: string
   asksClarification: boolean
-  scores: { image: number; audio: number; app: number }
+  scores: { image: number; audio: number; app: number; weather: number; cricket: number; news: number }
 }
 
 export function detectIntent(
   message: string,
-  _lang?: string,
+  lang?: string,
 ): IntentResult {
-  const structured = detectIntentStructured(message)
+  const structured = detectIntentStructured(message, lang)
   const semantic = detectIntentSemantic(message)
 
   // If structured confidence is high, use it directly
@@ -487,6 +623,9 @@ export function detectIntent(
         image: semantic.image,
         audio: semantic.audio,
         app: semantic.app,
+        weather: semantic.weather,
+        cricket: semantic.cricket,
+        news: semantic.news,
       },
     }
   }
@@ -519,7 +658,7 @@ export function detectIntent(
   }
 
   // Top intent wins
-  const intent = topIntent[0] as 'image' | 'audio' | 'app'
+  const intent = topIntent[0] as 'image' | 'audio' | 'app' | 'weather'
   const confidence = 0.5 + topIntent[1] * 0.48
   return {
     intent,
@@ -531,16 +670,28 @@ export function detectIntent(
 }
 
 // Convenience functions (backwards-compatible with intent-detector.ts exports)
-export function detectImageIntent(message: string, _lang?: string): boolean {
-  return detectIntent(message).intent === 'image'
+export function detectImageIntent(message: string, lang?: string): boolean {
+  return detectIntent(message, lang).intent === 'image'
 }
 
-export function detectAudioIntent(message: string, _lang?: string): boolean {
-  return detectIntent(message).intent === 'audio'
+export function detectAudioIntent(message: string, lang?: string): boolean {
+  return detectIntent(message, lang).intent === 'audio'
 }
 
-export function detectAppIntent(message: string, _lang?: string): boolean {
-  return detectIntent(message).intent === 'app'
+export function detectAppIntent(message: string, lang?: string): boolean {
+  return detectIntent(message, lang).intent === 'app'
+}
+
+export function detectWeatherIntent(message: string, lang?: string): boolean {
+  return detectIntent(message, lang).intent === 'weather'
+}
+
+export function detectCricketIntent(message: string, lang?: string): boolean {
+  return detectIntent(message, lang).intent === 'cricket'
+}
+
+export function detectNewsIntent(message: string, lang?: string): boolean {
+  return detectIntent(message, lang).intent === 'news'
 }
 
 export interface MultiIntentResult {
@@ -549,8 +700,8 @@ export interface MultiIntentResult {
   reasoning: string
 }
 
-export function detectMultiIntent(message: string, _lang?: string): MultiIntentResult {
-  const result = detectIntent(message)
+export function detectMultiIntent(message: string, lang?: string): MultiIntentResult {
+  const result = detectIntent(message, lang)
   const intents: ('image' | 'audio' | 'text')[] = []
 
   if (result.intent === 'image') intents.push('image')

@@ -1,7 +1,7 @@
 // Multilingual intent detection keywords for 13 Indian languages + English
 // Each entry: [native script keywords, romanized/transliterated keywords]
 
-export const INTENT_KEYWORDS: Record<string, { image: string[]; audio: string[]; app: string[] }> = {
+export const INTENT_KEYWORDS: Record<string, { image: string[]; audio: string[]; app: string[]; weather: string[] }> = {
   hi: {
     // Hindi (Devanagari + romanized)
     image: [
@@ -14,6 +14,10 @@ export const INTENT_KEYWORDS: Record<string, { image: string[]; audio: string[];
     app: [
       'ऐप', 'एप्लीकेशन', 'ऐप बनाओ', 'एप बनाओ', 'game', 'website', 'calculator', 'कैलकुलेटर', 'tool',
       'app', 'banao', 'build', 'create', 'make', 'todolist', 'todo', 'sudoku', 'clock',
+    ],
+    weather: [
+      'मौसम', 'तापमान', 'हवा', 'बारिश', 'गरमी', 'ठंड', 'आर्द्रता',
+      'weather', 'temperature', 'humidity', 'rain', 'hot', 'cold', 'mausam', 'tapman',
     ],
   },
   bn: {
@@ -29,6 +33,10 @@ export const INTENT_KEYWORDS: Record<string, { image: string[]; audio: string[];
       'অ্যাপ', 'অ্যাপ্লিকেশন', 'গেম', 'game', 'website', 'calculator', 'ক্যালকুলেটর', 'tool',
       'app', 'banao', 'banau', 'build', 'create', 'make', 'todolist', 'todo',
     ],
+    weather: [
+      'আবহাওয়া', 'তাপমাত্রা', 'বৃষ্টি', 'গরম', 'ঠান্ডা', 'আর্দ্রতা',
+      'weather', 'temperature', 'humidity', 'rain', 'abohawa', 'tapmatra',
+    ],
   },
   te: {
     // Telugu
@@ -42,6 +50,10 @@ export const INTENT_KEYWORDS: Record<string, { image: string[]; audio: string[];
     app: [
       'యాప్', 'యాప్లికేషన్', 'game', 'website', 'calculator', 'కాలిక్యులేటర్', 'tool',
       'app', 'cheyyu', 'cheyyu', 'build', 'create', 'make', 'todolist', 'todo',
+    ],
+    weather: [
+      'వాతావరణం', 'ఉష్ణోగ్రత', 'మంచు', 'వేడి', 'చల్ల', 'తేమ',
+      'weather', 'temperature', 'humidity', 'rain', 'vaatavaranam', 'ushnograta',
     ],
   },
   mr: {
@@ -57,6 +69,10 @@ export const INTENT_KEYWORDS: Record<string, { image: string[]; audio: string[];
       'अॅप', 'अॅप्लिकेशन', 'game', 'website', 'calculator', 'कॅल्क्युलेटर', 'tool',
       'app', 'banav', 'banvaa', 'banava', 'build', 'create', 'make', 'todolist', 'todo',
     ],
+    weather: [
+      'हवामान', 'तापमान', 'पाऊस', 'उष्णता', 'थंड', 'ओलावा',
+      'weather', 'temperature', 'humidity', 'rain', 'havamān', 'tapmān',
+    ],
   },
   ta: {
     // Tamil
@@ -69,6 +85,10 @@ export const INTENT_KEYWORDS: Record<string, { image: string[]; audio: string[];
     app: [
       'ஆப்', 'ஆப்ளிஷன்', 'கேம்', 'game', 'website', 'calculator', 'கால்குலேட்டர்', 'tool',
       'app', 'sei', 'seiyala', 'seyy', 'todolist', 'todo', 'sudoku',
+    ],
+    weather: [
+      'காலநிலை', 'வெப்பநிலை', 'மழை', 'வெப்பம்', 'சுடு', 'குளிர்', 'ஈரப்பதம்',
+      'weather', 'temperature', 'humidity', 'rain', 'kalanilai', 'venpnilai',
     ],
   },
   gu: {
@@ -84,6 +104,10 @@ export const INTENT_KEYWORDS: Record<string, { image: string[]; audio: string[];
       'એપ', 'એપ્લિકેશન', 'game', 'website', 'calculator', 'કેલ્ક્યુલેટર', 'tool',
       'app', 'banavo', 'banavu', 'build', 'create', 'make', 'todolist', 'todo',
     ],
+    weather: [
+      'મોસમ', 'તાપમાન', 'વરસાદ', 'ગરમી', 'ઠંડક', 'નમી',
+      'weather', 'temperature', 'humidity', 'rain', 'mosam', 'tapman',
+    ],
   },
   kn: {
     // Kannada
@@ -97,6 +121,10 @@ export const INTENT_KEYWORDS: Record<string, { image: string[]; audio: string[];
     app: [
       'ಆಪ್', 'ಆಪ್ಲಿಕೇಶನ್', 'ಗೇಮ್', 'game', 'website', 'calculator', 'ಕ್ಯಾಲ್ಕುಲೇಟರ್', 'tool',
       'app', 'banu', 'banuvu', 'banavu', 'build', 'create', 'make', 'todolist', 'todo',
+    ],
+    weather: [
+      'ಹವಾಮಾನ', 'ತಾಪಮಾನ', 'ಮಳೆ', 'ಬಿಸಿಲು', 'ಶೀತ', 'ಒದ್ದೆ',
+      'weather', 'temperature', 'humidity', 'rain', 'havamana', 'tapamana',
     ],
   },
   ml: {
@@ -112,6 +140,10 @@ export const INTENT_KEYWORDS: Record<string, { image: string[]; audio: string[];
       'ആപ്പ്', 'ആപ്പ്ലിക്കേഷൻ', 'game', 'website', 'calculator', 'കാൽക്കുലേറ്റർ', 'tool',
       'app', 'banikkuka', 'banikku', 'banavu', 'build', 'create', 'make', 'todolist', 'todo',
     ],
+    weather: [
+      'കാലാവസ്ഥ', 'താപനില', 'മഴ', 'താപം', 'ചില്ല', 'തേമ',
+      'weather', 'temperature', 'humidity', 'rain', 'kaalāvastha', 'thāpanila',
+    ],
   },
   pa: {
     // Punjabi (Gurmukhi + romanized)
@@ -125,6 +157,10 @@ export const INTENT_KEYWORDS: Record<string, { image: string[]; audio: string[];
     app: [
       'ਐਪ', 'ਐਪਲੀਕੇਸ਼ਨ', 'game', 'website', 'calculator', 'ਕੈਲਕੁਲੇਟਰ', 'tool',
       'app', 'banao', 'build', 'create', 'make', 'todolist', 'todo',
+    ],
+    weather: [
+      'ਮੌਸਮ', 'ਤਾਪਮਾਨ', 'ਵਰਖਾ', 'ਗਰਮੀ', 'ਠੰਡ', 'ਨਮੀ',
+      'weather', 'temperature', 'humidity', 'rain', 'mausam', 'tapman',
     ],
   },
   ur: {
@@ -140,6 +176,10 @@ export const INTENT_KEYWORDS: Record<string, { image: string[]; audio: string[];
       'ایپ', 'ایپلیکیشن', 'game', 'website', 'calculator', 'کیلکولیٹر', 'tool',
       'app', 'banao', 'build', 'create', 'make', 'todolist', 'todo',
     ],
+    weather: [
+      'موسم', 'درجہ حرارت', 'بارش', 'گرمی', 'ٹھنڈ', 'نمی',
+      'weather', 'temperature', 'humidity', 'rain', 'mausam', 'darja hararat',
+    ],
   },
   or: {
     // Odia
@@ -153,6 +193,10 @@ export const INTENT_KEYWORDS: Record<string, { image: string[]; audio: string[];
     app: [
       'ଆପ୍', 'ଆପ୍ଲିକେସନ୍', 'game', 'website', 'calculator', 'କ୍ୟାଲକୁଲେଟର', 'tool',
       'app', 'banahu', 'banau', 'banavu', 'build', 'create', 'make', 'todolist', 'todo',
+    ],
+    weather: [
+      'ମାଉସମ', 'ତାପମାତ୍ରା', 'ବର୍ଷା', 'ଗରମ', 'ଶୀତଳ', 'ଆର୍ଦ୍ରତା',
+      'weather', 'temperature', 'humidity', 'rain', 'mausam', 'tapamatra',
     ],
   },
   as: {
@@ -168,6 +212,10 @@ export const INTENT_KEYWORDS: Record<string, { image: string[]; audio: string[];
       'এপ', 'এপ্লিকেচন', 'game', 'website', 'calculator', 'কেল্কুলেটৰ', 'tool',
       'app', 'banau', 'banavu', 'build', 'create', 'make', 'todolist', 'todo',
     ],
+    weather: [
+      'মৌসুম', 'তাপমাত্ৰা', 'বৰষুণ', 'গৰম', 'শীত', 'আৰ্দ্ৰতা',
+      'weather', 'temperature', 'humidity', 'rain', 'mausum', 'tapomatra',
+    ],
   },
   mai: {
     // Maithili (Devanagari + romanized)
@@ -181,6 +229,10 @@ export const INTENT_KEYWORDS: Record<string, { image: string[]; audio: string[];
     app: [
       'एप', 'एप्लीकेशन', 'game', 'website', 'calculator', 'कैलकुलेटर', 'tool',
       'app', 'banao', 'banau', 'banavu', 'build', 'create', 'make', 'todolist', 'todo',
+    ],
+    weather: [
+      'मौसम', 'तापमान', 'बर्खा', 'गर्म', 'ठण्ड', 'नमी',
+      'weather', 'temperature', 'humidity', 'rain', 'mausam', 'tapman',
     ],
   },
 }
@@ -216,6 +268,18 @@ export const DEFAULT_KEYWORDS = {
     // Devanagari
     'ऐप', 'एप्लीकेशन', 'कैलकुलेटर', 'कैलकुलेटर ऐप',
     // Persian/Urdu
-    'ایپ', 'ایپلیکیشن',
+    'ایپ', 'ایپلیकیشن',
+  ],
+  weather: [
+    'weather', 'temperature', 'humidity', 'rain', 'forecast', 'hot', 'cold', 'wind',
+    // Romanized multilingual
+    'mausam', 'mausum', 'mosam', 'tapman', 'tapamatra', 'tapamana',
+    'abohawa', 'vaatavaranam', 'ushnograta', 'kalanilai', 'havamana',
+    'darja hararat',
+    // Devanagari
+    'मौसम', 'तापमान', 'बारिश', 'गर्मी', 'ठंड', 'आर्द्रता',
+    'नमी', 'हवामान', 'बर्खा', 'उष्णता', 'ओलावा', 'तापमा', 'पाउस',
+    // Persian/Urdu
+    'موسم', 'درجہ حرارت', 'بارش', 'گرمی', 'ٹھنڈ', 'نمی',
   ],
 }

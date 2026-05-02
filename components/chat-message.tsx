@@ -4,6 +4,9 @@ import { cn } from "@/lib/utils"
 import ReactMarkdown from "react-markdown"
 import remarkGfm from "remark-gfm"
 import { sanitizeOutput, stripHtml } from "@/lib/safety"
+import { WeatherCard, type WeatherCardData } from "@/components/weather-card"
+import { CricketCard, type CricketMatchData } from "@/components/cricket-card"
+import { NewsCard, type NewsCardData } from "@/components/news-card"
 
 interface PreviewIframeProps {
   src: string
@@ -96,6 +99,9 @@ interface ChatMessageProps {
     phase?: string
     imageUrl?: string
     audioUrl?: string
+    weatherData?: WeatherCardData
+    cricketData?: CricketMatchData
+    newsData?: NewsCardData
   }
   previewUrl?: string
   onPreviewClick?: () => void
@@ -181,6 +187,24 @@ export const ChatMessage = React.memo(function ChatMessage({
 
 
 
+
+    // Weather card — rendered before markdown
+    const wd = (message as any).weatherData
+    if (wd && !isUser) {
+      return <WeatherCard data={wd} />
+    }
+
+    // Cricket card
+    const cd = (message as any).cricketData
+    if (cd && !isUser) {
+      return <CricketCard data={cd} />
+    }
+
+    // News card
+    const nd = (message as any).newsData
+    if (nd && !isUser) {
+      return <NewsCard data={nd} />
+    }
 
     const hasMarkdownTable = content.split('\n').some(line => line.trim().startsWith('|'))
     const hasHtmlTable = content.includes('<table')
