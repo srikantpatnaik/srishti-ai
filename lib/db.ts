@@ -1,9 +1,10 @@
 import { SavedApp } from "@/types"
 
 const DB_NAME = 'AppBuilderDB'
-const DB_VERSION = 3
+const DB_VERSION = 4
 const STORE_NAME = 'savedApps'
 const CHAT_STORE_NAME = 'chatHistory'
+const ENTITY_STORE_NAME = 'entityTracker'
 
 export const openDB = (): Promise<IDBDatabase> => {
   return new Promise((resolve, reject) => {
@@ -20,6 +21,9 @@ export const openDB = (): Promise<IDBDatabase> => {
       }
       if (!db.objectStoreNames.contains(CHAT_STORE_NAME)) {
         db.createObjectStore(CHAT_STORE_NAME, { keyPath: 'id' })
+      }
+      if (!db.objectStoreNames.contains(ENTITY_STORE_NAME)) {
+        db.createObjectStore(ENTITY_STORE_NAME, { keyPath: 'chatId' })
       }
     }
   })
@@ -164,5 +168,38 @@ export const clearAllChatsFromDB = async (): Promise<void> => {
     }
   } catch (error) {
     console.error('Failed to clear all chats from IndexedDB:', error)
+  }
+}
+
+export const saveEntityTracker = async (chatId: string, entities: any[]): Promise<void> => {
+  try {
+    const db = await openDB()
+    if (!db.objectStoreNames.contains(ENTITY_STORE_NAME)) return
+    return new Promise((resolve, reject) => {
+      const transaction = db.transaction([ENTITY_STORE_NAME], 'readwrite')
+      const store = transaction.objectStore(ENTITY_STORE_NAME)
+      const request = store.put({ chatId, entities, updatedAt: Date.now() })
+      request.onsuccess = () => resolve()
+      request.onerror = () => reject(request.error)
+    })
+  } catch (error) {
+    console.error('Failed to save entity tracker to IndexedDB:', error)
+  }
+}
+
+export const loadEntityTracker = async (chatId: string): Promise<any[]> => {
+  try {
+    const db = await openDB()
+    if (!db.objectStoreNames.contains(ENTITY_STORE_NAME)) return []
+    return new Promise((resolve, reject) => {
+      const transaction = db.transaction([ENTITY_STORE_NAME], 'readonly')
+      const store = transaction.objectStore(ENTITY_STORE_NAME)
+      const request = store.get(chatId)
+      request.onsuccess = () => resolve(request.result?.entities || [])
+      request.onerror = () => reject(request.error)
+    })
+  } catch (error) {
+    console.error('Failed to load entity tracker from IndexedDB:', error)
+    return []
   }
 }

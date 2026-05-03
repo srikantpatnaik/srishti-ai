@@ -8,6 +8,36 @@ import { createOpenAI } from "@ai-sdk/openai"
 import { detectImageIntent, detectAudioIntent, detectAppIntent, detectIntent } from "@/lib/intent-detector"
 import { getLangInstruction } from "@/lib/i18n"
 import { checkInput, sanitizeOutput, generateComplianceMetadata } from "@/lib/safety"
+import { buildMemoryContextBlock } from "@/lib/memory/injector"
+
+// Resolve pronouns in the last user message using entity tracker
+function resolvePronounInMessages(messages: any[], entities: any[]): any[] {
+  if (entities.length === 0) return messages
+
+  const cities = entities.filter((e: any) => e.resolvedType === "city")
+  if (cities.length === 0) return messages
+
+  const lastUserIdx = messages.findLastIndex((m: any) => m.role === "user")
+  if (lastUserIdx < 0) return messages
+
+  const lastMsg = messages[lastUserIdx]
+  const lower = lastMsg.content.toLowerCase()
+
+  // Check for pronoun + weather/rain context
+  const hasPronoun = /\b(there|thar)\b/.test(lower)
+  const hasContext = /\b(weather|temperature|rain|raining|mausam|forecast|how|what)\b/.test(lower)
+
+  if (hasPronoun && hasContext) {
+    const city = cities[0].mention
+    const resolved = lastMsg.content
+      .replace(/\b(there|thar)\b/gi, city)
+    const resolvedMsgs = [...messages]
+    resolvedMsgs[lastUserIdx] = { ...lastMsg, content: resolved }
+    return resolvedMsgs
+  }
+
+  return messages
+}
 
 export const runtime = "nodejs"
 export const maxDuration = 60
@@ -197,8 +227,11 @@ export async function GET(req: Request) {
 }
 
 export async function POST(req: Request) {
-  const { messages, isAutonomous, selectedLanguage, purpose } = await req.json()
+  const { messages, isAutonomous, selectedLanguage, purpose, chatId, recentEntities, userProfile } = await req.json()
   const userMessage = messages?.filter((m: any) => m.role === 'user').pop()?.content || ""
+
+  // Resolve pronouns using entity tracker (e.g. "there" → "Delhi")
+  const resolvedMessages = resolvePronounInMessages(messages, recentEntities || [])
 
   // Safety: validate input
   const safetyIssue = checkInput(userMessage)
@@ -213,6 +246,13 @@ export async function POST(req: Request) {
   const systemPrompt = langInstruction
     ? `${systemPromptBase}\n\nRespond in ${langInstruction} language`
     : systemPromptBase
+
+  // Inject memory context (entity resolution + user profile)
+  const memoryBlock = buildMemoryContextBlock({
+    shortTerm: chatId ? { chatId, recentEntities: recentEntities || [] } : undefined,
+    longTerm: userProfile ? { profile: userProfile, needsOnboarding: !userProfile.location && !userProfile.age } : undefined,
+  })
+  const finalPrompt = systemPrompt + memoryBlock
 
   // Detect intent from message content (server-side, as fallback when purpose is unreliable)
   const intent = detectIntent(userMessage, selectedLanguage)
@@ -230,18 +270,18 @@ export async function POST(req: Request) {
   const hasAudio = intent.intent === 'audio'
   const hasApp = intent.intent === 'app'
 
-  let prompt = systemPrompt
+  let prompt = finalPrompt
 
   if (hasImage) {
-    prompt = `${systemPrompt}\n\nFor image requests, respond with image generation guidance or use generateImage tool if available.`
+    prompt = `${finalPrompt}\n\nFor image requests, respond with image generation guidance or use generateImage tool if available.`
   } else if (hasAudio) {
-    prompt = `${systemPrompt}\n\nFor audio generation, respond with audio content or use generateAudio tool if available.`
+    prompt = `${finalPrompt}\n\nFor audio generation, respond with audio content or use generateAudio tool if available.`
   } else if (hasApp) {
-    prompt = `${systemPrompt}\n\n## User is requesting app/code building. Use the announce tool and generate complete HTML code.`
+    prompt = `${finalPrompt}\n\n## User is requesting app/code building. Use the announce tool and generate complete HTML code.`
   }
 
   try {
-    const response = await streamWithFallback(prompt, messages, {
+    const response = await streamWithFallback(prompt, resolvedMessages, {
       isAutonomous,
       purpose: effectivePurpose,
       signal: req.signal,

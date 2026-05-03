@@ -436,7 +436,7 @@ export function AppDrawer({
   }
 
   return (
-    <div className="w-full md:w-[50%] h-full bg-[#121215] md:border-l border-l-0 border-[#2e2e32] flex flex-col" onClick={handleBgClick}>
+    <div className="fixed top-0 right-0 z-50 w-full md:w-[50%] h-full bg-[#121215] border-l border-[#2e2e32] flex flex-col" onClick={handleBgClick}>
       <div className="flex items-center justify-between px-3 pt-3 pb-2 border-b border-[#2e2e32] touch-pan-y" onTouchStart={handleTouchStart} onTouchMove={handleTouchMove}>
         <div className="flex items-center gap-3">
           <h2 className="text-sm font-medium text-white">Gallery</h2>

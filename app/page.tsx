@@ -14,11 +14,13 @@ import { SettingsPanel } from "@/components/settings-panel"
 import { AppDrawer } from "@/components/app-drawer"
 import { ChatInput } from "@/components/chat-input"
 import { AgentStatus, Provider, SavedApp } from "@/types"
-import { saveAppToDB, getAllAppsFromDB, deleteAppFromDB, saveChatHistoryToDB, getChatHistoryFromDB, deleteChatHistoryFromDB, clearAllChatsFromDB } from "@/lib/db"
+import { saveAppToDB, getAllAppsFromDB, deleteAppFromDB, saveChatHistoryToDB, getChatHistoryFromDB, deleteChatHistoryFromDB, clearAllChatsFromDB, saveEntityTracker, loadEntityTracker } from "@/lib/db"
 import { wrapHtml, createBlobUrl, generateAppName, generateFileName, extractHtmlCode, findLatestHtmlCode } from "@/lib/html-wrapper"
 import { detectImageIntent, detectAudioIntent, detectAppIntent, detectWeatherIntent, detectCricketIntent, detectNewsIntent, detectIntent, detectMultiIntent, type IntentResult, type MultiIntentResult } from "@/lib/intent-detector"
 import { CricketCard, type CricketMatchData } from "@/components/cricket-card"
 import { NewsCard, type NewsCardData } from "@/components/news-card"
+import { extractEntities, updateTracker } from "@/lib/memory/entity-tracker"
+import { getUserProfile } from "@/lib/memory/user-profile"
 
 export default function Home() {
   // Performance monitoring for tests
@@ -145,8 +147,17 @@ export default function Home() {
     key: chatKey,
     api: "/api/chat",
     initialMessages: initialMessages,
-    body: () => {
-      const b = { selectedProvider, selectedLanguage, purpose: purposeRef.current }
+    body: async () => {
+      const entities = currentChatId ? (await loadEntityTracker(currentChatId)) : []
+      const profile = getUserProfile()
+      const b = {
+        selectedProvider,
+        selectedLanguage,
+        purpose: purposeRef.current,
+        chatId: currentChatId || undefined,
+        recentEntities: entities,
+        userProfile: profile,
+      }
       return b
     },
     onError: (error) => {
@@ -723,6 +734,14 @@ const handleSubmit = async (userText: string, e?: React.FormEvent, language?: st
       setCurrentChatId(Date.now().toString())
     }
 
+    // Extract entities from user message and save to entity tracker
+    const entities = extractEntities(userText)
+    if (entities.length > 0 && currentChatId) {
+      const existing = await loadEntityTracker(currentChatId)
+      const merged = updateTracker(entities, existing)
+      await saveEntityTracker(currentChatId, merged)
+    }
+
     // Multi-intent: text + image
     const multiIntent = detectMultiIntent(userText, selectedLanguage)
     const hasText = multiIntent.intents.includes('text')
@@ -903,27 +922,27 @@ const handleSubmit = async (userText: string, e?: React.FormEvent, language?: st
       return
     }
 
-    // Route to weather tool
-    console.log('[chat] hasWeather=%s hasImage=%s hasAudio=%s hasApp=%s', hasWeather, hasImage, hasAudio, hasApp)
+    // Route to weather tool via /api/classify
     if (hasWeather) {
-      // Extract city: strip weather keywords (English + romanized multilingual), take remaining words as city
-      let city = "Delhi"
-      const cleaned = userText.toLowerCase()
-        .replace(/\b(?:temperature|weather|mausam|mausum|mosam|tapman|tapmān|tapamatra|abohawa|vaatavaranam|ushnograta|kalanilai|havamana|darja\s+hararat|how\s+is\s+the\s+weather|what\s+is\s+the\s+temperature|check\s+(?:the\s+)?weather|show\s+(?:me\s+)?(?:the\s+)?weather|show\s+me\s+the\s+temperature|check\s+temperature|tell\s+me\s+the\s+weather|tell\s+me\s+the\s+temperature|show\s+me\s+an?\s+weather)\s*/gi, '')
-        .replace(/\b(?:in|for|please|can|you|tell|me|show|check|what|is|the|how|at|it|kaise|hai|hai\s+ki|ka|ki|ke|se|mein|mein|rain|raining|will|going|to)\b\s*/gi, ' ')
-        .replace(/\s+/g, ' ')
-        .replace(/[?!.]/g, '')
-        .trim()
-      if (cleaned.length > 0 && cleaned.length < 30) {
-        city = cleaned.charAt(0).toUpperCase() + cleaned.slice(1)
-      }
+      // Classify to resolve intent + extract city/entities
+      const entities = currentChatId ? (await loadEntityTracker(currentChatId)) : []
+      const classifyRes = await fetch('/api/classify', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ message: userText, lang: selectedLanguage, recentEntities: entities }),
+      })
+      const classifyData = await classifyRes.json()
+      const detectedIntent = classifyData.intent || 'weather'
+      const weatherEntities = classifyData.entities || []
+      const weatherExtra = classifyData.extra || {}
+      const city = weatherExtra.city || (weatherEntities.find((e: any) => e.type === 'city')?.mention || "Delhi")
+      const isRainQuery = /\b(is it raining|is it rain|will it rain|going to rain)\b/i.test(userText)
 
-      // Check for rain query: "is it raining", "will it rain", etc. → plain text answer
-      const rainMatch = userText.toLowerCase().match(/\b(is it raining|is it rain|will it rain|going to rain)\b/)
-      if (rainMatch) {
-        setMessages(prev => [...prev, userMsg])
-        autoScrollRef.current = true
-        setTimeout(() => scrollToBottom(), 50)
+      setMessages(prev => [...prev, userMsg])
+      autoScrollRef.current = true
+      setTimeout(() => scrollToBottom(), 50)
+
+      if (isRainQuery) {
         setIsSending(true)
         try {
           const res = await fetch(`/api/tools/weather?city=${encodeURIComponent(city)}&mode=rain`)
@@ -958,7 +977,7 @@ const handleSubmit = async (userText: string, e?: React.FormEvent, language?: st
       return
     }
 
-    // Route to cricket tool
+    // Route to cricket tool via /api/classify
     if (hasCricket) {
       setMessages(prev => [...prev, userMsg])
       autoScrollRef.current = true
@@ -983,7 +1002,7 @@ const handleSubmit = async (userText: string, e?: React.FormEvent, language?: st
       return
     }
 
-    // Route to news tool
+    // Route to news tool via /api/classify
     if (hasNews) {
       setMessages(prev => [...prev, userMsg])
       autoScrollRef.current = true
@@ -1008,7 +1027,7 @@ const handleSubmit = async (userText: string, e?: React.FormEvent, language?: st
       return
     }
 
-    // Text streaming (app building / chat) — use append (handles message + streaming)
+     // Text streaming (app building / chat) — use append (handles message + streaming)
     if (isAppBuilding) {
       // Non-streaming for app building: streaming causes 500+ re-renders per response
       // (every token triggers full message list render + blob URL creation)
@@ -1566,7 +1585,7 @@ const handleSubmit = async (userText: string, e?: React.FormEvent, language?: st
         </div>
       )}
 
-      <div className={`flex-1 flex min-w-0 transition-all duration-300 ${showAppDrawer ? 'w-full md:w-[50%]' : 'w-full md:w-[50%]'}`}>
+      <div className="flex-1 flex min-w-0 transition-all duration-300" onClick={() => { if (showSettings) setShowSettings(false); if (showAppDrawer) setShowAppDrawer(false); }}>
         <div className={`absolute top-4 left-4 z-50 ${showAppDrawer ? 'hidden md:block' : ''}`}>
           {!showSettings && !showPreview && (
             <button

@@ -95,7 +95,7 @@ export function SettingsPanel({
   }
 
   return (
-    <div id="settings-panel" className="w-[70%] sm:w-[280px] h-full bg-[#202123] flex flex-col border-r border-[#343541]" onClick={handleBgClick}>
+    <div className="fixed top-0 left-0 z-50 w-[70%] sm:w-[280px] h-full bg-[#202123] flex flex-col border-r border-[#343541]" onClick={handleBgClick}>
       <div className="p-3 flex items-center justify-between">
         <div className="flex items-center gap-3 px-3 py-2.5 rounded-lg hover:bg-[#2a2a2e] transition-colors cursor-pointer" onClick={() => setShowSettings(false)}>
           <svg width="20" height="20" viewBox="0 0 24 24" fill="none" className="text-[#de0f17]">

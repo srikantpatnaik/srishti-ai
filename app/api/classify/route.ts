@@ -78,6 +78,8 @@ export interface ClassifyResult {
   scores: Record<string, number>
   reasoning: string
   routed: boolean
+  entities?: { type: string; mention: string }[]
+  extra?: Record<string, string>
 }
 
 const ALL_INTENTS = ["image", "audio", "app", "weather", "cricket", "news", "text"]
@@ -94,7 +96,7 @@ const INTENT_EXAMPLES: Record<string, string[]> = {
 
 export async function POST(req: Request) {
   const t0 = Date.now()
-  const { message, lang } = await req.json()
+  const { message, lang, recentEntities } = await req.json()
 
   if (!message) {
     return NextResponse.json({ error: "message required" }, { status: 400 })
@@ -105,6 +107,24 @@ export async function POST(req: Request) {
 
   // High confidence → return immediately, no LLM call
   if (intent.confidence >= 0.8) {
+    // Extract entities based on intent
+    let entities: { type: string; mention: string }[] = []
+    let extra: Record<string, string> = {}
+    if (intent.intent === "weather") {
+      const cityMatch = message.match(/(?:in|at|from|to)\s+([A-Z][a-z]{2,})/)
+      if (cityMatch) {
+        entities.push({ type: "city", mention: cityMatch[1] })
+      } else {
+        // Strip keywords to find city
+        let city = message.toLowerCase()
+          .replace(/\b(?:temperature|weather|mausam|mausum|mosam|tapman|tapmān|tapamatra|abohawa|vaatavaranam|ushnograta|kalanilai|havamana|darja\s+hararat|how\s+is\s+the\s+weather|what\s+is\s+the\s+temperature|check\s+(?:the\s+)?weather|show\s+(?:me\s+)?(?:the\s+)?weather|show\s+me\s+the\s+temperature|check\s+temperature|tell\s+me\s+the\s+weather|tell\s+me\s+the\s+temperature|show\s+me\s+an?\s+weather|rain|raining|will|going|to|then|there|thar|in|for|please|can|you|tell|me|show|check|what|is|the|how|at|it|kaise|hai|hai\s+ki|ka|ki|ke|se|mein)\b/gi, ' ')
+          .replace(/\s+/g, ' ').replace(/[?!.]/g, '').trim()
+        if (city.length > 0 && city.length < 30) {
+          extra.city = city.charAt(0).toUpperCase() + city.slice(1)
+          entities.push({ type: "city", mention: extra.city })
+        }
+      }
+    }
     console.log(`[classify] fast-path intent=${intent.intent} conf=${intent.confidence} ${Date.now()-t0}ms`)
     return NextResponse.json({
       intent: intent.intent,
@@ -112,17 +132,20 @@ export async function POST(req: Request) {
       scores: intent.scores,
       reasoning: intent.reasoning,
       routed: false,
+      entities,
+      extra,
     })
   }
 
   // Tier 2: LLM disambiguation
-  return classifyWithLLM(message, intent, t0)
+  return classifyWithLLM(message, intent, t0, recentEntities)
 }
 
 async function classifyWithLLM(
   message: string,
   priorIntent: ReturnType<typeof detectIntent>,
   t0: number,
+  recentEntities?: any[],
 ): Promise<NextResponse<ClassifyResult>> {
   const settings = loadSettings()
   const providers = settings.text_generation || []
@@ -134,6 +157,8 @@ async function classifyWithLLM(
       scores: priorIntent.scores,
       reasoning: "no text provider configured, using prior",
       routed: false,
+      entities: [],
+      extra: {},
     })
   }
 
@@ -152,12 +177,17 @@ ${Object.entries(INTENT_EXAMPLES).map(([k, v]) => `### ${k}\n${v.map(e => `- "${
 ${priorIntent.reasoning}
 Scores — ${Object.entries(priorIntent.scores).map(([k, v]) => `${k}: ${v}`).join(", ")}
 
+${recentEntities ? `## Recent entities (context):
+${recentEntities.map((e: any) => `- "${e.mention}" (${e.resolvedType})`).join("\n")}
+` : ""}
+
 ## Response Format
 Return ONLY a JSON object (no markdown, no backticks):
 {
   "intent": "<one of: ${ALL_INTENTS.join(", ")}>",
   "confidence": 0.xx,
-  "reasoning": "brief explanation"
+  "reasoning": "brief explanation",
+  "entities": [{"type": "city", "mention": "CityName"}] // only for weather intent
 }`
 
   try {
@@ -176,6 +206,8 @@ Return ONLY a JSON object (no markdown, no backticks):
         scores: priorIntent.scores,
         reasoning: "LLM response empty, using prior",
         routed: false,
+        entities: [],
+        extra: {},
       })
     }
 
@@ -199,6 +231,18 @@ Return ONLY a JSON object (no markdown, no backticks):
       const parsed = JSON.parse(jsonMatch[0])
       const validIntent = ALL_INTENTS.includes(parsed.intent) ? parsed.intent : priorIntent.intent
       const conf = typeof parsed.confidence === "number" ? parsed.confidence : 0.6
+      let entities: { type: string; mention: string }[] = []
+      let extra: Record<string, string> = {}
+      if (parsed.entities && Array.isArray(parsed.entities)) {
+        entities = parsed.entities
+      }
+      if (validIntent === "weather" && entities.length === 0) {
+        // Try to extract city from entities or message
+        const cityMatch = message.match(/(?:in|at|from|to)\s+([A-Z][a-z]{2,})/)
+        if (cityMatch) {
+          entities.push({ type: "city", mention: cityMatch[1] })
+        }
+      }
       console.log(`[classify] LLM intent=${validIntent} conf=${conf} ${Date.now()-t0}ms`)
       return NextResponse.json({
         intent: validIntent,
@@ -206,6 +250,8 @@ Return ONLY a JSON object (no markdown, no backticks):
         scores: priorIntent.scores,
         reasoning: `LLM routed: ${parsed.reasoning || fullText.substring(0, 100)}`,
         routed: true,
+        entities,
+        extra,
       })
     }
 
@@ -215,6 +261,8 @@ Return ONLY a JSON object (no markdown, no backticks):
       scores: priorIntent.scores,
       reasoning: "LLM parsing failed, using prior",
       routed: false,
+      entities: [],
+      extra: {},
     })
   } catch (err: any) {
     console.error(`[classify] LLM error ${Date.now()-t0}ms ${err.message}`)
@@ -224,6 +272,8 @@ Return ONLY a JSON object (no markdown, no backticks):
       scores: priorIntent.scores,
       reasoning: `LLM error: ${err.message || "unknown"}, using prior`,
       routed: false,
+      entities: [],
+      extra: {},
     })
   }
 }
